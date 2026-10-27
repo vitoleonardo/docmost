@@ -1,4 +1,4 @@
-meta	sha	96d3357d0078c06bdf36aac825e001b939078615	created	2026-10-27T17:40:51Z
+meta	sha	6fe50b8d9c0318801efdba6b8241899c1df2b0a9	created	2026-10-27T22:59:13Z
 test	apps/client	src/components/ui/app-error-boundary.test.tsx::AppErrorBoundary > recovers when the user navigates elsewhere	pass
 test	apps/client	src/components/ui/app-error-boundary.test.tsx::AppErrorBoundary > renders its children when nothing throws	pass
 test	apps/client	src/components/ui/app-error-boundary.test.tsx::AppErrorBoundary > shows a reload prompt and keeps siblings mounted when a route throws	pass
@@ -1399,4 +1399,4 @@ lint	apps/server	src/core/integration/dto/integration.dto.ts	2
 lint	apps/server	src/core/integration/integration.processor.spec.ts	1
 lint	apps/server	src/core/integration/utils/provider-fetch.spec.ts	1
 typecheck	apps/server	src/core/workspace/services/workspace.service.spec.ts	1
-coverage	apps/server	25.22
+coverage	apps/server	25.27
