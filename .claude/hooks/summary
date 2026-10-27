@@ -33,7 +33,7 @@ if [ -n "$red" ] && ! json_bool stop_hook_active; then
     # shellcheck disable=SC2086
     case $check in
       spec-lint) set -- $specs ;;
-      format | test-related) set -- $sources ;;
+      format | test-related | duplicates-related) set -- $sources ;;
       *) set -- ;;
     esac
     IFS=$old_ifs

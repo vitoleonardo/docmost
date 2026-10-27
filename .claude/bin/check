@@ -1,6 +1,6 @@
 #!/bin/sh
 # Run one project check as defined by the stack adapter in .claude/kit.conf.
-# Usage: .claude/bin/check [--against-baseline] <typecheck|lint|test|test-related|coverage|format|build> [files...]
+# Usage: .claude/bin/check [--against-baseline] <typecheck|lint|test|test-related|coverage|format|build|duplicates|duplicates-related|similar> [files...]
 # In a monorepo each file is checked with the nearest <package>/.claude/kit.conf, from that package's folder;
 # without files the check runs in every package that configures it.
 # --against-baseline compares test, lint, typecheck or coverage with .claude/baseline.tsv (see .claude/bin/baseline).
@@ -18,11 +18,11 @@ if [ "${1:-}" = --against-baseline ]; then
   exec "$root/.claude/bin/baseline" compare "$@"
 fi
 
-usage="usage: .claude/bin/check [--against-baseline] <typecheck|lint|test|test-related|coverage|format|build> [files...]"
+usage="usage: .claude/bin/check [--against-baseline] <typecheck|lint|test|test-related|coverage|format|build|duplicates|duplicates-related|similar> [files...]"
 name=${1:-}
 [ $# -gt 0 ] && shift
 case $name in
-  typecheck | lint | test | test-related | coverage | format | build) ;;
+  typecheck | lint | test | test-related | coverage | format | build | duplicates | duplicates-related | similar) ;;
   *) echo "$usage" >&2; exit 2 ;;
 esac
 
@@ -32,6 +32,9 @@ if [ ! -f .claude/kit.conf ]; then
 fi
 # shellcheck source=conf.sh
 . "$root/.claude/bin/conf.sh"
+# Commands that compare with the base branch (the duplicates checks) read it from KIT_BASE.
+KIT_BASE=$(base_ref)
+export KIT_BASE
 var=KIT_$(printf '%s' "$name" | tr 'a-z-' 'A-Z_')
 
 # run_in <package> [files relative to the package]

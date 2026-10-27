@@ -24,7 +24,7 @@ You work in four passes. Each pass ends with a file the user approves before the
 
 - `.claude/bin/check`, `.claude/bin/baseline` and `.claude/bin/onboard-apply` must exist. If they do not, stop and tell the user to install the kit's project files first: `./install.sh <repo>` from the kit (add `--plugin` if the skills come from the plugin). The installer keeps every existing file.
 - Run `git status`. Onboarding starts from a clean tree on the default branch's head, so the baseline describes the default branch.
-- With `--refresh`: skip to pass 2, using the current `.claude/kit.conf` files as the staged configs (copy them to `.work/onboard/files/…/dot-claude/kit.conf`), and remember that `onboard-apply` will refuse a looser baseline.
+- With `--refresh`: skip to pass 2, using the current `.claude/kit.conf` files and `.claude/rules/structure.md` as the staged files (copy them to `.work/onboard/files/…/dot-claude/`), add any key the kit's adapter has and they lack (such as `KIT_DUPLICATES`), and remember that `onboard-apply` will refuse a looser baseline.
 
 ## 1. Scan (read-only)
 
@@ -32,13 +32,14 @@ Detect, and write to `.work/onboard/scan.md` with the file each finding comes fr
 
 - languages, package managers and lockfiles, workspace layout (pnpm workspaces, turbo, nx, a `pyproject.toml` per folder);
 - scripts in `package.json` and `Makefile`; test frameworks and their configs; linters and formatters and their configs;
+- where each kind of code lives now (entry points, feature logic, data access, shared UI, shared helpers, config, unit and e2e tests, scripts), with two example files each, and every kind that has more than one home;
 - CI workflows; existing `CLAUDE.md`, `AGENTS.md`, `.cursor/rules`, `CONTRIBUTING.md`;
 - docker compose files, seed scripts, e2e setups (Playwright, Cypress), migration folders;
 - candidate protected paths: licence-restricted code (for example `ee/` folders with a separate licence), vendored code, generated code. List them; the user decides.
 
 For a large repository, explore with parallel `Explore` subagents and keep their conclusions, not file dumps.
 
-Then decide the packages. A folder with its own toolchain (its own `pyproject.toml`, or a different language) gets its own `<package>/.claude/kit.conf`; everything else stays under the root's `.claude/kit.conf`. Start each config from the kit's matching adapter (`adapters/typescript/.claude/kit.conf`, `adapters/python/.claude/kit.conf`). They live in the kit's clone, not in the project, so ask the user for its path once. Keep the adapter's keys and conditionals, and change only what the repository does differently. Stage the adapter's other `.claude/` files too: its `bin/` helpers (the coverage readers) go to the root's `dot-claude/bin/`, and its stack rule goes to `dot-claude/rules/`. Run each command once, from its package folder, and fix it until it works or fails only on legacy code. Stage the configs.
+Then decide the packages. A folder with its own toolchain (its own `pyproject.toml`, or a different language) gets its own `<package>/.claude/kit.conf`; everything else stays under the root's `.claude/kit.conf`. Start each config from the kit's matching adapter (`adapters/typescript/.claude/kit.conf`, `adapters/python/.claude/kit.conf`). They live in the kit's clone, not in the project, so ask the user for its path once. Keep the adapter's keys and conditionals, and change only what the repository does differently. Stage the adapter's other `.claude/` files too: its `bin/` helpers (the coverage readers) go to the root's `dot-claude/bin/`, and its stack rule and structure map go to `dot-claude/rules/`. The duplicates checks need jscpd 5 (a devDependency, or the binary on PATH); ask before adding it, and if the user declines, set `KIT_DUPLICATES="n/a: <reason>"`. Run each command once, from its package folder, and fix it until it works or fails only on legacy code. Stage the configs.
 
 Show the user the scan, the packages, the commands and the protected path candidates, and ask which paths to protect. Wait.
 
@@ -60,14 +61,17 @@ Write `.work/onboard/proposal.md` and stage the files it describes:
 
 1. **`kit.conf` per package**: final commands, `KIT_SOURCE_PATTERNS`, `KIT_TEST_PATTERNS`, `KIT_DANGEROUS_PATTERNS` (migration resets, destructive seed commands the repository has), and in the root config `KIT_PROTECTED_PATHS`.
 2. **Project facts** for `CLAUDE.md` (product, stack, install and dev commands, what CI runs, human-only steps), merged into the staged `CLAUDE.md` as described in the rules.
-3. **Rules** derived from the repository's own conventions: folder structure, naming, error handling, test file placement, import style. Each rule cites the two or three files it was derived from. Stage them as `dot-claude/rules/project.md` (or one file per area). Do not restate what the kit's rules already say.
-4. **Protected paths** in the staged `dot-claude/settings.json`, merged with the kit's settings:
+3. **Structure map**: stage `dot-claude/rules/structure.md`, starting from the adapter's (or the installed one), with its Map rewritten from the scan. Copy the repository's layout: each row gets the home the code already uses, written as a path pattern, and cites one or two files. Where a kind has several homes, the user picks the one new code goes to; the others go under `## Legacy`. Where a kind has none, keep the kit's default row.
+4. **Rules** derived from the repository's own conventions: naming, error handling, import style. Each rule cites the two or three files it was derived from. Stage them as `dot-claude/rules/project.md` (or one file per area). Do not restate what the kit's rules already say.
+5. **Protected paths** in the staged `dot-claude/settings.json`, merged with the kit's settings:
    - `sandbox.enabled: true` and `sandbox.filesystem.denyRead` with each path (`./apps/server/src/ee`). The sandbox is what enforces it, for every process a command starts.
+   - `"gh *"` in `sandbox.excludedCommands`. On macOS, `gh` cannot verify GitHub's TLS certificate inside the sandbox (`x509: OSStatus -26276`), so `gh pr create` fails. `gh pr create` and `gh pr merge` still ask in `permissions.ask`.
+   - If code outside a protected path imports from it, the typecheck and the build must read it. Then add `.claude/bin/check`, `.claude/bin/check *`, `.claude/bin/baseline` and `.claude/bin/baseline *` to `sandbox.excludedCommands`, and say in the proposal that a compiler error inside the path prints its code.
    - `Read(./<path>/**)` and `Edit(./<path>/**)` in `permissions.deny`. The sandbox merges Read denies, and Claude Code applies them to Read, Grep and Glob as well.
    - `KIT_PROTECTED_PATHS` in the root config, which the guard uses for commands that name the path and for git commands that would print it.
    Say plainly in the proposal that without the sandbox these layers are best effort.
-5. **`specs/README.md`** if the repository has none.
-6. **CI**: whether the existing workflow should call `.claude/bin/check --against-baseline <test|lint|typecheck|coverage>`, or the adapter's `quality-gates.yml` should be added. Do not stage CI files unless the user agreed.
+6. **`specs/README.md`** if the repository has none.
+7. **CI**: whether the existing workflow should call `.claude/bin/check --against-baseline <test|lint|typecheck|coverage>`, or the adapter's `quality-gates.yml` should be added. Do not stage CI files unless the user agreed.
 
 Show the proposal with the diff of every staged file against its current version. Wait for approval.
 
@@ -78,7 +82,7 @@ After approval, ask the user to run (or approve running) `.claude/bin/onboard-ap
 Then prove the configuration:
 
 - For each package, `.claude/bin/check test-related <one source file>` and `.claude/bin/check format <one source file>` (these take files), then `.claude/bin/check typecheck` and `.claude/bin/check build` (these take none).
-- The full gates: `.claude/bin/check --against-baseline test`, `lint`, `typecheck` and `coverage`. On the unchanged default branch every one must pass; a failure here means the baseline or a command is wrong.
+- The full gates: `.claude/bin/check --against-baseline test`, `lint`, `typecheck` and `coverage`, plus `.claude/bin/check duplicates` and `.claude/bin/structure`. On the unchanged default branch every one must pass; a failure here means the baseline, a command or the Map is wrong. Then run `.claude/bin/structure` with one made-up file name per home of the Map; each must pass.
 - If the repository has PR history on GitHub, run `.claude/bin/leadtime --baseline` to freeze the "before" numbers (the 90 days before today) in `reports/`. With fewer than ten merged PRs it says so; a fresh fork has none, and then the comparison has to come from `--split-by kit` later.
 
 Finish with a summary: packages and their checks (configured, `n/a`, not configured), legacy failures, protected paths and which layers protect them, the files written, and what the user still has to do (commit the files, accept the trust prompt, make CI a required check). Keep it short (`.claude/rules/output.md`). Do not commit.

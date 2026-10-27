@@ -1,6 +1,6 @@
 #!/bin/sh
 # PostToolBatch: once per batch of tool calls, lint edited specs, then format the
-# edited source files and run the typecheck and the tests related to them.
+# edited source files, run the typecheck and the tests related to them, and look for code they duplicate.
 # Failures go back to Claude as context so it fixes them in the same turn.
 . "$(dirname -- "$0")/lib.sh"
 
@@ -60,6 +60,7 @@ if [ -n "$sources" ]; then
   run format "$@"
   run typecheck
   run test-related "$@"
+  run duplicates-related "$@"
 fi
 IFS=$old_ifs
 set +f

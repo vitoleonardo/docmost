@@ -13,7 +13,7 @@ block() {
 
 tool=$(json_string tool_name)
 agent=$(json_string agent_type)
-default_test_patterns="*.test.* *.spec.* *_test.* test_*.* */__tests__/* */test/* */tests/* */e2e/* */spec/*"
+default_test_patterns="*.test.* *.spec.* *_test.* test_*.* __tests__/* test/* tests/* e2e/* spec/*"
 protected=${KIT_PROTECTED_PATHS:-}
 
 is_secret_name() {
@@ -62,6 +62,14 @@ case $tool in
           block "the test-writer may only edit test files ($test_patterns), not $rel."
         ;;
     esac
+    # A new source file must go where the structure map puts its kind (.claude/rules/structure.md).
+    if [ "$tool" = Write ] && [ ! -e "$path" ] && [ -x .claude/bin/structure ]; then
+      rel=$(relative_path "$path")
+      if [ -n "$rel" ]; then
+        out=$(.claude/bin/structure "$rel" 2>&1)
+        [ $? -eq 1 ] && block "$(printf '%s\n' "$out" | head -n 1)"
+      fi
+    fi
     exit 0
     ;;
   Bash) ;;
@@ -111,8 +119,8 @@ case $agent in
     printf '%s' "$flat" | grep -Eq '[;&|<>$]' &&
       block "the $agent agent may not chain, pipe or redirect commands."
     printf '%s' "$flat" |
-      grep -Eq '^[[:space:]]*(git([[:space:]]+-C[[:space:]]+[^[:space:]]+)?[[:space:]]+(status|diff|log|show|blame|rev-parse)([[:space:]]|$)|([^[:space:]]*/)?\.claude/bin/(check|spec-lint)([[:space:]]|$))' ||
-      block "the $agent agent may only run read-only git commands, .claude/bin/check and .claude/bin/spec-lint."
+      grep -Eq '^[[:space:]]*(git([[:space:]]+-C[[:space:]]+[^[:space:]]+)?[[:space:]]+(status|diff|log|show|blame|rev-parse)([[:space:]]|$)|([^[:space:]]*/)?\.claude/bin/(check|spec-lint|structure)([[:space:]]|$))' ||
+      block "the $agent agent may only run read-only git commands, .claude/bin/check, .claude/bin/spec-lint and .claude/bin/structure."
     ;;
 esac
 

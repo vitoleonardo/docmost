@@ -10,7 +10,7 @@ You implement ONE task from an approved plan, then return. You have none of the 
 Before writing code:
 
 1. Read the spec (`specs/<feature>.md`) and the state file (`.work/<branch>.md`). The task row, its criteria and its test cases are your scope. Its Notes section lists what earlier tasks changed or left open; build on it.
-2. Read the files named in the task and the anchors you were given. Mirror the existing patterns; reuse existing helpers instead of writing new ones.
+2. Read the files named in the task and the anchors you were given. Mirror the existing patterns; reuse existing helpers instead of writing new ones. A new file goes to its kind's home in `.claude/rules/structure.md`; search that home before writing a helper.
 
 For each criterion in your task:
 
@@ -19,7 +19,7 @@ For each criterion in your task:
 3. Write the smallest change that makes it pass. Run the check again until it is green.
 4. Cover the edge cases the plan lists for this criterion the same way.
 
-Then run `.claude/bin/check typecheck`.
+Then run `.claude/bin/check typecheck`. The edit hook also reports code you copied (`duplicates-related`): reuse the original instead.
 
 Rules:
 

@@ -1,7 +1,7 @@
 # Architecture
 
-- Before adding a module, helper, hook or component, search for an existing one that does the job. Extend it instead of writing a second one.
-- Follow the existing folder structure. Do not add a new top-level directory or a new architectural pattern (state library, ORM, DI container, API style) without asking.
+- Where code goes, and searching before writing a second one: `structure.md`.
+- Do not add a new architectural pattern (state library, ORM, DI container, API style) without asking.
 - Entry points stay thin. A route handler, controller, server action, job or CLI command parses and validates input, calls a function that holds the logic, and maps the result. It contains no business rules.
 - Business logic does not import framework request or response types, so it can be tested without a server.
 - Data access lives in one layer. UI components and controllers do not query the database directly.

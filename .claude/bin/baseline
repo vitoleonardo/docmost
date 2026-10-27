@@ -93,17 +93,6 @@ run_cmd() {
   printf '%s' "$?"
 }
 
-base_ref() {
-  if [ -n "${KIT_BASE:-}" ]; then printf '%s' "$KIT_BASE"; return; fi
-  ref=$(git symbolic-ref -q --short refs/remotes/origin/HEAD 2>/dev/null) && { printf '%s' "$ref"; return; }
-  printf 'main'
-}
-
-# The point the branch left the base; the working tree is compared with it.
-merge_base() {
-  git merge-base "$(base_ref)" HEAD 2>/dev/null || git rev-parse "$(base_ref)" 2>/dev/null || git rev-parse HEAD
-}
-
 # changed_in <package>: files changed since the merge base (committed, staged, unstaged, untracked), relative to the package.
 changed_in() {
   { git diff --name-only "$(merge_base)" -- 2>/dev/null; git ls-files --others --exclude-standard 2>/dev/null; } |
@@ -250,7 +239,7 @@ compare_test() {
   if [ -s "$tmp/gone" ]; then
     # Only removed lines of test files count, so a renamed fixture or a comment elsewhere explains nothing.
     patterns=$(configured "$pkg" KIT_TEST_PATTERNS)
-    patterns=${patterns:-"*.test.* *.spec.* *_test.* test_*.* */__tests__/* */test/* */tests/* */e2e/* */spec/*"}
+    patterns=${patterns:-"*.test.* *.spec.* *_test.* test_*.* __tests__/* test/* tests/* e2e/* spec/*"}
     : >"$tmp/removed-lines"
     git diff --name-only "$(merge_base)" -- 2>/dev/null | while IFS= read -r f; do
       [ "$(package_of "$f")" = "$pkg" ] && matches_any "$f" "$patterns" || continue
@@ -347,16 +336,17 @@ compare_coverage() {
     # The kit's own tooling is not application code.
     case $f in .claude/*) continue ;; esac
     matches_any "$f" "$sources" || continue
-    matches_any "$f" "${tests:-*.test.* *.spec.* */__tests__/* */tests/*}" && continue
+    matches_any "$f" "${tests:-*.test.* *.spec.* __tests__/* tests/*}" && continue
     [ -n "$exclude" ] && matches_any "$f" "$exclude" && continue
-    printf '%s\n' "$f"
+    # The line count stands in for a file the report leaves out: it counts as untested.
+    printf '%s\t%s\n' "$f" "$(wc -l <"$pkg/$f" | tr -d ' ')"
   done >"$tmp/changed-src"
   abs=$(cd "$pkg" && pwd)
   awk -F '\t' -v pre="$abs/" -v th="${threshold:-70}" -v p="$pkg" '
     FILENAME == ARGV[1] { f = $1; if (index(f, pre) == 1) f = substr(f, length(pre) + 1); sub(/^\.\//, "", f); cov[f] = $2; tot[f] = $3; next }
     {
-      if ($0 in tot) { c += cov[$0]; t += tot[$0]; rows = rows sprintf("| %s | %d/%d |\n", $0, cov[$0], tot[$0]) }
-      else { rows = rows sprintf("| %s | no data |\n", $0); missing = missing "  warning: " $0 " is not in the coverage report; untested files should count as 0%\n" }
+      if ($1 in tot) { c += cov[$1]; t += tot[$1]; rows = rows sprintf("| %s | %d/%d |\n", $1, cov[$1], tot[$1]) }
+      else { t += $2; rows = rows sprintf("| %s | 0/%d (not in the coverage report) |\n", $1, $2); missing = missing "  " $1 " is not in the coverage report and counts as 0%\n" }
       n++
     }
     END {

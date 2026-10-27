@@ -62,6 +62,8 @@ Rules for the plan:
 
 - The design covers every criterion; it introduces nothing the spec does not ask for.
 - Every criterion appears in at least one task. List the coverage; if a criterion has no task, the plan is not done.
+- Every file in the Files column sits in its kind's home in `.claude/rules/structure.md`. Run `.claude/bin/structure <every new file the plan names>`; a failure means a different path, or a new home under Decisions whose task adds it to the Map.
+- `Reused` names what you searched for, also when nothing fit (`searched src/lib for money formatting: none`).
 - Each task is one concern and fits a fresh context: at most about five files. Split anything bigger.
 - Each task is worth a fresh context. Fold a pure rename or a one-line change into the task whose files it touches.
 - Name the test cases, not just "add tests".

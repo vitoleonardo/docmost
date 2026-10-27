@@ -73,8 +73,12 @@
     ],
     "deny": [
       "Read(.env)",
-      "Read(.env.*)",
-      "Read(!.env.example)",
+      "Read(.env.local)",
+      "Read(.env.*.local)",
+      "Read(.env.development)",
+      "Read(.env.production)",
+      "Read(.env.test)",
+      "Read(.env.staging)",
       "Read(.npmrc)",
       "Read(.pypirc)",
       "Read(*.pem)",
@@ -120,12 +124,15 @@
     ]
   },
   "sandbox": {
-    "enabled": true,
+    "enabled": false,
     "failIfUnavailable": true,
     "allowUnsandboxedCommands": false,
     "excludedCommands": [
       ".claude/bin/check",
-      ".claude/bin/check *"
+      ".claude/bin/check *",
+      ".claude/bin/baseline",
+      ".claude/bin/baseline *",
+      "gh *"
     ],
     "filesystem": {
       "denyRead": [

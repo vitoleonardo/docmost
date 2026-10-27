@@ -42,7 +42,7 @@ If a task fails its checks once, dispatch it again one tier higher (`.claude/bin
 
 ## 4. Simplify
 
-Dispatch the `implementer` (`model` from `.claude/bin/route implement`, description `simplify`) with the base branch, the state file path, and this task: in the code changed on this branch only, remove duplication with existing helpers, dead code, needless abstraction and leftover debug output; do not change behaviour or tests; run the related tests. Check its result with `.claude/bin/check typecheck` and `.claude/bin/check test-related <files>` as for any task, and commit it.
+Run `.claude/bin/check duplicates` and `.claude/bin/check similar` and keep their clone lists that touch files changed on this branch. Then dispatch the `implementer` (`model` from `.claude/bin/route implement`, description `simplify`) with the base branch, the state file path, those clone lists as its worklist, and this task: in the code changed on this branch only, replace each listed copy with the existing code (or move both into the shared home of `.claude/rules/structure.md`), then remove dead code, needless abstraction and leftover debug output; do not change behaviour or tests; run the related tests. A "not configured" check gives no list; the simplifier then looks for duplication itself. Check its result with `.claude/bin/check typecheck` and `.claude/bin/check test-related <files>` as for any task, and commit it.
 
 ## 5. Independent review
 
@@ -54,7 +54,7 @@ Follow `${CLAUDE_SKILL_DIR}/../verify-feature/SKILL.md`: hard gates, edge-case m
 
 ## 7. PR (gate: user approves the push)
 
-Follow `${CLAUDE_SKILL_DIR}/../pr-description/SKILL.md`, and add the line from `.claude/bin/usage line` (tokens per tier, review rounds, escalations). The description is a file in `.work/`, so write it without asking; it changes no commit. Run `.claude/bin/runs record`; when run records are on (`KIT_IMPROVE` in `.claude/kit.conf`), it writes `reports/runs/<branch>.tsv` for `/improve-kit`; commit that file. When they are off, it says so and writes nothing. Ask before `git push` and before creating the PR. The feature stays `in-review` until the user has checked it and marks it `done` themselves.
+Follow `${CLAUDE_SKILL_DIR}/../pr-description/SKILL.md`, and add the line from `.claude/bin/usage line` (tokens per tier, review rounds, escalations). The description is a file in `.work/`, so write it without asking; it changes no commit. The run record for `/improve-kit`, if any, was committed in step 6 before the pack; do not commit anything now. Ask before `git push` and before creating the PR. The feature stays `in-review` until the user has checked it and marks it `done` themselves.
 
 Finally, report in at most eight lines: the branch, the commits, the review verdict, the checks, and anything left open. Be faithful: a skipped check or an unmet criterion is stated plainly.
 

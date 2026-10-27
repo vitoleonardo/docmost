@@ -48,6 +48,17 @@ conf_value() {
   )
 }
 
+# base_ref: the base branch, KIT_BASE or origin's default branch, else main.
+base_ref() {
+  if [ -n "${KIT_BASE:-}" ]; then printf '%s' "$KIT_BASE"; return; fi
+  git symbolic-ref -q --short refs/remotes/origin/HEAD 2>/dev/null || printf 'main'
+}
+
+# merge_base: the point the branch left the base; the working tree is compared with it.
+merge_base() {
+  git merge-base "$(base_ref)" HEAD 2>/dev/null || git rev-parse "$(base_ref)" 2>/dev/null || git rev-parse HEAD
+}
+
 # matches_any <file> <space-separated shell patterns>: true if the file matches one of them.
 matches_any() {
   set -f

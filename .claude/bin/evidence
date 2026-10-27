@@ -28,13 +28,6 @@ tab=$(printf '\t')
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
-base_ref() {
-  if [ -n "${KIT_BASE:-}" ]; then printf '%s' "$KIT_BASE"; return; fi
-  git symbolic-ref -q --short refs/remotes/origin/HEAD 2>/dev/null || printf 'main'
-}
-merge_base() {
-  git merge-base "$(base_ref)" HEAD 2>/dev/null || git rev-parse "$(base_ref)" 2>/dev/null || git rev-parse HEAD
-}
 protected() { conf_value . KIT_PROTECTED_PATHS; }
 excludes() { for p in $(protected); do printf ':(exclude)%s\n' "${p%/}"; done; }
 now() { date +%s; }
@@ -64,7 +57,7 @@ check_gate() {
   .claude/bin/check "$@" >"$tmp/log-$name" 2>&1
   code=$?
   secs=$(($(now) - started))
-  summary=$(grep -E '^(tests|lint|typecheck|coverage) in |n/a:|not configured|legacy|flaky' "$tmp/log-$name" | head -n 3 | tr '\n' ';')
+  summary=$(grep -E '^(tests|lint|typecheck|coverage) in |n/a:|not configured|legacy|flaky|new clones' "$tmp/log-$name" | head -n 3 | tr '\n' ';')
   case $code in
     0) gate "$name" pass "$secs" "$summary" ;;
     4) gate "$name" n/a "$secs" "$(grep -o 'n/a:.*' "$tmp/log-$name" | head -n 1)" ;;
@@ -124,6 +117,17 @@ gates() {
   check_gate build build
   check_gate test --against-baseline test
   check_gate coverage --against-baseline coverage
+  check_gate duplicates duplicates
+
+  started=$(now)
+  .claude/bin/structure >"$tmp/log-structure" 2>&1
+  code=$?
+  summary=$(tail -n 1 "$tmp/log-structure")
+  case $code in
+    0) gate structure pass $(($(now) - started)) "$summary" ;;
+    3) gate structure fail 0 "not configured: no Map in .claude/rules/structure.md" ;;
+    *) gate structure fail $(($(now) - started)) "$summary" ;;
+  esac
 
   added_lines >"$tmp/added"
   focus='(^|[^[:alnum:]_])((it|test|describe|context|suite)\.(only|skip|todo)[[:space:]]*\(|(xit|xdescribe|xtest|fit|fdescribe)[[:space:]]*\(|@pytest\.mark\.(skip|skipif|xfail)|@unittest\.skip|pytest\.skip[[:space:]]*\()'

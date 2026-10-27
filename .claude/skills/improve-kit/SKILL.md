@@ -13,7 +13,7 @@ This is a retrospective, not a pipeline step. Run it every five merged features 
 
 ## 0. Is it on?
 
-Run `.claude/bin/runs report`. If it says run records are off, tell the user that `/improve-kit` needs `KIT_IMPROVE="1"` in `.claude/kit.conf`, that `/ship-feature` then writes `reports/runs/<branch>.tsv` with each PR, and that the first useful report needs about five runs. Stop.
+Run `.claude/bin/runs report`. If it says run records are off, tell the user that `/improve-kit` needs `KIT_IMPROVE="1"` in `.claude/kit.conf`, that `/verify-feature` then writes `reports/runs/<branch>.tsv` with each PR, and that the first useful report needs about five runs. Stop.
 
 ## 1. Read
 
