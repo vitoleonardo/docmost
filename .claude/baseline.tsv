@@ -1,11 +1,340 @@
-meta	sha	40feb56e4ddcb9cda0de5bf2b0138294f39fd2a4	created	2026-10-27T14:17:57Z
+meta	sha	96d3357d0078c06bdf36aac825e001b939078615	created	2026-10-27T17:40:51Z
+test	apps/client	src/components/ui/app-error-boundary.test.tsx::AppErrorBoundary > recovers when the user navigates elsewhere	pass
+test	apps/client	src/components/ui/app-error-boundary.test.tsx::AppErrorBoundary > renders its children when nothing throws	pass
+test	apps/client	src/components/ui/app-error-boundary.test.tsx::AppErrorBoundary > shows a reload prompt and keeps siblings mounted when a route throws	pass
 test	apps/client	src/components/ui/document-title.test.tsx::DocumentTitle > appends the app name	pass
 test	apps/client	src/components/ui/document-title.test.tsx::DocumentTitle > falls back to the app name without a title	pass
 test	apps/client	src/components/ui/document-title.test.tsx::DocumentTitle > never renders an empty title	pass
 test	apps/client	src/components/ui/document-title.test.tsx::DocumentTitle > omits the app name when asked	pass
 test	apps/client	src/components/ui/document-title.test.tsx::DocumentTitle > renders extra head children	pass
+test	apps/client	src/features/editor/components/base-embed/base-paste-menu.test.tsx::BasePasteMenu > closes on Escape and keeps the mention	pass
+test	apps/client	src/features/editor/components/base-embed/base-paste-menu.test.tsx::BasePasteMenu > embeds the pasted base when its option is clicked	pass
+test	apps/client	src/features/editor/components/base-embed/base-paste-menu.test.tsx::BasePasteMenu > leaves Enter to the editor until the option is highlighted	pass
+test	apps/client	src/features/editor/components/base-embed/base-paste-menu.test.tsx::BasePasteMenu > stays hidden without the Bases feature	pass
+test	apps/client	src/features/editor/components/base-embed/base-paste.test.ts::embedding a pasted base > replaces a mention on its own line with the base	pass
+test	apps/client	src/features/editor/components/base-embed/base-paste.test.ts::embedding a pasted base > splits the paragraph around a mention pasted mid-sentence	pass
+test	apps/client	src/features/editor/components/base-embed/base-paste.test.ts::pasting a link to a base > does not offer it for a document	pass
+test	apps/client	src/features/editor/components/base-embed/base-paste.test.ts::pasting a link to a base > does not offer it where a block cannot go	pass
+test	apps/client	src/features/editor/components/base-embed/base-paste.test.ts::pasting a link to a base > offers to embed a link to one of its views	pass
+test	apps/client	src/features/editor/components/base-embed/base-paste.test.ts::pasting a link to a base > offers to embed it	pass
+test	apps/client	src/features/editor/components/common/editor-paste-handler.test.ts::handlePaste integration links > adds no second space when the rest of the sentence starts with one	pass
+test	apps/client	src/features/editor/components/common/editor-paste-handler.test.ts::handlePaste integration links > inserts a card for a repo root on a GitHub Enterprise host	pass
+test	apps/client	src/features/editor/components/common/editor-paste-handler.test.ts::handlePaste integration links > inserts a card in a paragraph when the provider is installed	pass
+test	apps/client	src/features/editor/components/common/editor-paste-handler.test.ts::handlePaste integration links > joins a start-of-paragraph paste turned into a mention with the rest of the line	pass
+test	apps/client	src/features/editor/components/common/editor-paste-handler.test.ts::handlePaste integration links > keeps a paste on an empty line in its own paragraph when it becomes a mention	pass
+test	apps/client	src/features/editor/components/common/editor-paste-handler.test.ts::handlePaste integration links > keeps an end-of-paragraph paste turned into a mention in its paragraph	pass
+test	apps/client	src/features/editor/components/common/editor-paste-handler.test.ts::handlePaste integration links > leaves a code block paste to the default handler	pass
+test	apps/client	src/features/editor/components/common/editor-paste-handler.test.ts::handlePaste integration links > leaves a copied integrationCard to ProseMirror instead of pasting its URL as a card	pass
+test	apps/client	src/features/editor/components/common/editor-paste-handler.test.ts::handlePaste integration links > leaves a copied integrationMention to ProseMirror instead of pasting its URL as a card	pass
+test	apps/client	src/features/editor/components/common/editor-paste-handler.test.ts::handlePaste integration links > leaves a heading paste to the default handler	pass
+test	apps/client	src/features/editor/components/common/editor-paste-handler.test.ts::handlePaste integration links > leaves an inline code paste to the default handler	pass
+test	apps/client	src/features/editor/components/common/editor-paste-handler.test.ts::handlePaste integration links > pastes a GitHub-like path on a host GitHub does not serve as a link	pass
+test	apps/client	src/features/editor/components/common/editor-paste-handler.test.ts::handlePaste integration links > pastes a mention inside a footnote, which cannot hold a card	pass
+test	apps/client	src/features/editor/components/common/editor-paste-handler.test.ts::handlePaste integration links > rejoins the sentence when a mid-sentence paste becomes a URL	pass
+test	apps/client	src/features/editor/components/common/editor-paste-handler.test.ts::handlePaste integration links > rejoins the sentence when a mid-sentence paste becomes a mention	pass
+test	apps/client	src/features/editor/components/common/editor-paste-handler.test.ts::handlePaste integration links > splits the paragraph around a card pasted mid-sentence	pass
+test	apps/client	src/features/editor/components/integration-link/integration-display-picker.test.tsx::IntegrationDisplayMenu > identifies the current display and changes it from the dropdown	pass
+test	apps/client	src/features/editor/components/integration-link/integration-display-picker.test.tsx::IntegrationDisplayMenu > supports keyboard opening, option navigation, and Escape	pass
+test	apps/client	src/features/editor/components/integration-link/integration-display-picker.test.tsx::IntegrationDisplayPicker > changes mode with standard radio-group arrow navigation	pass
+test	apps/client	src/features/editor/components/integration-link/integration-display-picker.test.tsx::IntegrationDisplayPicker > exposes every display mode directly and identifies the selected mode	pass
+test	apps/client	src/features/editor/components/integration-link/integration-display-picker.test.tsx::IntegrationDisplayPicker > keeps an unavailable card understandable and skips it during navigation	pass
+test	apps/client	src/features/editor/components/integration-link/integration-display-picker.test.tsx::IntegrationDisplayPicker > reports activation of the current mode so the paste nudge can close	pass
+test	apps/client	src/features/editor/components/integration-link/integration-display.test.ts::convertIntegrationDisplay > converts an entire link when inline formatting splits it into text nodes	pass
+test	apps/client	src/features/editor/components/integration-link/integration-display.test.ts::convertIntegrationDisplay > distinguishes unsupported containers from inline prose	pass
+test	apps/client	src/features/editor/components/integration-link/integration-display.test.ts::convertIntegrationDisplay > keeps the paragraphs around a card apart when it becomes a mention	pass
+test	apps/client	src/features/editor/components/integration-link/integration-display.test.ts::convertIntegrationDisplay > reports whether an inline source can safely become a card	pass
+test	apps/client	src/features/editor/components/integration-link/integration-display.test.ts::convertIntegrationDisplay > resolves the selected rich integration to its current display	pass
+test	apps/client	src/features/editor/components/integration-link/integration-display.test.ts::convertIntegrationDisplay > splits a paragraph around a linked URL converted to a card	pass
+test	apps/client	src/features/editor/components/integration-link/integration-display.test.ts::convertIntegrationDisplay > splits inline prose around a mention converted to a card	pass
+test	apps/client	src/features/editor/components/integration-link/integration-display.test.ts::convertIntegrationDisplay > turns a card into a normal linked URL	pass
+test	apps/client	src/features/editor/components/integration-link/integration-display.test.ts::convertIntegrationDisplay > turns a card into an inline mention without losing its source	pass
+test	apps/client	src/features/editor/components/integration-link/integration-display.test.ts::convertIntegrationDisplay > turns a mention inside prose into a URL without disturbing the sentence	pass
+test	apps/client	src/features/editor/components/integration-link/integration-display.test.ts::convertIntegrationDisplay > turns a standalone linked URL into a card	pass
+test	apps/client	src/features/editor/components/integration-link/integration-display.test.ts::convertIntegrationDisplay > turns a standalone mention back into a card and ignores surrounding whitespace	pass
+test	apps/client	src/features/editor/components/integration-link/integration-display.test.ts::convertIntegrationDisplay > turns an existing linked URL into a mention in place	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::Azure DevOps links > captures routing fields from https://contoso.visualstudio.com/DefaultCollection/Fabrikam/_boards/board/?workitem=318 and rejects invalid IDs	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::Azure DevOps links > captures routing fields from https://contoso.visualstudio.com/DefaultCollection/Fabrikam/_workitems/edit/318 and rejects invalid IDs	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::Azure DevOps links > captures routing fields from https://contoso.visualstudio.com/Fabrikam/_git/web-app/pullrequest/318 and rejects invalid IDs	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::Azure DevOps links > captures routing fields from https://contoso.visualstudio.com/_workitems/edit/318 and rejects invalid IDs	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::Azure DevOps links > captures routing fields from https://dev.azure.com/contoso/Fabrikam/_boards/board/?workitem=318 and rejects invalid IDs	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::Azure DevOps links > captures routing fields from https://dev.azure.com/contoso/Fabrikam/_git/web-app/pullrequest/318 and rejects invalid IDs	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::Azure DevOps links > captures routing fields from https://dev.azure.com/contoso/Fabrikam/_workitems/edit/318 and rejects invalid IDs	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::Azure DevOps links > captures routing fields from https://dev.azure.com/contoso/_git/Fabrikam/pullrequest/318 and rejects invalid IDs	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::Azure DevOps links > describes https://dev.azure.com/contoso/Fabrikam%20Fiber/_workitems/edit/1234 without a connection	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::Azure DevOps links > describes https://dev.azure.com/contoso/Fabrikam/_git/web%20app/pullrequest/318 without a connection	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::Azure DevOps links > describes https://dev.azure.com/contoso/_git/Fabrikam/pullrequest/9 without a connection	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::Azure DevOps links > describes https://dev.azure.com/contoso/_workitems/edit/7 without a connection	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::Azure DevOps links > keeps decoded project names safe: Caf%C3%A9	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::Azure DevOps links > keeps decoded project names safe: Fab%0Arikam	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::Azure DevOps links > keeps decoded project names safe: Fab%E2%80%A8rikam	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::Azure DevOps links > keeps decoded project names safe: Fab%E2%80%AErikam	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::Azure DevOps links > keeps decoded project names safe: Fab%ZZ	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::Azure DevOps links > keeps decoded project names safe: Fab‮rikam	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::Azure DevOps links > keeps decoded project names safe: a%2Fb	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::Azure DevOps links > matches Azure links when other providers report their hosts	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::Azure DevOps links > reads work items from board, backlog and sprint hubs on both hosts	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::Azure DevOps links > rejects an unsupported or misleading URL: http://contoso.visualstudio.com/Fabrikam/_workitems/edit/1	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::Azure DevOps links > rejects an unsupported or misleading URL: http://dev.azure.com/contoso/Fabrikam/_workitems/edit/1	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::Azure DevOps links > rejects an unsupported or misleading URL: https://contoso.visualstudio.com.evil.com/Fabrikam/_workitems/edit/1	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::Azure DevOps links > rejects an unsupported or misleading URL: https://contoso.visualstudio.com/Fabrikam/boards/board/?workitem=42	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::Azure DevOps links > rejects an unsupported or misleading URL: https://dev.azure.com.evil.com/contoso/Fabrikam/_workitems/edit/1	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::Azure DevOps links > rejects an unsupported or misleading URL: https://dev.azure.com/con%2Ftoso/Fabrikam/_workitems/edit/1	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::Azure DevOps links > rejects an unsupported or misleading URL: https://dev.azure.com/con_toso/Fabrikam/_workitems/edit/1	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::Azure DevOps links > rejects an unsupported or misleading URL: https://dev.azure.com/contoso/Fabrikam/_boards/board/?xworkitem=42	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::Azure DevOps links > rejects an unsupported or misleading URL: https://dev.azure.com/contoso/Fabrikam/_boardsx/board/?workitem=42	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::Azure DevOps links > rejects an unsupported or misleading URL: https://dev.azure.com/contoso/Fabrikam/_git/web-app?workitem=42	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::Azure DevOps links > rejects an unsupported or misleading URL: https://dev.azure.com/contoso/_Fabrikam/_workitems/edit/1	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::Jira Data Center context paths > handles an uppercase Cloud host when matching a selected board issue	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::Jira Data Center context paths > reads the issue under an installed context path: https://jira.acme.com/jira/browse/AB-1	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::Jira Data Center context paths > reads the issue under an installed context path: https://jira.acme.com/jira/secure/RapidBoard.jspa?rapidView=1&selectedIssue=AB-1	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::Jira Data Center context paths > reads the issue under an installed context path: https://jira.acme.com/tools/jira/browse/AB-1	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::Jira Data Center context paths > rejects context paths the browser resolves elsewhere: https://jira.acme.com/jira/%2e%2e/browse/AB-1	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::Jira Data Center context paths > rejects context paths the browser resolves elsewhere: https://jira.acme.com/jira/../browse/AB-1	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::Jira Data Center context paths > rejects context paths the browser resolves elsewhere: https://jira.acme.com/jira\..\browse/AB-1	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::Jira Data Center context paths > takes the first issue key after the context path	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::URL path boundaries > allows dots in names, query strings and fragments: https://acme.atlassian.net/browse/AB-1?atlOrigin=x/../..	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::URL path boundaries > allows dots in names, query strings and fragments: https://dev.azure.com/contoso/Fabrikam/_git/web-app/pullrequest/318?_a=files&path=/../x	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::URL path boundaries > allows dots in names, query strings and fragments: https://github.com/o/.github/pull/1	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::URL path boundaries > allows dots in names, query strings and fragments: https://github.com/o/my..repo/issues/2	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::URL path boundaries > allows dots in names, query strings and fragments: https://github.com/o/r/blob/main/.github/workflows/ci.yml#L1-L3	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::URL path boundaries > allows dots in names, query strings and fragments: https://github.com/o/r/pulls?q=../../x	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::URL path boundaries > allows dots in names, query strings and fragments: https://linear.app/acme/issue/ABC-1#comment-1/../..	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::URL path boundaries > applies the same path guard on an Enterprise host	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::URL path boundaries > captures ordinary dots, dashes and underscores in repository names	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::URL path boundaries > does not read a route from an owner or repository query: https://github.com/o/r#x/pull/1	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::URL path boundaries > does not read a route from an owner or repository query: https://github.com/o/r?x=/pull/1	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::URL path boundaries > does not read a route from an owner or repository query: https://github.com/o?x=/r/issues/1	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::URL path boundaries > rejects paths the browser resolves elsewhere: https://acme.atlassian.net/browse/AB-1/%2e%2e/browse/EVIL-2	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::URL path boundaries > rejects paths the browser resolves elsewhere: https://contoso.visualstudio.com/Fabrikam/_workitems/edit/1\..\evil	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::URL path boundaries > rejects paths the browser resolves elsewhere: https://dev.azure.com/contoso/Fabrikam/_git/web-app/pullrequest/318/../../evil	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::URL path boundaries > rejects paths the browser resolves elsewhere: https://github.com/a/b/pull/1/%2e%2e/evil	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::URL path boundaries > rejects paths the browser resolves elsewhere: https://github.com/a/b/pull/1/../../../../evil/x/pull/2	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::URL path boundaries > rejects paths the browser resolves elsewhere: https://github.com/a/b/pull/1\..\evil	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::URL path boundaries > rejects paths the browser resolves elsewhere: https://gitlab.com/a/b/../../evil/x/-/issues/1	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::URL path boundaries > rejects paths the browser resolves elsewhere: https://linear.app/acme/issue/ABC-1/../../../evil/issue/XYZ-2	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::integration link matching > does not misclassify https://example.com/foo/bar	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::integration link matching > does not misclassify https://github.com/o/r/-/merge_requests/1	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::integration link matching > does not misclassify https://gitlab.com/o/r/pull/1	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::integration link matching > does not treat a longer segment as a collection	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::integration link matching > identifies https://code.example.com/o/r/-/merge_requests/1 as gitlab	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::integration link matching > identifies https://code.example.com/o/r/pull/1 as github	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::integration link matching > identifies https://github.com/docmost/docmost as github	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::integration link matching > identifies https://gitlab.com/docmost/docmost as gitlab	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::integration link matching > keeps default matching for providers without a configured host	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::integration link matching > matches Jira wildcard subdomains without accepting lookalike hosts	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::integration link matching > recognizes a self-managed GitLab project root	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::integration link matching > recognizes the collection at https://github.com/o/r/pulls/extra	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::integration link matching > recognizes the collection at https://github.com/o/r/pulls?q=is%3Aopen	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::integration link matching > recognizes the collection at https://github.com/o/r/releases/tag/v1.0.0	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::integration link matching > rejects a link mark without an href: null	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::integration link matching > rejects a link mark without an href: undefined	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::integration link matching > rejects whitespace or oversized input: https://github.com/o/r/pull/1 	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::integration link matching > rejects whitespace or oversized input: https://github.com/o/r/pulls?aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-patterns.test.ts::integration link matching > restricts GitHub links to the configured Enterprise host	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-url.test.ts::'integrationCard' url attr > drops a non-http data-url when parsing HTML	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-url.test.ts::'integrationCard' url attr > preserves percent encoding through HTML	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-url.test.ts::'integrationCard' url attr > preserves percent encoding when inserting	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-url.test.ts::'integrationCard' url attr > renders no unsafe href for JSON content that bypassed parsing	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-url.test.ts::'integrationCard' url attr > stores an empty url when inserting " JaVaScRiPt:alert(1)"	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-url.test.ts::'integrationCard' url attr > stores an empty url when inserting "java\tscript:alert(1)"	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-url.test.ts::'integrationCard' url attr > trims whitespace around an inserted url	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-url.test.ts::'integrationMention' url attr > drops a non-http data-url when parsing HTML	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-url.test.ts::'integrationMention' url attr > preserves percent encoding through HTML	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-url.test.ts::'integrationMention' url attr > preserves percent encoding when inserting	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-url.test.ts::'integrationMention' url attr > renders no unsafe href for JSON content that bypassed parsing	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-url.test.ts::'integrationMention' url attr > stores an empty url when inserting " JaVaScRiPt:alert(1)"	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-url.test.ts::'integrationMention' url attr > stores an empty url when inserting "java\tscript:alert(1)"	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-url.test.ts::'integrationMention' url attr > trims whitespace around an inserted url	pass
+test	apps/client	src/features/editor/components/integration-link/integration-link-url.test.ts::integration node plain text > renders each node as its url	pass
+test	apps/client	src/features/editor/components/integration-link/integration-paste-menu.test.tsx::IntegrationPasteMenu > dismisses the prompt when the editor loses focus elsewhere	pass
+test	apps/client	src/features/editor/components/integration-link/integration-paste-menu.test.tsx::IntegrationPasteMenu > handles Paste as keys while the editor has focus	pass
+test	apps/client	src/features/editor/components/integration-link/integration-paste-menu.test.tsx::IntegrationPasteMenu > hands the paste split to the conversion so the sentence can rejoin	pass
+test	apps/client	src/features/editor/components/integration-link/integration-paste-menu.test.tsx::IntegrationPasteMenu > keeps the horizontal display toolbar for an existing node	pass
+test	apps/client	src/features/editor/components/integration-link/integration-paste-menu.test.tsx::IntegrationPasteMenu > keeps the prompt when focus moves into it	pass
+test	apps/client	src/features/editor/components/integration-link/integration-paste-menu.test.tsx::IntegrationPasteMenu > leaves keys alone when focus is outside the editor and the prompt	pass
+test	apps/client	src/features/editor/components/integration-link/integration-paste-menu.test.tsx::IntegrationPasteMenu > shows the original vertical Paste as chooser only for a fresh paste	pass
+test	apps/client	src/features/editor/components/integration-link/use-unfurl.test.tsx::useUnfurl > maps a needsConnection response without treating it as an error	pass
+test	apps/client	src/features/editor/components/integration-link/use-unfurl.test.tsx::useUnfurl > maps a null result (no matching provider) to error	pass
+test	apps/client	src/features/editor/components/integration-link/use-unfurl.test.tsx::useUnfurl > maps a rejected request to error	pass
+test	apps/client	src/features/editor/components/integration-link/use-unfurl.test.tsx::useUnfurl > never fetches for anonymous viewers and reports anonymous	pass
+test	apps/client	src/features/editor/components/integration-link/use-unfurl.test.tsx::useUnfurl > starts loading then exposes the unfurl result	pass
+test	apps/client	src/features/editor/components/link/link-view.test.tsx::LinkView > closes the integrated link menu when Escape is pressed on the selector	pass
+test	apps/client	src/features/editor/components/link/link-view.test.tsx::LinkView > does not resolve a negative mark-view position after opening	pass
+test	apps/client	src/features/editor/components/link/link-view.test.tsx::LinkView > does not resolve the mark position while the popover is closed	pass
+test	apps/client	src/features/editor/components/link/link-view.test.tsx::LinkView > hides display choices for a GitHub-like path on a host GitHub does not serve	pass
+test	apps/client	src/features/editor/components/link/link-view.test.tsx::LinkView > offers display choices for a plain link on a host the provider serves	pass
+test	apps/client	src/features/editor/components/link/link-view.test.tsx::LinkView > opens URL-current display choices from the existing link action row	pass
+test	apps/client	src/features/editor/components/link/link-view.test.tsx::LinkView > supports keyboard-generated clicks on link-menu actions	pass
+test	apps/client	src/features/editor/components/presentation/laser-pointer.test.tsx::LaserPointer > follows the pointer	pass
+test	apps/client	src/features/editor/components/presentation/laser-pointer.test.tsx::LaserPointer > hides for touch input	pass
+test	apps/client	src/features/editor/components/presentation/laser-pointer.test.tsx::LaserPointer > hides when the pointer leaves the window	pass
+test	apps/client	src/features/editor/components/presentation/laser-pointer.test.tsx::LaserPointer > hides when the pointer moves over an embed	pass
+test	apps/client	src/features/editor/components/presentation/laser-pointer.test.tsx::LaserPointer > shows at the last pointer position once enabled	pass
+test	apps/client	src/features/editor/components/presentation/laser-pointer.test.tsx::LaserPointer > stays hidden while disabled	pass
+test	apps/client	src/features/editor/components/presentation/laser-pointer.test.tsx::LaserPointer > stays visible when the pointer moves onto another page element	pass
+test	apps/client	src/features/editor/components/presentation/presentation.utils.test.ts::findSlideIndexForNode > clamps to the last slide	pass
+test	apps/client	src/features/editor/components/presentation/presentation.utils.test.ts::findSlideIndexForNode > falls forward to the next slide for a skipped node	pass
+test	apps/client	src/features/editor/components/presentation/presentation.utils.test.ts::findSlideIndexForNode > finds the slide containing the node	pass
+test	apps/client	src/features/editor/components/presentation/presentation.utils.test.ts::findSlideIndexForNode > returns -1 when there are no slides	pass
+test	apps/client	src/features/editor/components/presentation/presentation.utils.test.ts::getContentBoxHeight > subtracts the vertical padding from the client height	pass
+test	apps/client	src/features/editor/components/presentation/presentation.utils.test.ts::getContentBoxHeight > treats padding that does not resolve to a number as zero	pass
+test	apps/client	src/features/editor/components/presentation/presentation.utils.test.ts::getDeckKeyAction > exempts Space only for targets that Space activates	pass
+test	apps/client	src/features/editor/components/presentation/presentation.utils.test.ts::getDeckKeyAction > ignores modified and already handled keys	pass
+test	apps/client	src/features/editor/components/presentation/presentation.utils.test.ts::getDeckKeyAction > keeps Enter reserved for every interactive target	pass
+test	apps/client	src/features/editor/components/presentation/presentation.utils.test.ts::getDeckKeyAction > leaves horizontal arrows to a focused tab list	pass
+test	apps/client	src/features/editor/components/presentation/presentation.utils.test.ts::getDeckKeyAction > leaves typing targets alone	pass
+test	apps/client	src/features/editor/components/presentation/presentation.utils.test.ts::getDeckKeyAction > lets Enter activate a focused link while Space still moves the slide	pass
+test	apps/client	src/features/editor/components/presentation/presentation.utils.test.ts::getDeckKeyAction > lets Space and Enter activate focused buttons	pass
+test	apps/client	src/features/editor/components/presentation/presentation.utils.test.ts::getDeckKeyAction > maps navigation keys	pass
+test	apps/client	src/features/editor/components/presentation/presentation.utils.test.ts::getDeckKeyAction > overlays opened from slide content > ignores keys inside a dialog or menu that does not hold the deck	pass
+test	apps/client	src/features/editor/components/presentation/presentation.utils.test.ts::getDeckKeyAction > overlays opened from slide content > ignores keys inside an overlay nested in the deck's own dialog	pass
+test	apps/client	src/features/editor/components/presentation/presentation.utils.test.ts::getDeckKeyAction > overlays opened from slide content > navigates from a target outside any overlay when the deck element is known	pass
+test	apps/client	src/features/editor/components/presentation/presentation.utils.test.ts::getDeckKeyAction > overlays opened from slide content > skips the overlay check without a deck element	pass
+test	apps/client	src/features/editor/components/presentation/presentation.utils.test.ts::getDeckKeyAction > overlays opened from slide content > still navigates from inside the dialog that holds the deck	pass
+test	apps/client	src/features/editor/components/presentation/presentation.utils.test.ts::isBlankBlock > keeps paragraphs with text or inline atoms	pass
+test	apps/client	src/features/editor/components/presentation/presentation.utils.test.ts::isBlankBlock > never treats non-textblocks as blank	pass
+test	apps/client	src/features/editor/components/presentation/presentation.utils.test.ts::isBlankBlock > treats empty, whitespace, nbsp and hardBreak-only paragraphs as blank	pass
+test	apps/client	src/features/editor/components/presentation/presentation.utils.test.ts::paginateBlocks > counts the first block's top margin and the last block's bottom margin	pass
+test	apps/client	src/features/editor/components/presentation/presentation.utils.test.ts::paginateBlocks > counts the gap between adjacent blocks	pass
+test	apps/client	src/features/editor/components/presentation/presentation.utils.test.ts::paginateBlocks > does not count the height of skipped blank blocks	pass
+test	apps/client	src/features/editor/components/presentation/presentation.utils.test.ts::paginateBlocks > ends the slide after a table or base	pass
+test	apps/client	src/features/editor/components/presentation/presentation.utils.test.ts::paginateBlocks > keeps blocks that fit on one slide	pass
+test	apps/client	src/features/editor/components/presentation/presentation.utils.test.ts::paginateBlocks > marks a block taller than the area as a scrollable slide of its own	pass
+test	apps/client	src/features/editor/components/presentation/presentation.utils.test.ts::paginateBlocks > returns no slides for an empty or blank-only document	pass
+test	apps/client	src/features/editor/components/presentation/presentation.utils.test.ts::paginateBlocks > skips blank blocks and never emits an empty slide	pass
+test	apps/client	src/features/editor/components/presentation/presentation.utils.test.ts::paginateBlocks > splits on dividers and drops them	pass
+test	apps/client	src/features/editor/components/presentation/presentation.utils.test.ts::paginateBlocks > starts a new slide at every H1	pass
+test	apps/client	src/features/editor/components/presentation/presentation.utils.test.ts::paginateBlocks > starts a new slide when the next block would overflow	pass
+test	apps/client	src/features/editor/components/presentation/presentation.utils.test.ts::paginateBlocks > uses the larger margin as the gap across a skipped blank block	pass
+test	apps/client	src/features/editor/components/presentation/presentation.utils.test.ts::paginateBlocks > zero-height blocks > never gives a page break a slide of its own: divider, page break, H1	pass
+test	apps/client	src/features/editor/components/presentation/presentation.utils.test.ts::paginateBlocks > zero-height blocks > never gives a page break a slide of its own: divider, page break, H1, paragraph	pass
+test	apps/client	src/features/editor/components/presentation/presentation.utils.test.ts::paginateBlocks > zero-height blocks > never gives a page break a slide of its own: page break, H1, paragraph	pass
+test	apps/client	src/features/editor/components/presentation/presentation.utils.test.ts::paginateBlocks > zero-height blocks > never gives a page break a slide of its own: paragraph, table, page break	pass
+test	apps/client	src/features/editor/components/presentation/presentation.utils.test.ts::paginateBlocks > zero-height blocks > never gives a page break a slide of its own: table, page break, H1, paragraph	pass
+test	apps/client	src/features/editor/components/presentation/presentation.utils.test.ts::paginateBlocks > zero-height blocks > still splits on a zero-height divider	pass
+test	apps/client	src/features/editor/components/presentation/presentation.utils.test.ts::sameSlideLayouts > compares node indexes and scrollable flags	pass
+test	apps/client	src/features/editor/components/presentation/presentation.utils.test.ts::shouldReturnFocusToSlide > ignores focus outside the slide, on the slide itself, or nowhere	pass
+test	apps/client	src/features/editor/components/presentation/presentation.utils.test.ts::shouldReturnFocusToSlide > leaves a focused video or audio control alone	pass
+test	apps/client	src/features/editor/components/presentation/presentation.utils.test.ts::shouldReturnFocusToSlide > leaves focus inside an embedded base alone	pass
+test	apps/client	src/features/editor/components/presentation/presentation.utils.test.ts::shouldReturnFocusToSlide > leaves text entry inside the slide alone	pass
+test	apps/client	src/features/editor/components/presentation/presentation.utils.test.ts::shouldReturnFocusToSlide > returns focus from a control clicked inside the slide	pass
+test	apps/client	src/features/editor/components/slash-menu/menu-items.test.ts::slash menu > hides Tabs where tabs can't be inserted, such as inside a tab	pass
+test	apps/client	src/features/editor/components/subpages/subpages.utils.test.ts::sortSubpages > does not reorder the input array	pass
+test	apps/client	src/features/editor/components/subpages/subpages.utils.test.ts::sortSubpages > falls back to the manual order for an unknown sort value	pass
+test	apps/client	src/features/editor/components/subpages/subpages.utils.test.ts::sortSubpages > keeps the manual position order by default	pass
+test	apps/client	src/features/editor/components/subpages/subpages.utils.test.ts::sortSubpages > puts the most recently updated first and undated pages last	pass
+test	apps/client	src/features/editor/components/subpages/subpages.utils.test.ts::sortSubpages > sorts numbers inside titles by value	pass
+test	apps/client	src/features/editor/components/subpages/subpages.utils.test.ts::sortSubpages > sorts titles A to Z ignoring case	pass
+test	apps/client	src/features/editor/components/subpages/use-subpages.test.tsx::useSubpages > does not request children until enabled	pass
+test	apps/client	src/features/editor/components/subpages/use-subpages.test.tsx::useSubpages > loads children of the page from the sidebar API in the app	pass
+test	apps/client	src/features/editor/components/subpages/use-subpages.test.tsx::useSubpages > reads children from the public docs tree without calling the API	pass
+test	apps/client	src/features/editor/components/subpages/use-subpages.test.tsx::useSubpages > reads children from the share tree without calling the API	pass
+test	apps/client	src/features/editor/components/subpages/use-subpages.test.tsx::useSubpages > treats a share link without a share key as a share	pass
+test	apps/client	src/features/editor/components/tabs/tabs-view.test.tsx::TabsView > adds a numbered tab and opens rename with the label selected	pass
+test	apps/client	src/features/editor/components/tabs/tabs-view.test.tsx::TabsView > deletes tabs and removes the block with the last one	pass
+test	apps/client	src/features/editor/components/tabs/tabs-view.test.tsx::TabsView > does no position lookups while the page is edited outside the block	pass
+test	apps/client	src/features/editor/components/tabs/tabs-view.test.tsx::TabsView > duplicates the active tab next to it and switches to the copy	pass
+test	apps/client	src/features/editor/components/tabs/tabs-view.test.tsx::TabsView > ignores Enter while an IME composition is in progress: the event reports a composition	pass
+test	apps/client	src/features/editor/components/tabs/tabs-view.test.tsx::TabsView > ignores Enter while an IME composition is in progress: the key code is 229, as Safari reports it	pass
+test	apps/client	src/features/editor/components/tabs/tabs-view.test.tsx::TabsView > ignores double-click in read mode	pass
+test	apps/client	src/features/editor/components/tabs/tabs-view.test.tsx::TabsView > keeps the label when rename is cancelled or left empty	pass
+test	apps/client	src/features/editor/components/tabs/tabs-view.test.tsx::TabsView > moves between tabs with the arrow keys and keeps focus on the tab	pass
+test	apps/client	src/features/editor/components/tabs/tabs-view.test.tsx::TabsView > moves the active tab and disables moves past the edges	pass
+test	apps/client	src/features/editor/components/tabs/tabs-view.test.tsx::TabsView > renames a tab on double-click	pass
+test	apps/client	src/features/editor/components/tabs/tabs-view.test.tsx::TabsView > renames the active tab from the tab actions menu	pass
+test	apps/client	src/features/editor/components/tabs/tabs-view.test.tsx::TabsView > scrolls the strip so the active tab clears the scroller's edge controls	pass
+test	apps/client	src/features/editor/components/tabs/tabs-view.test.tsx::TabsView > shows edit controls as soon as the editor becomes editable	pass
+test	apps/client	src/features/editor/components/tabs/tabs-view.test.tsx::TabsView > shows labels from the document and only navigation in read mode	pass
+test	apps/client	src/features/editor/components/tabs/tabs-view.test.tsx::TabsView > switches tabs locally when a tab is clicked	pass
+test	apps/client	src/features/editor/components/tabs/tabs-view.test.tsx::TabsView > updates the strip within the same task as the switch	pass
+test	apps/client	src/features/editor/components/tabs/tabs-view.test.tsx::TabsView block drag > drags the block by its handle with a preview of its tabs, not a snapshot of the page	pass
+test	apps/client	src/features/editor/components/tabs/tabs-view.test.tsx::TabsView strip events > leaves the strip's tab reorder drags to the strip	pass
+test	apps/client	src/features/editor/components/tabs/tabs-view.test.tsx::TabsView tab reorder > shows no editor drop cursor while a tab is dragged over the strip	pass
+test	apps/client	src/features/editor/components/tabs/tabs-view.test.tsx::TabsView toolbar > copies the block as HTML	pass
+test	apps/client	src/features/editor/components/tabs/tabs-view.test.tsx::TabsView toolbar > deletes the whole block	pass
+test	apps/client	src/features/editor/components/tabs/tabs-view.test.tsx::TabsView toolbar > hides the toolbar once focus leaves both the editor and the block	pass
+test	apps/client	src/features/editor/components/tabs/tabs-view.test.tsx::TabsView toolbar > keeps focus in the editor when Copy is pressed	pass
+test	apps/client	src/features/editor/components/tabs/tabs-view.test.tsx::TabsView toolbar > keeps focus in the editor when Delete is pressed	pass
+test	apps/client	src/features/editor/components/tabs/tabs-view.test.tsx::TabsView toolbar > keeps the toolbar when focus moves from the editor to a tab	pass
+test	apps/client	src/features/editor/components/tabs/tabs-view.test.tsx::TabsView toolbar > keeps the toolbar while focus is in the tab actions menu	pass
+test	apps/client	src/features/editor/components/tabs/tabs-view.test.tsx::TabsView toolbar > shows Copy and Delete only while the cursor is in the block in edit mode	pass
+test	apps/client	src/features/editor/components/tabs/tabs-view.test.tsx::TabsView toolbar > shows no toolbar on load before the editor is focused	pass
 test	apps/client	src/features/editor/extensions/document.test.ts::TiptapDocument > stops on the gap when arrowing down from a selected block node	pass
 test	apps/client	src/features/editor/extensions/document.test.ts::TiptapDocument > stops on the gap when arrowing right out of an isolating block	pass
+test	apps/client	src/features/editor/extensions/drag-handle.test.ts::drag handle drops into a tab panel > leaves a file dropped in the panel alone after a cancelled handle drag	pass
+test	apps/client	src/features/editor/extensions/drag-handle.test.ts::drag handle drops into a tab panel > leaves drops that did not start in the editor to ProseMirror	pass
+test	apps/client	src/features/editor/extensions/drag-handle.test.ts::drag handle drops into a tab panel > moves a block dragged by its handle into the panel	pass
+test	apps/client	src/features/editor/extensions/drag-handle.test.ts::drag handle drops into a tab panel > moves a container dragged by its handle within the panel, not the whole panel	pass
+test	apps/client	src/features/editor/extensions/drag-handle.test.ts::drag handle drops into a tab panel > moves a natively dragged block, not the last handle-dragged one, after the handle drag ended	pass
+test	apps/client	src/features/editor/extensions/drag-handle.test.ts::drag handle drops into a tab panel > moves a natively dragged block, not the last handle-dragged one, when the handle drag never reported its end	pass
+test	apps/client	src/features/editor/extensions/drag-handle.test.ts::drag handle drops into a tab panel > moves an atom dragged by its handle within the panel, not the whole panel	pass
+test	apps/client	src/features/editor/extensions/drag-handle.test.ts::drag handle drops into a tab panel > moves the node ProseMirror reports as dragged over the selected one	pass
+test	apps/client	src/features/editor/extensions/drag-handle.test.ts::drag handle drops into a tab panel > refuses to move a tabs block into a tab	pass
+test	apps/client	src/features/editor/extensions/tabs.test.ts::tabs: Enter > adds a line on an empty line in the middle of a tab	pass
+test	apps/client	src/features/editor/extensions/tabs.test.ts::tabs: Enter > adds a line on the empty last line of a tab instead of leaving it	pass
+test	apps/client	src/features/editor/extensions/tabs.test.ts::tabs: arrow keys at the edges of a tab > keeps the anchor when a selection is extended into the block	pass
+test	apps/client	src/features/editor/extensions/tabs.test.ts::tabs: arrow keys at the edges of a tab > keeps the anchor when a selection is extended out of the block	pass
+test	apps/client	src/features/editor/extensions/tabs.test.ts::tabs: arrow keys at the edges of a tab > leaves the block downward past a divider that ends the tab	pass
+test	apps/client	src/features/editor/extensions/tabs.test.ts::tabs: arrow keys at the edges of a tab > leaves the block upward past a divider that starts the tab	pass
+test	apps/client	src/features/editor/extensions/tabs.test.ts::tabs: arrow keys at the edges of a tab > moving up into the block from below lands at the end of the visible tab	pass
+test	apps/client	src/features/editor/extensions/tabs.test.ts::tabs: arrow keys at the edges of a tab > stays in the visible tab when nothing comes before the block	pass
+test	apps/client	src/features/editor/extensions/tabs.test.ts::tabs: collaboration > hides all but the first tab of a block a collaborator adds	pass
+test	apps/client	src/features/editor/extensions/tabs.test.ts::tabs: collaboration > keeps each block's active tab when blocks share tab ids	pass
+test	apps/client	src/features/editor/extensions/tabs.test.ts::tabs: collaboration > keeps the active tab of a pasted copy when a remote update replaces the document	pass
+test	apps/client	src/features/editor/extensions/tabs.test.ts::tabs: collaboration > keeps the active tab of tabs without ids when a remote update replaces the document	pass
+test	apps/client	src/features/editor/extensions/tabs.test.ts::tabs: collaboration > keeps the active tab when a collaborator types inside it	pass
+test	apps/client	src/features/editor/extensions/tabs.test.ts::tabs: collaboration > keeps the active tab when a remote edit repeats the text next to it	pass
+test	apps/client	src/features/editor/extensions/tabs.test.ts::tabs: collaboration > keeps the active tab when a remote update replaces the document	pass
+test	apps/client	src/features/editor/extensions/tabs.test.ts::tabs: collaboration > repairs repeated ids in a block a collaborator adds	pass
+test	apps/client	src/features/editor/extensions/tabs.test.ts::tabs: commands > addTab appends a numbered tab and switches to it	pass
+test	apps/client	src/features/editor/extensions/tabs.test.ts::tabs: commands > deleteTab on another tab keeps the active tab	pass
+test	apps/client	src/features/editor/extensions/tabs.test.ts::tabs: commands > deleteTab on the active tab switches to its neighbour	pass
+test	apps/client	src/features/editor/extensions/tabs.test.ts::tabs: commands > deleteTab on the last tab removes the block without throwing	pass
+test	apps/client	src/features/editor/extensions/tabs.test.ts::tabs: commands > duplicateTab copies the tab next to it with a new id and switches to it	pass
+test	apps/client	src/features/editor/extensions/tabs.test.ts::tabs: commands > insertTabs adds two tabs and puts the cursor in the first panel	pass
+test	apps/client	src/features/editor/extensions/tabs.test.ts::tabs: commands > moveTab keeps the active tab selected	pass
+test	apps/client	src/features/editor/extensions/tabs.test.ts::tabs: commands > renameTab replaces the label and clears it without inserting a space	pass
+test	apps/client	src/features/editor/extensions/tabs.test.ts::tabs: content taken out of a tab > drops a selection dragged out of a tab as plain content, not a new tabs block	pass
+test	apps/client	src/features/editor/extensions/tabs.test.ts::tabs: content taken out of a tab > keeps the tab when everything in it is replaced by a paste	pass
+test	apps/client	src/features/editor/extensions/tabs.test.ts::tabs: content taken out of a tab > pastes text copied from a tab onto an empty line as plain content, not a new tabs block	pass
+test	apps/client	src/features/editor/extensions/tabs.test.ts::tabs: content taken out of a tab > pastes text copied from a tab onto the end of a line as plain content, not a new tabs block	pass
+test	apps/client	src/features/editor/extensions/tabs.test.ts::tabs: cursor placement > does not switch back when find and replace resets the selection	pass
+test	apps/client	src/features/editor/extensions/tabs.test.ts::tabs: cursor placement > drops a selection inside a tab that gets hidden instead of stretching it into the new tab	pass
+test	apps/client	src/features/editor/extensions/tabs.test.ts::tabs: cursor placement > focus at the start lands in the first panel when the page ends in a paragraph	pass
+test	apps/client	src/features/editor/extensions/tabs.test.ts::tabs: cursor placement > focus at the start of a page that begins with tabs lands in the first panel	pass
+test	apps/client	src/features/editor/extensions/tabs.test.ts::tabs: cursor placement > keeps a cursor placed in a hidden tab inside the visible one	pass
+test	apps/client	src/features/editor/extensions/tabs.test.ts::tabs: cursor placement > moves a selection resting directly in the tabs block into the visible tab	pass
+test	apps/client	src/features/editor/extensions/tabs.test.ts::tabs: cursor placement > moves the cursor into the new tab when its tab gets hidden	pass
+test	apps/client	src/features/editor/extensions/tabs.test.ts::tabs: cursor placement > settles inside the inner visible tab when an outer panel opens with nested tabs	pass
+test	apps/client	src/features/editor/extensions/tabs.test.ts::tabs: no tabs inside tabs > flattens a tabs block pasted into a tab into headings and content	pass
+test	apps/client	src/features/editor/extensions/tabs.test.ts::tabs: no tabs inside tabs > insertTabs refuses inside a tab, including inside a block in it	pass
+test	apps/client	src/features/editor/extensions/tabs.test.ts::tabs: no tabs inside tabs > pastes text copied from one tab into another without flattening anything	pass
+test	apps/client	src/features/editor/extensions/tabs.test.ts::tabs: no tabs inside tabs > refuses to drop a tabs block into a tab	pass
+test	apps/client	src/features/editor/extensions/tabs.test.ts::tabs: no tabs inside tabs > still drops a tabs block outside tabs	pass
+test	apps/client	src/features/editor/extensions/tabs.test.ts::tabs: per-viewer active tab > hides the other tabs of a pasted block	pass
+test	apps/client	src/features/editor/extensions/tabs.test.ts::tabs: per-viewer active tab > hides the right tabs after a tab is moved or deleted	pass
+test	apps/client	src/features/editor/extensions/tabs.test.ts::tabs: per-viewer active tab > keeps a tab opened by a command that later steps in the chain move	pass
+test	apps/client	src/features/editor/extensions/tabs.test.ts::tabs: per-viewer active tab > keeps nested blocks' hidden tabs when the outer block switches	pass
+test	apps/client	src/features/editor/extensions/tabs.test.ts::tabs: per-viewer active tab > keeps the active tab when content is added above the block	pass
+test	apps/client	src/features/editor/extensions/tabs.test.ts::tabs: per-viewer active tab > keeps the active tab when the block is wrapped and lifted	pass
+test	apps/client	src/features/editor/extensions/tabs.test.ts::tabs: per-viewer active tab > keeps the tab elements in place when switching	pass
+test	apps/client	src/features/editor/extensions/tabs.test.ts::tabs: per-viewer active tab > opens on the first tab and hides the others	pass
+test	apps/client	src/features/editor/extensions/tabs.test.ts::tabs: per-viewer active tab > showTabAt opens every tab that contains the position	pass
+test	apps/client	src/features/editor/extensions/tabs.test.ts::tabs: per-viewer active tab > switches tabs without changing the document or the undo history	pass
+test	apps/client	src/features/editor/extensions/tabs.test.ts::tabs: revealing hidden content > leaves hidden tabs findable so find in page can reach them	pass
+test	apps/client	src/features/editor/extensions/tabs.test.ts::tabs: revealing hidden content > opens a hidden tab when the browser reveals a match in it	pass
+test	apps/client	src/features/editor/extensions/tabs.test.ts::tabs: revealing hidden content > showTabAtElement leaves visible content alone	pass
+test	apps/client	src/features/editor/extensions/tabs.test.ts::tabs: revealing hidden content > showTabAtElement opens every hidden tab around an element	pass
+test	apps/client	src/features/editor/extensions/tabs.test.ts::tabs: unique tab ids > duplicateTab gives the copy's nested tabs new ids	pass
+test	apps/client	src/features/editor/extensions/tabs.test.ts::tabs: unique tab ids > generates an id for a tab whose HTML id is empty	pass
+test	apps/client	src/features/editor/extensions/tabs.test.ts::tabs: unique tab ids > gives pasted tabs, nested ones included, new ids	pass
+test	apps/client	src/features/editor/extensions/tabs.test.ts::tabs: unique tab ids repair > renames repeated and empty ids on load so every tab can be opened	pass
+test	apps/client	src/features/editor/extensions/tabs.test.ts::tabs: unique tab ids repair > renames the ids of an inserted block that repeat existing ones	pass
+test	apps/client	src/features/integration/utils/connect-prompt.test.ts::resolveConnectPrompt > prompts when the existing connection is invalidated	pass
+test	apps/client	src/features/integration/utils/connect-prompt.test.ts::resolveConnectPrompt > prompts when the user is unlinked	pass
+test	apps/client	src/features/integration/utils/connect-prompt.test.ts::resolveConnectPrompt > returns nothing for a provider that is not installed	pass
+test	apps/client	src/features/integration/utils/connect-prompt.test.ts::resolveConnectPrompt > returns nothing when the user already has a live connection	pass
+test	apps/client	src/features/integration/utils/connect-prompt.test.ts::resolveConnectPrompt > returns nothing without a connect parameter	pass
 test	apps/client	src/features/page-history/utils/resolve-compare-pair.test.ts::resolveComparePair > orders newer before older regardless of selection order	pass
 test	apps/client	src/features/page-history/utils/resolve-compare-pair.test.ts::resolveComparePair > returns null unless exactly two versions are selected	pass
 test	apps/client	src/features/page-history/utils/resolve-compare-pair.test.ts::resolveComparePair > returns null when a selected id is not in the list	pass
@@ -68,8 +397,41 @@ test	apps/client	src/features/page/tree/model/tree-model.test.ts::treeModel.visi
 test	apps/client	src/features/page/tree/model/tree-model.test.ts::treeModel.visible > includes children of open ids in DFS order	pass
 test	apps/client	src/features/page/tree/model/tree-model.test.ts::treeModel.visible > recursively descends through chains of open ids	pass
 test	apps/client	src/features/page/tree/model/tree-model.test.ts::treeModel.visible > returns only root nodes when no openIds	pass
-count	apps/client	tests	69
-coverage	apps/client	1.32
+test	apps/client	src/features/public-space/components/docs/docs-toc.test.tsx::DocsToc > opens the tab holding a heading before scrolling to it	pass
+test	apps/client	src/lib/chunk-load-recovery.test.ts::claimChunkReload > allows another reload once the cooldown has passed	pass
+test	apps/client	src/lib/chunk-load-recovery.test.ts::claimChunkReload > allows the first reload	pass
+test	apps/client	src/lib/chunk-load-recovery.test.ts::claimChunkReload > refuses a second reload inside the cooldown	pass
+test	apps/client	src/lib/chunk-load-recovery.test.ts::claimChunkReload > refuses to reload when session storage is unavailable	pass
+test	apps/client	src/lib/chunk-load-recovery.test.ts::claimChunkReload > refuses to reload while offline without using up the cooldown	pass
+test	apps/client	src/lib/chunk-load-recovery.test.ts::claimReloadForPreloadError > claims a reload for a chunk that failed to download	pass
+test	apps/client	src/lib/chunk-load-recovery.test.ts::claimReloadForPreloadError > ignores an error thrown while a module runs without using up the cooldown	pass
+test	apps/client	src/lib/chunk-load-recovery.test.ts::claimReloadForPreloadError > ignores failures during the background prefetch without using up the cooldown	pass
+test	apps/client	src/lib/chunk-load-recovery.test.ts::isChunkLoadFailure > does not treat a missing payload as a load failure	pass
+test	apps/client	src/lib/chunk-load-recovery.test.ts::isChunkLoadFailure > does not treat an error thrown while a module runs as a load failure	pass
+test	apps/client	src/lib/chunk-load-recovery.test.ts::isChunkLoadFailure > treats Failed to fetch dynamically imported module: https://app.docmost.com/assets/groups-DHo4N9RM.js as a load failure	pass
+test	apps/client	src/lib/chunk-load-recovery.test.ts::isChunkLoadFailure > treats Importing a module script failed. as a load failure	pass
+test	apps/client	src/lib/chunk-load-recovery.test.ts::isChunkLoadFailure > treats Unable to preload CSS for /assets/groups-BJHsxMuK.css as a load failure	pass
+test	apps/client	src/lib/chunk-load-recovery.test.ts::isChunkLoadFailure > treats error loading dynamically imported module: https://app.docmost.com/assets/groups-DHo4N9RM.js as a load failure	pass
+test	apps/client	src/lib/lazy-prefetch.test.ts::lazy prefetch > does not load a component when it is declared	pass
+test	apps/client	src/lib/lazy-prefetch.test.ts::lazy prefetch > does nothing on /docs	pass
+test	apps/client	src/lib/lazy-prefetch.test.ts::lazy prefetch > does nothing on /docs/handbook/intro	pass
+test	apps/client	src/lib/lazy-prefetch.test.ts::lazy prefetch > does nothing on /oauth/consent	pass
+test	apps/client	src/lib/lazy-prefetch.test.ts::lazy prefetch > does nothing on /pdf-render/0199a1b2	pass
+test	apps/client	src/lib/lazy-prefetch.test.ts::lazy prefetch > does nothing on /share/abc123/p/roadmap	pass
+test	apps/client	src/lib/lazy-prefetch.test.ts::lazy prefetch > does nothing on /share/p/roadmap	pass
+test	apps/client	src/lib/lazy-prefetch.test.ts::lazy prefetch > does nothing when Data Saver is on	pass
+test	apps/client	src/lib/lazy-prefetch.test.ts::lazy prefetch > does nothing while offline	pass
+test	apps/client	src/lib/lazy-prefetch.test.ts::lazy prefetch > loads a component marked prefetchFirst before the rest	pass
+test	apps/client	src/lib/lazy-prefetch.test.ts::lazy prefetch > loads components declared by a chunk it prefetched	pass
+test	apps/client	src/lib/lazy-prefetch.test.ts::lazy prefetch > loads every declared component one at a time	pass
+test	apps/client	src/lib/lazy-prefetch.test.ts::lazy prefetch > prefetches on app pages	pass
+test	apps/client	src/lib/lazy-prefetch.test.ts::lazy prefetch > reports a prefetch as running only while it runs	pass
+test	apps/client	src/lib/lazy-prefetch.test.ts::lazy prefetch > retries a stylesheet that failed during the prefetch before rendering a component	pass
+test	apps/client	src/lib/lazy-prefetch.test.ts::lazy prefetch > runs only once when started again	pass
+test	apps/client	src/lib/lazy-prefetch.test.ts::lazy prefetch > stops at the first component that fails to load	pass
+test	apps/client	src/lib/local-page-data.test.ts::deleteLocalPageData > deletes only the page databases	pass
+test	apps/client	src/lib/local-page-data.test.ts::deleteLocalPageData > does nothing when the browser cannot list databases	pass
+count	apps/client	tests	432
 lint	apps/client	src/components/layouts/global/global-app-shell.tsx	1
 lint	apps/client	src/components/layouts/global/global-sidebar.tsx	1
 lint	apps/client	src/components/settings/settings-sidebar.tsx	1
@@ -78,6 +440,7 @@ lint	apps/client	src/components/ui/destination-picker/destination-picker.tsx	1
 lint	apps/client	src/features/editor/components/attachment/attachment-view.tsx	1
 lint	apps/client	src/features/editor/components/audio/audio-menu.tsx	1
 lint	apps/client	src/features/editor/components/audio/audio-view.tsx	1
+lint	apps/client	src/features/editor/components/base-embed/base-paste-menu.tsx	1
 lint	apps/client	src/features/editor/components/bubble-menu/readonly-bubble-menu.tsx	1
 lint	apps/client	src/features/editor/components/common/lightbox-view.tsx	2
 lint	apps/client	src/features/editor/components/common/node-width-resize.tsx	1
@@ -85,8 +448,9 @@ lint	apps/client	src/features/editor/components/common/resizable-wrapper.tsx	8
 lint	apps/client	src/features/editor/components/emoji-menu/emoji-list.tsx	3
 lint	apps/client	src/features/editor/components/image/image-menu.tsx	1
 lint	apps/client	src/features/editor/components/image/image-view.tsx	1
+lint	apps/client	src/features/editor/components/integration-link/integration-paste-menu.tsx	1
 lint	apps/client	src/features/editor/components/link/link-editor-panel.tsx	1
-lint	apps/client	src/features/editor/components/link/link-view.tsx	3
+lint	apps/client	src/features/editor/components/link/link-view.tsx	5
 lint	apps/client	src/features/editor/components/math/math-block.tsx	3
 lint	apps/client	src/features/editor/components/math/math-inline.tsx	3
 lint	apps/client	src/features/editor/components/mention/mention-list.tsx	2
@@ -123,22 +487,39 @@ lint	apps/client	src/features/space/components/sidebar/space-select.tsx	1
 lint	apps/client	src/features/user/components/page-state-pref.tsx	1
 lint	apps/client	src/features/workspace/components/settings/components/workspace-default-page-edit-mode.tsx	1
 lint	apps/client	src/pages/settings/workspace/workspace-members.tsx	1
+coverage	apps/client	10.69
 test	apps/server		pass
+test	apps/server	A256CBC-HS512 authenticates the additional data::A256CBC-HS512 authenticates the additional data	pass
+test	apps/server	A256CBC-HS512 decrypts the RFC 7518 ciphertext and tag::A256CBC-HS512 decrypts the RFC 7518 ciphertext and tag	pass
+test	apps/server	A256CBC-HS512 matches the RFC 7518 encryption vector::A256CBC-HS512 matches the RFC 7518 encryption vector	pass
+test	apps/server	A256CBC-HS512 rejects bad authentication before invoking CBC decryption::A256CBC-HS512 rejects bad authentication before invoking CBC decryption	pass
 test	apps/server	AuthController should be defined::AuthController should be defined	fail
 test	apps/server	AuthService should be defined::AuthService should be defined	fail
+test	apps/server	AuthenticationExtension access recheck closes connections of users who lost access and leaves others alone::AuthenticationExtension access recheck closes connections of users who lost access and leaves others alone	pass
+test	apps/server	AuthenticationExtension access recheck keeps rechecking after one connection fails::AuthenticationExtension access recheck keeps rechecking after one connection fails	pass
+test	apps/server	AuthenticationExtension access recheck makes downgraded editors read-only without closing them::AuthenticationExtension access recheck makes downgraded editors read-only without closing them	pass
+test	apps/server	AuthenticationExtension access recheck rechecks connections on pages under a changed page only::AuthenticationExtension access recheck rechecks connections on pages under a changed page only	pass
+test	apps/server	AuthenticationExtension access recheck rechecks when an access message arrives on the channel::AuthenticationExtension access recheck rechecks when an access message arrives on the channel	pass
+test	apps/server	AuthenticationExtension onAuthenticate checks permissions without the cache::AuthenticationExtension onAuthenticate checks permissions without the cache	pass
+test	apps/server	AuthenticationExtension onAuthenticate opens readers read-only and rejects users without access::AuthenticationExtension onAuthenticate opens readers read-only and rejects users without access	pass
+test	apps/server	AuthenticationExtension onAuthenticate rejects pages from another workspace::AuthenticationExtension onAuthenticate rejects pages from another workspace	pass
 test	apps/server	BacklinkService.countByPageId passes the userId to findRelatedPageIds so the repo can apply space membership filtering::BacklinkService.countByPageId passes the userId to findRelatedPageIds so the repo can apply space membership filtering	pass
 test	apps/server	BacklinkService.countByPageId returns post-filter counts for both directions::BacklinkService.countByPageId returns post-filter counts for both directions	pass
 test	apps/server	BacklinkService.countByPageId skips the permission filter when there are no candidates::BacklinkService.countByPageId skips the permission filter when there are no candidates	pass
 test	apps/server	BacklinkService.findByPageId hands an empty list to the repo when there are no accessible ids::BacklinkService.findByPageId hands an empty list to the repo when there are no accessible ids	pass
 test	apps/server	BacklinkService.findByPageId passes filtered ids through to the paginated repo call::BacklinkService.findByPageId passes filtered ids through to the paginated repo call	pass
+test	apps/server	CollabAccessService does not throw when publishing fails::CollabAccessService does not throw when publishing fails	pass
+test	apps/server	CollabAccessService publishes the users or pages to recheck::CollabAccessService publishes the users or pages to recheck	pass
+test	apps/server	CollaborationGateway.handleConnection passes the resolved client ip with the connection::CollaborationGateway.handleConnection passes the resolved client ip with the connection	pass
 test	apps/server	CommentService should be defined::CommentService should be defined	fail
+test	apps/server	CreatePageDto defaults format to json when content is sent without one::CreatePageDto defaults format to json when content is sent without one	pass
 test	apps/server	EncryptionService cross-key isolation cannot decrypt ciphertext produced under a different APP_SECRET::EncryptionService cross-key isolation cannot decrypt ciphertext produced under a different APP_SECRET	pass
 test	apps/server	EncryptionService encrypt + decrypt round-trip decrypts back to the original plaintext::EncryptionService encrypt + decrypt round-trip decrypts back to the original plaintext	pass
 test	apps/server	EncryptionService encrypt + decrypt round-trip handles empty string::EncryptionService encrypt + decrypt round-trip handles empty string	pass
 test	apps/server	EncryptionService encrypt + decrypt round-trip handles long plaintext (>1 block)::EncryptionService encrypt + decrypt round-trip handles long plaintext (>1 block)	pass
 test	apps/server	EncryptionService encrypt + decrypt round-trip handles unicode (multi-byte UTF-8)::EncryptionService encrypt + decrypt round-trip handles unicode (multi-byte UTF-8)	pass
 test	apps/server	EncryptionService encrypt + decrypt round-trip produces distinct ciphertexts for the same plaintext (random IV)::EncryptionService encrypt + decrypt round-trip produces distinct ciphertexts for the same plaintext (random IV)	pass
-test	apps/server	EncryptionService envelope format returns base64 of JSON envelope with iv (12B), authTag (16B), cipherText::EncryptionService envelope format returns base64 of JSON envelope with iv (12B), authTag (16B), cipherText	pass
+test	apps/server	EncryptionService envelope format writes an authenticated v2 envelope with a 16-byte IV and 32-byte tag::EncryptionService envelope format writes an authenticated v2 envelope with a 16-byte IV and 32-byte tag	pass
 test	apps/server	EncryptionService initialization compiles via Nest DI::EncryptionService initialization compiles via Nest DI	pass
 test	apps/server	EncryptionService initialization throws UnableToInitialize when APP_SECRET is missing::EncryptionService initialization throws UnableToInitialize when APP_SECRET is missing	pass
 test	apps/server	EncryptionService malformed payloads rejects JSON missing required fields::EncryptionService malformed payloads rejects JSON missing required fields	pass
@@ -146,12 +527,119 @@ test	apps/server	EncryptionService malformed payloads rejects base64 of non-JSON
 test	apps/server	EncryptionService malformed payloads rejects non-base64 garbage::EncryptionService malformed payloads rejects non-base64 garbage	pass
 test	apps/server	EncryptionService malformed payloads rejects wrong-length IV::EncryptionService malformed payloads rejects wrong-length IV	pass
 test	apps/server	EncryptionService malformed payloads rejects wrong-length auth tag::EncryptionService malformed payloads rejects wrong-length auth tag	pass
+test	apps/server	EncryptionService purpose and version isolation decrypt requires an explicit purpose::EncryptionService purpose and version isolation decrypt requires an explicit purpose	pass
+test	apps/server	EncryptionService purpose and version isolation does not accept legacy SIEM ciphertext as tokens or a completion ticket::EncryptionService purpose and version isolation does not accept legacy SIEM ciphertext as tokens or a completion ticket	pass
+test	apps/server	EncryptionService purpose and version isolation does not fall back to legacy decryption when the v2 header is stripped::EncryptionService purpose and version isolation does not fall back to legacy decryption when the v2 header is stripped	pass
+test	apps/server	EncryptionService purpose and version isolation encrypt requires an explicit purpose::EncryptionService purpose and version isolation encrypt requires an explicit purpose	pass
+test	apps/server	EncryptionService purpose and version isolation rejects changed authenticated metadata {"algorithm":"aes-256-gcm"}::EncryptionService purpose and version isolation rejects changed authenticated metadata {"algorithm":"aes-256-gcm"}	pass
+test	apps/server	EncryptionService purpose and version isolation rejects changed authenticated metadata {"keyId":"unknown"}::EncryptionService purpose and version isolation rejects changed authenticated metadata {"keyId":"unknown"}	pass
+test	apps/server	EncryptionService purpose and version isolation rejects changed authenticated metadata {"purpose":"integration-tokens"}::EncryptionService purpose and version isolation rejects changed authenticated metadata {"purpose":"integration-tokens"}	pass
+test	apps/server	EncryptionService purpose and version isolation rejects changed authenticated metadata {"version":3}::EncryptionService purpose and version isolation rejects changed authenticated metadata {"version":3}	pass
+test	apps/server	EncryptionService purpose and version isolation rejects changed authenticated metadata {"version":null}::EncryptionService purpose and version isolation rejects changed authenticated metadata {"version":null}	pass
+test	apps/server	EncryptionService purpose and version isolation rejects malformed JSON envelopes "string"::EncryptionService purpose and version isolation rejects malformed JSON envelopes "string"	pass
+test	apps/server	EncryptionService purpose and version isolation rejects malformed JSON envelopes 1::EncryptionService purpose and version isolation rejects malformed JSON envelopes 1	pass
+test	apps/server	EncryptionService purpose and version isolation rejects malformed JSON envelopes []::EncryptionService purpose and version isolation rejects malformed JSON envelopes []	pass
+test	apps/server	EncryptionService purpose and version isolation rejects malformed JSON envelopes null::EncryptionService purpose and version isolation rejects malformed JSON envelopes null	pass
+test	apps/server	EncryptionService purpose and version isolation rejects malformed JSON envelopes {"iv":1,"authTag":[],"cipherText":null}::EncryptionService purpose and version isolation rejects malformed JSON envelopes {"iv":1,"authTag":[],"cipherText":null}	pass
+test	apps/server	EncryptionService purpose and version isolation rejects noncanonical base64 fields instead of silently discarding characters::EncryptionService purpose and version isolation rejects noncanonical base64 fields instead of silently discarding characters	pass
+test	apps/server	EncryptionService purpose and version isolation round-trips integration-tokens independently::EncryptionService purpose and version isolation round-trips integration-tokens independently	pass
+test	apps/server	EncryptionService purpose and version isolation round-trips oauth-completion independently::EncryptionService purpose and version isolation round-trips oauth-completion independently	pass
+test	apps/server	EncryptionService purpose and version isolation round-trips siem-credentials independently::EncryptionService purpose and version isolation round-trips siem-credentials independently	pass
+test	apps/server	EncryptionService still decrypts credentials produced by the shipped SIEM writer::EncryptionService still decrypts credentials produced by the shipped SIEM writer	pass
 test	apps/server	EncryptionService tamper detection rejects modified IV::EncryptionService tamper detection rejects modified IV	pass
 test	apps/server	EncryptionService tamper detection rejects modified auth tag::EncryptionService tamper detection rejects modified auth tag	pass
 test	apps/server	EncryptionService tamper detection rejects modified ciphertext::EncryptionService tamper detection rejects modified ciphertext	pass
 test	apps/server	EnvironmentService should be defined::EnvironmentService should be defined	fail
+test	apps/server	Figma connected account asks for the profile scope beside file metadata::Figma connected account asks for the profile scope beside file metadata	pass
+test	apps/server	Figma connected account reads the connected account from /v1/me and keeps no email::Figma connected account reads the connected account from /v1/me and keeps no email	pass
+test	apps/server	GitHub connected account reads the account from api.github.com and keeps no email::GitHub connected account reads the account from api.github.com and keeps no email	pass
+test	apps/server	GitHub connected account reads the account from the GitHub Enterprise API::GitHub connected account reads the account from the GitHub Enterprise API	pass
+test	apps/server	GitHub public unfurl never calls GitHub without the app credentials::GitHub public unfurl never calls GitHub without the app credentials	pass
+test	apps/server	GitHub public unfurl reads a pull request with the app client ID and secret instead of a member token::GitHub public unfurl reads a pull request with the app client ID and secret instead of a member token	pass
+test	apps/server	GitHubProvider host matching GitHub Enterprise (INTEGRATION_GITHUB_URL set) does not match github.com links::GitHubProvider host matching GitHub Enterprise (INTEGRATION_GITHUB_URL set) does not match github.com links	pass
+test	apps/server	GitHubProvider host matching GitHub Enterprise (INTEGRATION_GITHUB_URL set) matches links on the configured host::GitHubProvider host matching GitHub Enterprise (INTEGRATION_GITHUB_URL set) matches links on the configured host	pass
+test	apps/server	GitHubProvider host matching GitHub Enterprise (INTEGRATION_GITHUB_URL set) normalizes HTTPS://GITHUB.ACME.COM// to match lowercase pasted links::GitHubProvider host matching GitHub Enterprise (INTEGRATION_GITHUB_URL set) normalizes HTTPS://GITHUB.ACME.COM// to match lowercase pasted links	pass
+test	apps/server	GitHubProvider host matching GitHub Enterprise (INTEGRATION_GITHUB_URL set) normalizes https://GitHub.Acme.com to match lowercase pasted links::GitHubProvider host matching GitHub Enterprise (INTEGRATION_GITHUB_URL set) normalizes https://GitHub.Acme.com to match lowercase pasted links	pass
+test	apps/server	GitHubProvider host matching GitHub Enterprise (INTEGRATION_GITHUB_URL set) normalizes https://github.acme.com/ to match lowercase pasted links::GitHubProvider host matching GitHub Enterprise (INTEGRATION_GITHUB_URL set) normalizes https://github.acme.com/ to match lowercase pasted links	pass
+test	apps/server	GitHubProvider host matching GitHub Enterprise (INTEGRATION_GITHUB_URL set) sends the token to the configured instance api::GitHubProvider host matching GitHub Enterprise (INTEGRATION_GITHUB_URL set) sends the token to the configured instance api	pass
+test	apps/server	GitHubProvider host matching INTEGRATION_GITHUB_URL validation does not warn for a valid url::GitHubProvider host matching INTEGRATION_GITHUB_URL validation does not warn for a valid url	pass
+test	apps/server	GitHubProvider host matching INTEGRATION_GITHUB_URL validation warns once and falls back to github.com for ftp://github.acme.com::GitHubProvider host matching INTEGRATION_GITHUB_URL validation warns once and falls back to github.com for ftp://github.acme.com	pass
+test	apps/server	GitHubProvider host matching INTEGRATION_GITHUB_URL validation warns once and falls back to github.com for github.acme.com:8443::GitHubProvider host matching INTEGRATION_GITHUB_URL validation warns once and falls back to github.com for github.acme.com:8443	pass
+test	apps/server	GitHubProvider host matching INTEGRATION_GITHUB_URL validation warns once and falls back to github.com for github.acme.com::GitHubProvider host matching INTEGRATION_GITHUB_URL validation warns once and falls back to github.com for github.acme.com	pass
+test	apps/server	GitHubProvider host matching declares no static unfurl patterns::GitHubProvider host matching declares no static unfurl patterns	pass
+test	apps/server	GitHubProvider host matching getUnfurlHosts reports github.com when INTEGRATION_GITHUB_URL is unset::GitHubProvider host matching getUnfurlHosts reports github.com when INTEGRATION_GITHUB_URL is unset	pass
+test	apps/server	GitHubProvider host matching getUnfurlHosts reports https://GitHub.Acme.com as a lowercase hostname::GitHubProvider host matching getUnfurlHosts reports https://GitHub.Acme.com as a lowercase hostname	pass
+test	apps/server	GitHubProvider host matching getUnfurlHosts reports https://github.acme.com/ as a lowercase hostname::GitHubProvider host matching getUnfurlHosts reports https://github.acme.com/ as a lowercase hostname	pass
+test	apps/server	GitHubProvider host matching getUnfurlHosts reports the configured host::GitHubProvider host matching getUnfurlHosts reports the configured host	pass
+test	apps/server	GitHubProvider host matching github.com (no INTEGRATION_GITHUB_URL) calls api.github.com::GitHubProvider host matching github.com (no INTEGRATION_GITHUB_URL) calls api.github.com	pass
+test	apps/server	GitHubProvider host matching github.com (no INTEGRATION_GITHUB_URL) matches github.com links::GitHubProvider host matching github.com (no INTEGRATION_GITHUB_URL) matches github.com links	pass
+test	apps/server	GitHubService API paths keeps an encoded dot segment for a collection page inside the Enterprise api root::GitHubService API paths keeps an encoded dot segment for a collection page inside the Enterprise api root	pass
+test	apps/server	GitHubService API paths keeps an encoded dot segment for a commit inside the Enterprise api root::GitHubService API paths keeps an encoded dot segment for a commit inside the Enterprise api root	pass
+test	apps/server	GitHubService API paths keeps an encoded dot segment for a issue inside the Enterprise api root::GitHubService API paths keeps an encoded dot segment for a issue inside the Enterprise api root	pass
+test	apps/server	GitHubService API paths keeps an encoded dot segment for a pull request inside the Enterprise api root::GitHubService API paths keeps an encoded dot segment for a pull request inside the Enterprise api root	pass
+test	apps/server	GitHubService API paths keeps an encoded dot segment for a repo inside the Enterprise api root::GitHubService API paths keeps an encoded dot segment for a repo inside the Enterprise api root	pass
+test	apps/server	GitHubService API paths percent-encodes owner and repo for a collection page, so neither can add a query or path::GitHubService API paths percent-encodes owner and repo for a collection page, so neither can add a query or path	pass
+test	apps/server	GitHubService API paths percent-encodes owner and repo for a commit, so neither can add a query or path::GitHubService API paths percent-encodes owner and repo for a commit, so neither can add a query or path	pass
+test	apps/server	GitHubService API paths percent-encodes owner and repo for a issue, so neither can add a query or path::GitHubService API paths percent-encodes owner and repo for a issue, so neither can add a query or path	pass
+test	apps/server	GitHubService API paths percent-encodes owner and repo for a pull request, so neither can add a query or path::GitHubService API paths percent-encodes owner and repo for a pull request, so neither can add a query or path	pass
+test	apps/server	GitHubService API paths percent-encodes owner and repo for a repo, so neither can add a query or path::GitHubService API paths percent-encodes owner and repo for a repo, so neither can add a query or path	pass
+test	apps/server	GitHubService API paths requests a collection page under the plain repo path::GitHubService API paths requests a collection page under the plain repo path	pass
+test	apps/server	GitHubService API paths requests a commit under the plain repo path::GitHubService API paths requests a commit under the plain repo path	pass
+test	apps/server	GitHubService API paths requests a issue under the plain repo path::GitHubService API paths requests a issue under the plain repo path	pass
+test	apps/server	GitHubService API paths requests a pull request under the plain repo path::GitHubService API paths requests a pull request under the plain repo path	pass
+test	apps/server	GitHubService API paths requests a repo under the plain repo path::GitHubService API paths requests a repo under the plain repo path	pass
+test	apps/server	GitHubService API paths with owner "." and repo "r" refuses a collection page without calling GitHub::GitHubService API paths with owner "." and repo "r" refuses a collection page without calling GitHub	pass
+test	apps/server	GitHubService API paths with owner "." and repo "r" refuses a commit without calling GitHub::GitHubService API paths with owner "." and repo "r" refuses a commit without calling GitHub	pass
+test	apps/server	GitHubService API paths with owner "." and repo "r" refuses a issue without calling GitHub::GitHubService API paths with owner "." and repo "r" refuses a issue without calling GitHub	pass
+test	apps/server	GitHubService API paths with owner "." and repo "r" refuses a pull request without calling GitHub::GitHubService API paths with owner "." and repo "r" refuses a pull request without calling GitHub	pass
+test	apps/server	GitHubService API paths with owner "." and repo "r" refuses a repo without calling GitHub::GitHubService API paths with owner "." and repo "r" refuses a repo without calling GitHub	pass
+test	apps/server	GitHubService API paths with owner ".." and repo "r" refuses a collection page without calling GitHub::GitHubService API paths with owner ".." and repo "r" refuses a collection page without calling GitHub	pass
+test	apps/server	GitHubService API paths with owner ".." and repo "r" refuses a commit without calling GitHub::GitHubService API paths with owner ".." and repo "r" refuses a commit without calling GitHub	pass
+test	apps/server	GitHubService API paths with owner ".." and repo "r" refuses a issue without calling GitHub::GitHubService API paths with owner ".." and repo "r" refuses a issue without calling GitHub	pass
+test	apps/server	GitHubService API paths with owner ".." and repo "r" refuses a pull request without calling GitHub::GitHubService API paths with owner ".." and repo "r" refuses a pull request without calling GitHub	pass
+test	apps/server	GitHubService API paths with owner ".." and repo "r" refuses a repo without calling GitHub::GitHubService API paths with owner ".." and repo "r" refuses a repo without calling GitHub	pass
+test	apps/server	GitHubService API paths with owner "o" and repo "." refuses a collection page without calling GitHub::GitHubService API paths with owner "o" and repo "." refuses a collection page without calling GitHub	pass
+test	apps/server	GitHubService API paths with owner "o" and repo "." refuses a commit without calling GitHub::GitHubService API paths with owner "o" and repo "." refuses a commit without calling GitHub	pass
+test	apps/server	GitHubService API paths with owner "o" and repo "." refuses a issue without calling GitHub::GitHubService API paths with owner "o" and repo "." refuses a issue without calling GitHub	pass
+test	apps/server	GitHubService API paths with owner "o" and repo "." refuses a pull request without calling GitHub::GitHubService API paths with owner "o" and repo "." refuses a pull request without calling GitHub	pass
+test	apps/server	GitHubService API paths with owner "o" and repo "." refuses a repo without calling GitHub::GitHubService API paths with owner "o" and repo "." refuses a repo without calling GitHub	pass
+test	apps/server	GitHubService API paths with owner "o" and repo ".." refuses a collection page without calling GitHub::GitHubService API paths with owner "o" and repo ".." refuses a collection page without calling GitHub	pass
+test	apps/server	GitHubService API paths with owner "o" and repo ".." refuses a commit without calling GitHub::GitHubService API paths with owner "o" and repo ".." refuses a commit without calling GitHub	pass
+test	apps/server	GitHubService API paths with owner "o" and repo ".." refuses a issue without calling GitHub::GitHubService API paths with owner "o" and repo ".." refuses a issue without calling GitHub	pass
+test	apps/server	GitHubService API paths with owner "o" and repo ".." refuses a pull request without calling GitHub::GitHubService API paths with owner "o" and repo ".." refuses a pull request without calling GitHub	pass
+test	apps/server	GitHubService API paths with owner "o" and repo ".." refuses a repo without calling GitHub::GitHubService API paths with owner "o" and repo ".." refuses a repo without calling GitHub	pass
 test	apps/server	GroupController should be defined::GroupController should be defined	fail
 test	apps/server	GroupService should be defined::GroupService should be defined	fail
+test	apps/server	IntegrationConnectionRepo expiring tokens loads a capped batch of the soonest-expiring refreshable tokens::IntegrationConnectionRepo expiring tokens loads a capped batch of the soonest-expiring refreshable tokens	pass
+test	apps/server	IntegrationConnectionRepo metadata on reconnect clears the stored account id when a reconnect could not read the account::IntegrationConnectionRepo metadata on reconnect clears the stored account id when a reconnect could not read the account	pass
+test	apps/server	IntegrationConnectionRepo metadata on reconnect merges an identity link the same way, so a relink keeps notifyEnabled::IntegrationConnectionRepo metadata on reconnect merges an identity link the same way, so a relink keeps notifyEnabled	pass
+test	apps/server	IntegrationConnectionRepo metadata on reconnect swaps the account and keeps other keys when a token connection reconnects::IntegrationConnectionRepo metadata on reconnect swaps the account and keeps other keys when a token connection reconnects	pass
+test	apps/server	IntegrationConnectionRepo offboarding deletes only the personal connections of the user::IntegrationConnectionRepo offboarding deletes only the personal connections of the user	pass
+test	apps/server	IntegrationConnectionRepo offboarding skips tokens of deactivated or deleted users but keeps workspace bot rows::IntegrationConnectionRepo offboarding skips tokens of deactivated or deleted users but keeps workspace bot rows	pass
+test	apps/server	IntegrationConnectionRepo personal connections disconnects only the personal connection, never the workspace bot row::IntegrationConnectionRepo personal connections disconnects only the personal connection, never the workspace bot row	pass
+test	apps/server	IntegrationConnectionRepo personal connections states the partial index predicate when finding a personal connection::IntegrationConnectionRepo personal connections states the partial index predicate when finding a personal connection	pass
+test	apps/server	IntegrationConnectionRepo token writes retires a connection only while it still holds the expected access token::IntegrationConnectionRepo token writes retires a connection only while it still holds the expected access token	pass
+test	apps/server	IntegrationConnectionRepo token writes retires a connection unconditionally when no token is expected::IntegrationConnectionRepo token writes retires a connection unconditionally when no token is expected	pass
+test	apps/server	IntegrationConnectionRepo token writes saves refreshed tokens only while the row still holds the refresh token that was sent::IntegrationConnectionRepo token writes saves refreshed tokens only while the row still holds the refresh token that was sent	pass
+test	apps/server	IntegrationConnectionService connections list keeps the account of every other provider out of the list::IntegrationConnectionService connections list keeps the account of every other provider out of the list	pass
+test	apps/server	IntegrationConnectionService connections list shows the Slack link's account name and id::IntegrationConnectionService connections list shows the Slack link's account name and id	pass
+test	apps/server	IntegrationProcessor token refresh cancellation cancels every job whose lock renewal failed::IntegrationProcessor token refresh cancellation cancels every job whose lock renewal failed	pass
+test	apps/server	IntegrationProcessor token refresh cancellation does not log an abort after the run completes::IntegrationProcessor token refresh cancellation does not log an abort after the run completes	pass
+test	apps/server	IntegrationProcessor token refresh cancellation fails a hung run when the job timeout fires::IntegrationProcessor token refresh cancellation fails a hung run when the job timeout fires	pass
+test	apps/server	IntegrationProcessor token refresh cancellation logs the connections in flight when aborted::IntegrationProcessor token refresh cancellation logs the connections in flight when aborted	pass
+test	apps/server	IntegrationProcessor token refresh cancellation logs the load step when aborted before any refresh starts::IntegrationProcessor token refresh cancellation logs the load step when aborted before any refresh starts	pass
+test	apps/server	IntegrationProcessor token refresh cancellation starts no further refreshes once the job is aborted::IntegrationProcessor token refresh cancellation starts no further refreshes once the job is aborted	pass
+test	apps/server	IntegrationProcessor token refresh holds the lock during each refresh and releases it whether the refresh succeeds or fails::IntegrationProcessor token refresh holds the lock during each refresh and releases it whether the refresh succeeds or fails	pass
+test	apps/server	IntegrationProcessor token refresh keeps refreshing the rest while one refresh hangs::IntegrationProcessor token refresh keeps refreshing the rest while one refresh hangs	pass
+test	apps/server	IntegrationProcessor token refresh loads at most 500 connections expiring within 15 minutes::IntegrationProcessor token refresh loads at most 500 connections expiring within 15 minutes	pass
+test	apps/server	IntegrationProcessor token refresh never retires a connection itself and keeps refreshing the rest::IntegrationProcessor token refresh never retires a connection itself and keeps refreshing the rest	pass
+test	apps/server	IntegrationProcessor token refresh refreshes every selected connection exactly once::IntegrationProcessor token refresh refreshes every selected connection exactly once	pass
+test	apps/server	IntegrationProcessor token refresh refreshes five connections at a time::IntegrationProcessor token refresh refreshes five connections at a time	pass
+test	apps/server	IntegrationProcessor token refresh skips a connection whose refresh lock someone else holds::IntegrationProcessor token refresh skips a connection whose refresh lock someone else holds	pass
+test	apps/server	IntegrationRegistry available integrations offers every provider on self-hosted::IntegrationRegistry available integrations offers every provider on self-hosted	pass
+test	apps/server	IntegrationRegistry available integrations offers only GitHub, GitLab and Linear on Cloud::IntegrationRegistry available integrations offers only GitHub, GitLab and Linear on Cloud	pass
+test	apps/server	IntegrationRegistry refuses a second provider with the same type::IntegrationRegistry refuses a second provider with the same type	pass
+test	apps/server	IntegrationRegistry registers providers by type::IntegrationRegistry registers providers by type	pass
 test	apps/server	JwtAuthGuard.handleRequest forbids an oauth user on a route without scope metadata::JwtAuthGuard.handleRequest forbids an oauth user on a route without scope metadata	pass
 test	apps/server	JwtAuthGuard.handleRequest forbids read scope on a write route with insufficient_scope::JwtAuthGuard.handleRequest forbids read scope on a write route with insufficient_scope	pass
 test	apps/server	JwtAuthGuard.handleRequest lets handler metadata override class metadata::JwtAuthGuard.handleRequest lets handler metadata override class metadata	pass
@@ -165,6 +653,8 @@ test	apps/server	JwtAuthGuard.handleRequest session-only routes forbids an api k
 test	apps/server	JwtAuthGuard.handleRequest session-only routes forbids an oauth token even when it carries write scope::JwtAuthGuard.handleRequest session-only routes forbids an oauth token even when it carries write scope	pass
 test	apps/server	JwtAuthGuard.handleRequest session-only routes leaves api keys working on routes without the marker::JwtAuthGuard.handleRequest session-only routes leaves api keys working on routes without the marker	pass
 test	apps/server	JwtAuthGuard.handleRequest throws UnauthorizedException when there is no user::JwtAuthGuard.handleRequest throws UnauthorizedException when there is no user	pass
+test	apps/server	Linear connected account fails when Linear returns no viewer::Linear connected account fails when Linear returns no viewer	pass
+test	apps/server	Linear connected account reads the viewer as the connected account::Linear connected account reads the viewer as the connected account	pass
 test	apps/server	LocalDriver._fullPath absolute path rejected throws for "/absolute"::LocalDriver._fullPath absolute path rejected throws for "/absolute"	pass
 test	apps/server	LocalDriver._fullPath absolute path rejected throws for "/etc/passwd"::LocalDriver._fullPath absolute path rejected throws for "/etc/passwd"	pass
 test	apps/server	LocalDriver._fullPath absolute path rejected throws for "/root/.ssh/id_rsa"::LocalDriver._fullPath absolute path rejected throws for "/root/.ssh/id_rsa"	pass
@@ -184,6 +674,152 @@ test	apps/server	LocalDriver._fullPath traversal rejected throws for "../../../e
 test	apps/server	LocalDriver._fullPath traversal rejected throws for "../etc/passwd"::LocalDriver._fullPath traversal rejected throws for "../etc/passwd"	pass
 test	apps/server	LocalDriver._fullPath traversal rejected throws for "a/../../.."::LocalDriver._fullPath traversal rejected throws for "a/../../.."	pass
 test	apps/server	LocalDriver._fullPath traversal rejected throws for "workspace/../../../etc/passwd"::LocalDriver._fullPath traversal rejected throws for "workspace/../../../etc/passwd"	pass
+test	apps/server	OAuthAuthorizeDto integrationId accepts a uuid7::OAuthAuthorizeDto integrationId accepts a uuid7	pass
+test	apps/server	OAuthAuthorizeDto integrationId rejects a missing value::OAuthAuthorizeDto integrationId rejects a missing value	pass
+test	apps/server	OAuthAuthorizeDto integrationId rejects a non-UUID string::OAuthAuthorizeDto integrationId rejects a non-UUID string	pass
+test	apps/server	OAuthAuthorizeDto integrationId rejects a number::OAuthAuthorizeDto integrationId rejects a number	pass
+test	apps/server	OAuthAuthorizeDto integrationId rejects an empty string::OAuthAuthorizeDto integrationId rejects an empty string	pass
+test	apps/server	OAuthAuthorizeDto returnPath accepts a workspace path with a query::OAuthAuthorizeDto returnPath accepts a workspace path with a query	pass
+test	apps/server	OAuthAuthorizeDto returnPath rejects DEL::OAuthAuthorizeDto returnPath rejects DEL	pass
+test	apps/server	OAuthAuthorizeDto returnPath rejects a NUL byte::OAuthAuthorizeDto returnPath rejects a NUL byte	pass
+test	apps/server	OAuthAuthorizeDto returnPath rejects a backslash::OAuthAuthorizeDto returnPath rejects a backslash	pass
+test	apps/server	OAuthAuthorizeDto returnPath rejects a protocol-relative path::OAuthAuthorizeDto returnPath rejects a protocol-relative path	pass
+test	apps/server	OAuthAuthorizeDto returnPath rejects an escape character::OAuthAuthorizeDto returnPath rejects an escape character	pass
+test	apps/server	OAuthController callback hands the code to the workspace host instead of exchanging it::OAuthController callback hands the code to the workspace host instead of exchanging it	pass
+test	apps/server	OAuthController callback logs only a printable, bounded line from the provider error::OAuthController callback logs only a printable, bounded line from the provider error	pass
+test	apps/server	OAuthController callback logs the provider's error code and the first line of its description when no code comes back::OAuthController callback logs the provider's error code and the first line of its description when no code comes back	pass
+test	apps/server	OAuthController callback refuses a state signed for a different provider::OAuthController callback refuses a state signed for a different provider	pass
+test	apps/server	OAuthController callback rejects a state that does not verify::OAuthController callback rejects a state that does not verify	pass
+test	apps/server	OAuthController callback return host hands the ticket to a cloud workspace subdomain with a port::OAuthController callback return host hands the ticket to a cloud workspace subdomain with a port	pass
+test	apps/server	OAuthController callback return host hands the ticket to a cloud workspace subdomain::OAuthController callback return host hands the ticket to a cloud workspace subdomain	pass
+test	apps/server	OAuthController callback return host hands the ticket to the APP_URL host on cloud::OAuthController callback return host hands the ticket to the APP_URL host on cloud	pass
+test	apps/server	OAuthController callback return host refuses to hand a ticket to a custom domain::OAuthController callback return host refuses to hand a ticket to a custom domain	pass
+test	apps/server	OAuthController callback return host refuses to hand a ticket to a lookalike of the cloud domain::OAuthController callback return host refuses to hand a ticket to a lookalike of the cloud domain	pass
+test	apps/server	OAuthController callback return host refuses to hand a ticket to a malformed return URL::OAuthController callback return host refuses to hand a ticket to a malformed return URL	pass
+test	apps/server	OAuthController callback return host refuses to hand a ticket to a subdomain while self-hosted::OAuthController callback return host refuses to hand a ticket to a subdomain while self-hosted	pass
+test	apps/server	OAuthController callback return host refuses to hand a ticket to a userinfo trick::OAuthController callback return host refuses to hand a ticket to a userinfo trick	pass
+test	apps/server	OAuthController callback return host refuses to hand a ticket to any host when the subdomain host is unset::OAuthController callback return host refuses to hand a ticket to any host when the subdomain host is unset	pass
+test	apps/server	OAuthController callback sends a cancelled consent back with oauth_failed::OAuthController callback sends a cancelled consent back with oauth_failed	pass
+test	apps/server	OAuthController complete exchanges the code for the user who started the flow::OAuthController complete exchanges the code for the user who started the flow	pass
+test	apps/server	OAuthController complete refuses a different user::OAuthController complete refuses a different user	pass
+test	apps/server	OAuthController complete refuses a different workspace::OAuthController complete refuses a different workspace	pass
+test	apps/server	OAuthController complete refuses a nonce cookie for another provider::OAuthController complete refuses a nonce cookie for another provider	pass
+test	apps/server	OAuthController complete refuses a nonce cookie of a different length::OAuthController complete refuses a nonce cookie of a different length	pass
+test	apps/server	OAuthController complete refuses a state without a nonce::OAuthController complete refuses a state without a nonce	pass
+test	apps/server	OAuthController complete refuses a ticket encrypted for SIEM credentials::OAuthController complete refuses a ticket encrypted for SIEM credentials	pass
+test	apps/server	OAuthController complete refuses a ticket minted for another purpose::OAuthController complete refuses a ticket minted for another purpose	pass
+test	apps/server	OAuthController complete refuses a ticket whose state does not verify::OAuthController complete refuses a ticket whose state does not verify	pass
+test	apps/server	OAuthController complete refuses a ticket without a code::OAuthController complete refuses a ticket without a code	pass
+test	apps/server	OAuthController complete refuses a ticket without an expiry::OAuthController complete refuses a ticket without an expiry	pass
+test	apps/server	OAuthController complete refuses a wrong nonce cookie::OAuthController complete refuses a wrong nonce cookie	pass
+test	apps/server	OAuthController complete refuses an expired ticket::OAuthController complete refuses an expired ticket	pass
+test	apps/server	OAuthController complete refuses an undecryptable ticket::OAuthController complete refuses an undecryptable ticket	pass
+test	apps/server	OAuthController complete reports [Function Error] as oauth_failed::OAuthController complete reports [Function Error] as oauth_failed	pass
+test	apps/server	OAuthController complete reports [Function IdentityEmailMismatchError] as identity_mismatch::OAuthController complete reports [Function IdentityEmailMismatchError] as identity_mismatch	pass
+test	apps/server	OAuthController complete reports [Function IdentityTenantMismatchError] as tenant_mismatch::OAuthController complete reports [Function IdentityTenantMismatchError] as tenant_mismatch	pass
+test	apps/server	OAuthController complete reports [Function IntegrationTenantInUseError] as tenant_in_use::OAuthController complete reports [Function IntegrationTenantInUseError] as tenant_in_use	pass
+test	apps/server	OAuthController complete without a session redirects a forbidden completion without logging the ticket::OAuthController complete without a session redirects a forbidden completion without logging the ticket	pass
+test	apps/server	OAuthController complete without a session redirects instead of returning 401 through the Fastify pipeline::OAuthController complete without a session redirects instead of returning 401 through the Fastify pipeline	pass
+test	apps/server	OAuthController install authorization allows a workspace admin::OAuthController install authorization allows a workspace admin	pass
+test	apps/server	OAuthController install authorization allows a workspace owner::OAuthController install authorization allows a workspace owner	pass
+test	apps/server	OAuthController install authorization refuses a workspace member::OAuthController install authorization refuses a workspace member	pass
+test	apps/server	OAuthController nonce cookie binds a connect flow to the browser that started it::OAuthController nonce cookie binds a connect flow to the browser that started it	pass
+test	apps/server	OAuthDisconnectDto integrationId accepts a uuid7::OAuthDisconnectDto integrationId accepts a uuid7	pass
+test	apps/server	OAuthDisconnectDto integrationId rejects a missing value::OAuthDisconnectDto integrationId rejects a missing value	pass
+test	apps/server	OAuthDisconnectDto integrationId rejects a non-UUID string::OAuthDisconnectDto integrationId rejects a non-UUID string	pass
+test	apps/server	OAuthDisconnectDto integrationId rejects a number::OAuthDisconnectDto integrationId rejects a number	pass
+test	apps/server	OAuthDisconnectDto integrationId rejects an empty string::OAuthDisconnectDto integrationId rejects an empty string	pass
+test	apps/server	OAuthService access token for a request reports a retired connection as invalid::OAuthService access token for a request reports a retired connection as invalid	pass
+test	apps/server	OAuthService access token for a request reports an expired token that has no refresh token as invalid::OAuthService access token for a request reports an expired token that has no refresh token as invalid	pass
+test	apps/server	OAuthService access token for a request returns the stored token of a connection that expires in a minute and has no refresh token without refreshing::OAuthService access token for a request returns the stored token of a connection that expires in a minute and has no refresh token without refreshing	pass
+test	apps/server	OAuthService access token for a request returns the stored token of a connection that expires in two minutes without refreshing::OAuthService access token for a request returns the stored token of a connection that expires in two minutes without refreshing	pass
+test	apps/server	OAuthService access token for a request returns the stored token of a connection without an expiry without refreshing::OAuthService access token for a request returns the stored token of a connection without an expiry without refreshing	pass
+test	apps/server	OAuthService authorization URLs and signed state creates a per-user URL without letting provider params override core params::OAuthService authorization URLs and signed state creates a per-user URL without letting provider params override core params	pass
+test	apps/server	OAuthService authorization URLs and signed state creates an install URL with provider params and a signed browser nonce::OAuthService authorization URLs and signed state creates an install URL with provider params and a signed browser nonce	pass
+test	apps/server	OAuthService authorization URLs and signed state refuses connect URLs for a workspace provider without an identity flow::OAuthService authorization URLs and signed state refuses connect URLs for a workspace provider without an identity flow	pass
+test	apps/server	OAuthService authorization URLs and signed state refuses new installs for a hidden provider::OAuthService authorization URLs and signed state refuses new installs for a hidden provider	pass
+test	apps/server	OAuthService authorization URLs and signed state rejects a state with no separator::OAuthService authorization URLs and signed state rejects a state with no separator	pass
+test	apps/server	OAuthService authorization URLs and signed state rejects a state with raw secret::OAuthService authorization URLs and signed state rejects a state with raw secret	pass
+test	apps/server	OAuthService authorization URLs and signed state rejects a state with short signature::OAuthService authorization URLs and signed state rejects a state with short signature	pass
+test	apps/server	OAuthService authorization URLs and signed state rejects a state with tampered::OAuthService authorization URLs and signed state rejects a state with tampered	pass
+test	apps/server	OAuthService authorization URLs and signed state uses the workspace identity endpoint, scopes and settings instead of install params::OAuthService authorization URLs and signed state uses the workspace identity endpoint, scopes and settings instead of install params	pass
+test	apps/server	OAuthService connect flow connects a member with a per-user token and audits without reinstalling::OAuthService connect flow connects a member with a per-user token and audits without reinstalling	pass
+test	apps/server	OAuthService connect flow links a member with a matching email without replacing the shared connection::OAuthService connect flow links a member with a matching email without replacing the shared connection	pass
+test	apps/server	OAuthService connect flow refuses a state signed for a different provider::OAuthService connect flow refuses a state signed for a different provider	pass
+test	apps/server	OAuthService connect flow refuses a workspace-scoped provider without an identity flow::OAuthService connect flow refuses a workspace-scoped provider without an identity flow	pass
+test	apps/server	OAuthService connect flow refuses when the provider account email differs from the Docmost user::OAuthService connect flow refuses when the provider account email differs from the Docmost user	pass
+test	apps/server	OAuthService connect flow sends the client credentials as HTTP Basic, not in the body, for a provider that asks for it::OAuthService connect flow sends the client credentials as HTTP Basic, not in the body, for a provider that asks for it	pass
+test	apps/server	OAuthService connect flow still connects a member to an existing installation of a hidden provider::OAuthService connect flow still connects a member to an existing installation of a hidden provider	pass
+test	apps/server	OAuthService connect flow writes nothing when the provider rejects the identity::OAuthService connect flow writes nothing when the provider rejects the identity	pass
+test	apps/server	OAuthService connected account audits the account of a linked identity without reading it again::OAuthService connected account audits the account of a linked identity without reading it again	pass
+test	apps/server	OAuthService connected account lets a member reconnect the account they already hold::OAuthService connected account lets a member reconnect the account they already hold	pass
+test	apps/server	OAuthService connected account reads the installer account before the transaction and hands it to onConnected, not the shared row::OAuthService connected account reads the installer account before the transaction and hands it to onConnected, not the shared row	pass
+test	apps/server	OAuthService connected account refuses an account already connected to another Docmost user::OAuthService connected account refuses an account already connected to another Docmost user	pass
+test	apps/server	OAuthService connected account still connects when the profile read fails, without an account::OAuthService connected account still connects when the profile read fails, without an account	pass
+test	apps/server	OAuthService connected account stores the account a member connected with and audits it::OAuthService connected account stores the account a member connected with and audits it	pass
+test	apps/server	OAuthService connected account stores the installing admin's account and audits the install with it::OAuthService connected account stores the installing admin's account and audits the install with it	pass
+test	apps/server	OAuthService identity link rebinding allows a first-time link::OAuthService identity link rebinding allows a first-time link	pass
+test	apps/server	OAuthService identity link rebinding allows the same user to relink their own provider account::OAuthService identity link rebinding allows the same user to relink their own provider account	pass
+test	apps/server	OAuthService identity link rebinding refuses a provider account already linked to another Docmost user::OAuthService identity link rebinding refuses a provider account already linked to another Docmost user	pass
+test	apps/server	OAuthService install flow refuses an install state naming an integration from another workspace::OAuthService install flow refuses an install state naming an integration from another workspace	pass
+test	apps/server	OAuthService install flow refuses an installer who is deactivated::OAuthService install flow refuses an installer who is deactivated	pass
+test	apps/server	OAuthService install flow refuses an installer who is lost permission::OAuthService install flow refuses an installer who is lost permission	pass
+test	apps/server	OAuthService install flow refuses to complete an install for a hidden provider without writing::OAuthService install flow refuses to complete an install for a hidden provider without writing	pass
+test	apps/server	OAuthService install flow stops at a redirecting token endpoint instead of re-POSTing the client secret::OAuthService install flow stops at a redirecting token endpoint instead of re-POSTing the client secret	pass
+test	apps/server	OAuthService install flow stores the issued tokens and audits the installation::OAuthService install flow stores the issued tokens and audits the installation	pass
+test	apps/server	OAuthService install flow writes the shared connection for a workspace-scoped provider::OAuthService install flow writes the shared connection for a workspace-scoped provider	pass
+test	apps/server	OAuthService token endpoint responses during the code exchange logs the status and error code of a refused exchange and nothing else from the body::OAuthService token endpoint responses during the code exchange logs the status and error code of a refused exchange and nothing else from the body	pass
+test	apps/server	OAuthService token endpoint responses during the code exchange rejects truncated JSON during exchange without writing or logging the body::OAuthService token endpoint responses during the code exchange rejects truncated JSON during exchange without writing or logging the body	pass
+test	apps/server	OAuthService token endpoint responses during the code exchange stops reading a response that passes the size cap and writes nothing::OAuthService token endpoint responses during the code exchange stops reading a response that passes the size cap and writes nothing	pass
+test	apps/server	OAuthService token refresh drops the refreshed tokens of a connection reconnected during the refresh::OAuthService token refresh drops the refreshed tokens of a connection reconnected during the refresh	pass
+test	apps/server	OAuthService token refresh keeps the connection as it was when the refresh returns a JSON null, without logging the token::OAuthService token refresh keeps the connection as it was when the refresh returns a JSON null, without logging the token	pass
+test	apps/server	OAuthService token refresh keeps the connection as it was when the refresh returns a refresh token with a NUL, without logging the token::OAuthService token refresh keeps the connection as it was when the refresh returns a refresh token with a NUL, without logging the token	pass
+test	apps/server	OAuthService token refresh keeps the connection as it was when the refresh returns an access token that is not a string, without logging the token::OAuthService token refresh keeps the connection as it was when the refresh returns an access token that is not a string, without logging the token	pass
+test	apps/server	OAuthService token refresh keeps the connection as it was when the refresh returns an access token with a line break, without logging the token::OAuthService token refresh keeps the connection as it was when the refresh returns an access token with a line break, without logging the token	pass
+test	apps/server	OAuthService token refresh keeps the connection as it was when the refresh returns no access token, without logging the token::OAuthService token refresh keeps the connection as it was when the refresh returns no access token, without logging the token	pass
+test	apps/server	OAuthService token refresh maps a 5xx from the token endpoint to a failed refresh without invalidating::OAuthService token refresh maps a 5xx from the token endpoint to a failed refresh without invalidating	pass
+test	apps/server	OAuthService token refresh maps a dropped connection from the token endpoint to a failed refresh without invalidating::OAuthService token refresh maps a dropped connection from the token endpoint to a failed refresh without invalidating	pass
+test	apps/server	OAuthService token refresh on the request path gives up after five seconds while another process still holds the lock, without retiring the connection::OAuthService token refresh on the request path gives up after five seconds while another process still holds the lock, without retiring the connection	pass
+test	apps/server	OAuthService token refresh on the request path lets a later request refresh after a shared refresh failed::OAuthService token refresh on the request path lets a later request refresh after a shared refresh failed	pass
+test	apps/server	OAuthService token refresh on the request path makes one token request for ten concurrent callers::OAuthService token refresh on the request path makes one token request for ten concurrent callers	pass
+test	apps/server	OAuthService token refresh on the request path refreshes a token that expires within a minute and returns the new one::OAuthService token refresh on the request path refreshes a token that expires within a minute and returns the new one	pass
+test	apps/server	OAuthService token refresh on the request path refreshes a token that has expired and returns the new one::OAuthService token refresh on the request path refreshes a token that has expired and returns the new one	pass
+test	apps/server	OAuthService token refresh on the request path reports the token expired without refreshing when Redis fails::OAuthService token refresh on the request path reports the token expired without refreshing when Redis fails	pass
+test	apps/server	OAuthService token refresh on the request path returns the token another process saved after the caller read the row::OAuthService token refresh on the request path returns the token another process saved after the caller read the row	pass
+test	apps/server	OAuthService token refresh on the request path waits for a refresh another process holds and returns the token it saved::OAuthService token refresh on the request path waits for a refresh another process holds and returns the token it saved	pass
+test	apps/server	OAuthService token refresh preserves a acme connection reconnected while the old token is rejected::OAuthService token refresh preserves a acme connection reconnected while the old token is rejected	pass
+test	apps/server	OAuthService token refresh preserves a entra connection reconnected while the old token is rejected::OAuthService token refresh preserves a entra connection reconnected while the old token is rejected	pass
+test	apps/server	OAuthService token refresh refreshes at the provider's own refresh endpoint with HTTP Basic credentials and keeps a refresh token it does not replace::OAuthService token refresh refreshes at the provider's own refresh endpoint with HTTP Basic credentials and keeps a refresh token it does not replace	pass
+test	apps/server	OAuthService token refresh refreshes using the current row and conditionally stores and returns the new tokens::OAuthService token refresh refreshes using the current row and conditionally stores and returns the new tokens	pass
+test	apps/server	OAuthService token refresh rejects truncated JSON during refresh without changing the connection or logging the body::OAuthService token refresh rejects truncated JSON during refresh without changing the connection or logging the body	pass
+test	apps/server	OAuthService token refresh repeats the scopes on refresh for a provider that asks for them::OAuthService token refresh repeats the scopes on refresh for a provider that asks for them	pass
+test	apps/server	OAuthService token refresh skips a connection deleted since the caller read it and reports it expired::OAuthService token refresh skips a connection deleted since the caller read it and reports it expired	pass
+test	apps/server	OAuthService token refresh skips a connection reconnected without a refresh token since the caller read it and returns its current token::OAuthService token refresh skips a connection reconnected without a refresh token since the caller read it and returns its current token	pass
+test	apps/server	OAuthService token refresh skips a connection refreshed by a non-rotating provider since the caller read it and returns its current token::OAuthService token refresh skips a connection refreshed by a non-rotating provider since the caller read it and returns its current token	pass
+test	apps/server	OAuthService token refresh skips a connection refreshed to a token that has expired too since the caller read it and reports it expired::OAuthService token refresh skips a connection refreshed to a token that has expired too since the caller read it and reports it expired	pass
+test	apps/server	OAuthService token refresh skips a connection retired since the caller read it and reports it expired::OAuthService token refresh skips a connection retired since the caller read it and reports it expired	pass
+test	apps/server	OAuthService token refresh stops an oversized refresh response without retiring or updating the connection::OAuthService token refresh stops an oversized refresh response without retiring or updating the connection	pass
+test	apps/server	OAuthService token refresh stops at a redirecting token endpoint instead of re-POSTing the client secret::OAuthService token refresh stops at a redirecting token endpoint instead of re-POSTing the client secret	pass
+test	apps/server	OAuthService token refresh when the token endpoint rejects the refresh does not retire on a malformed error body: <html>invalid_grant PRIVATE</html>::OAuthService token refresh when the token endpoint rejects the refresh does not retire on a malformed error body: <html>invalid_grant PRIVATE</html>	pass
+test	apps/server	OAuthService token refresh when the token endpoint rejects the refresh does not retire on a malformed error body: {"error":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}::OAuthService token refresh when the token endpoint rejects the refresh does not retire on a malformed error body: {"error":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}	pass
+test	apps/server	OAuthService token refresh when the token endpoint rejects the refresh does not retire on a malformed error body: {"error":"invalid_grant\nPRIVATE"}::OAuthService token refresh when the token endpoint rejects the refresh does not retire on a malformed error body: {"error":"invalid_grant\nPRIVATE"}	pass
+test	apps/server	OAuthService token refresh when the token endpoint rejects the refresh does not retire on a malformed error body: {"error":{"code":"invalid_grant","detail":"PRIVATE"}}::OAuthService token refresh when the token endpoint rejects the refresh does not retire on a malformed error body: {"error":{"code":"invalid_grant","detail":"PRIVATE"}}	pass
+test	apps/server	OAuthService token refresh when the token endpoint rejects the refresh keeps the connection on 200 incorrect_client_credentials::OAuthService token refresh when the token endpoint rejects the refresh keeps the connection on 200 incorrect_client_credentials	pass
+test	apps/server	OAuthService token refresh when the token endpoint rejects the refresh keeps the connection on 400 invalid_client::OAuthService token refresh when the token endpoint rejects the refresh keeps the connection on 400 invalid_client	pass
+test	apps/server	OAuthService token refresh when the token endpoint rejects the refresh keeps the connection on 400 invalid_scope::OAuthService token refresh when the token endpoint rejects the refresh keeps the connection on 400 invalid_scope	pass
+test	apps/server	OAuthService token refresh when the token endpoint rejects the refresh keeps the connection on 400 unauthorized_client::OAuthService token refresh when the token endpoint rejects the refresh keeps the connection on 400 unauthorized_client	pass
+test	apps/server	OAuthService token refresh when the token endpoint rejects the refresh keeps the connection on 401 invalid_client::OAuthService token refresh when the token endpoint rejects the refresh keeps the connection on 401 invalid_client	pass
+test	apps/server	OAuthService token refresh when the token endpoint rejects the refresh retires a acme connection on invalid_grant::OAuthService token refresh when the token endpoint rejects the refresh retires a acme connection on invalid_grant	pass
+test	apps/server	OAuthService token refresh when the token endpoint rejects the refresh retires a entra connection on invalid_grant::OAuthService token refresh when the token endpoint rejects the refresh retires a entra connection on invalid_grant	pass
+test	apps/server	OAuthService token refresh when the token endpoint rejects the refresh retires the connection on GitHub's bad_refresh_token, which comes with a 200::OAuthService token refresh when the token endpoint rejects the refresh retires the connection on GitHub's bad_refresh_token, which comes with a 200	pass
+test	apps/server	OAuthService token refresh when the token endpoint rejects the refresh retires the connection on interaction_required::OAuthService token refresh when the token endpoint rejects the refresh retires the connection on interaction_required	pass
+test	apps/server	OAuthService tokens from the code exchange fails an identity link on a malformed access token before the provider resolves the identity::OAuthService tokens from the code exchange fails an identity link on a malformed access token before the provider resolves the identity	pass
+test	apps/server	OAuthService tokens from the code exchange fails an install on a refresh token with an escape character without writing or logging the token::OAuthService tokens from the code exchange fails an install on a refresh token with an escape character without writing or logging the token	pass
+test	apps/server	OAuthService tokens from the code exchange fails an install on an access token that is not a string without writing or logging the token::OAuthService tokens from the code exchange fails an install on an access token that is not a string without writing or logging the token	pass
+test	apps/server	OAuthService tokens from the code exchange fails an install on an access token with a line break without writing or logging the token::OAuthService tokens from the code exchange fails an install on an access token with a line break without writing or logging the token	pass
+test	apps/server	OAuthService tokens from the code exchange fails an install on an access token with a non-ASCII character without writing or logging the token::OAuthService tokens from the code exchange fails an install on an access token with a non-ASCII character without writing or logging the token	pass
+test	apps/server	OAuthService tokens from the code exchange fails an install on an access token with a space without writing or logging the token::OAuthService tokens from the code exchange fails an install on an access token with a space without writing or logging the token	pass
+test	apps/server	OAuthService tokens from the code exchange fails an install on no access token without writing or logging the token::OAuthService tokens from the code exchange fails an install on no access token without writing or logging the token	pass
 test	apps/server	OutboundAgentFactory propagates guard rejections::OutboundAgentFactory propagates guard rejections	pass
 test	apps/server	OutboundAgentFactory validates the URL through the guard and returns a releasable undici Agent::OutboundAgentFactory validates the URL through the guard and returns a releasable undici Agent	pass
 test	apps/server	OutboundUrlGuard.validate a bracketed IPv6 entry with a port accepts only that port::OutboundUrlGuard.validate a bracketed IPv6 entry with a port accepts only that port	pass
@@ -277,16 +913,147 @@ test	apps/server	PublicSpaceService publish keeps explicitly provided flags on f
 test	apps/server	PublicSpaceService publish rejects enabling when the workspace opt-in is off::PublicSpaceService publish rejects enabling when the workspace opt-in is off	pass
 test	apps/server	PublicSpaceService publish republish preserves prior customization instead of re-applying defaults::PublicSpaceService publish republish preserves prior customization instead of re-applying defaults	pass
 test	apps/server	PublicSpaceService publish skips the directory default when the workspace directory is off::PublicSpaceService publish skips the directory default when the workspace directory is off	pass
+test	apps/server	RefreshLock counts a Redis error as not acquired::RefreshLock counts a Redis error as not acquired	pass
+test	apps/server	RefreshLock gives each holder its own token::RefreshLock gives each holder its own token	pass
+test	apps/server	RefreshLock leaves the lock to expire when the release fails::RefreshLock leaves the lock to expire when the release fails	pass
+test	apps/server	RefreshLock never deletes a lock another holder took after its own expired::RefreshLock never deletes a lock another holder took after its own expired	pass
+test	apps/server	RefreshLock refuses the lock while someone else holds it::RefreshLock refuses the lock while someone else holds it	pass
+test	apps/server	RefreshLock releases a lock it holds::RefreshLock releases a lock it holds	pass
+test	apps/server	RefreshLock stops waiting at the timeout while the lock is still held::RefreshLock stops waiting at the timeout while the lock is still held	pass
+test	apps/server	RefreshLock stops waiting when Redis fails::RefreshLock stops waiting when Redis fails	pass
+test	apps/server	RefreshLock takes the lock for 20 seconds only if nobody holds it::RefreshLock takes the lock for 20 seconds only if nobody holds it	pass
+test	apps/server	RefreshLock waits until the holder releases the lock::RefreshLock waits until the holder releases the lock	pass
 test	apps/server	SearchController public-space-search gate does not read pages or search when the public space gate rejects::SearchController public-space-search gate does not read pages or search when the public space gate rejects	pass
 test	apps/server	SearchController public-space-search gate searches only the unrestricted pages of the gated space, ignoring client filters::SearchController public-space-search gate searches only the unrestricted pages of the gated space, ignoring client filters	pass
 test	apps/server	SearchController should be defined::SearchController should be defined	fail
 test	apps/server	SearchService should be defined::SearchService should be defined	fail
+test	apps/server	SessionService socket disconnects disconnects every other session of the user on revoke-all::SessionService socket disconnects disconnects every other session of the user on revoke-all	pass
+test	apps/server	SessionService socket disconnects disconnects the sockets of a revoked session::SessionService socket disconnects disconnects the sockets of a revoked session	pass
+test	apps/server	SessionService socket disconnects leaves sockets alone when nothing was revoked for this user::SessionService socket disconnects leaves sockets alone when nothing was revoked for this user	pass
 test	apps/server	SpaceController should be defined::SpaceController should be defined	fail
 test	apps/server	SpaceService should be defined::SpaceService should be defined	fail
+test	apps/server	StaticModule returns 404 for an asset the current build does not have::StaticModule returns 404 for an asset the current build does not have	pass
+test	apps/server	StaticModule serves the app shell for client routes::StaticModule serves the app shell for client routes	pass
 test	apps/server	StorageService should be defined::StorageService should be defined	fail
 test	apps/server	TokenService should be defined::TokenService should be defined	fail
 test	apps/server	TransclusionController.lookup passes the references, viewer id and workspace id through to the service and returns its result::TransclusionController.lookup passes the references, viewer id and workspace id through to the service and returns its result	pass
+test	apps/server	UnfurlController throttling allows 120 requests per user per minute and rejects the next one::UnfurlController throttling allows 120 requests per user per minute and rejects the next one	pass
+test	apps/server	UnfurlController throttling tracks users separately when they share an IP::UnfurlController throttling tracks users separately when they share an IP	pass
+test	apps/server	UnfurlDto accepts an ordinary provider URL::UnfurlDto accepts an ordinary provider URL	pass
+test	apps/server	UnfurlDto accepts non-ASCII characters in a URL::UnfurlDto accepts non-ASCII characters in a URL	pass
+test	apps/server	UnfurlDto rejects a URL containing a DEL character::UnfurlDto rejects a URL containing a DEL character	pass
+test	apps/server	UnfurlDto rejects a URL containing a NUL character::UnfurlDto rejects a URL containing a NUL character	pass
+test	apps/server	UnfurlDto rejects a URL containing a backspace character::UnfurlDto rejects a URL containing a backspace character	pass
+test	apps/server	UnfurlDto rejects a URL containing a unit separator character::UnfurlDto rejects a URL containing a unit separator character	pass
+test	apps/server	UnfurlDto rejects a URL containing an escape character::UnfurlDto rejects a URL containing an escape character	pass
+test	apps/server	UnfurlDto rejects a URL containing whitespace::UnfurlDto rejects a URL containing whitespace	pass
+test	apps/server	UnfurlDto rejects a URL longer than 8192 characters::UnfurlDto rejects a URL longer than 8192 characters	pass
+test	apps/server	UnfurlService cache asks a disconnected member to connect instead of serving their cached card::UnfurlService cache asks a disconnected member to connect instead of serving their cached card	pass
+test	apps/server	UnfurlService cache checks a link the member cannot see again a minute later::UnfurlService cache checks a link the member cannot see again a minute later	pass
+test	apps/server	UnfurlService cache for a workspace-scoped provider keeps the viewer in the key of the shared connection::UnfurlService cache for a workspace-scoped provider keeps the viewer in the key of the shared connection	pass
+test	apps/server	UnfurlService cache for a workspace-scoped provider serves no cached card once the workspace connection is gone::UnfurlService cache for a workspace-scoped provider serves no cached card once the workspace connection is gone	pass
+test	apps/server	UnfurlService cache keys the card by connection, its last update and the full URL digest::UnfurlService cache keys the card by connection, its last update and the full URL digest	pass
+test	apps/server	UnfurlService cache refetches once the connection is updated by a reconnect or refresh::UnfurlService cache refetches once the connection is updated by a reconnect or refresh	pass
+test	apps/server	UnfurlService cache serves a cached card only after finding the connection::UnfurlService cache serves a cached card only after finding the connection	pass
+test	apps/server	UnfurlService cache serves no cached card once the integration is uninstalled::UnfurlService cache serves no cached card once the integration is uninstalled	pass
+test	apps/server	UnfurlService credential failures shows no card for a token awaiting refresh, without caching or retiring::UnfurlService credential failures shows no card for a token awaiting refresh, without caching or retiring	pass
+test	apps/server	UnfurlService credential failures when the provider rejects the token keeps a connection whose token the refresh job replaced after it was read::UnfurlService credential failures when the provider rejects the token keeps a connection whose token the refresh job replaced after it was read	pass
+test	apps/server	UnfurlService credential failures when the provider rejects the token retires a connection that still holds the rejected token::UnfurlService credential failures when the provider rejects the token retires a connection that still holds the rejected token	pass
+test	apps/server	UnfurlService provider resolution resolves links on the configured host (https://github.acme.com) through the installed integration::UnfurlService provider resolution resolves links on the configured host (https://github.acme.com) through the installed integration	pass
+test	apps/server	UnfurlService provider resolution resolves links on the configured host (undefined) through the installed integration::UnfurlService provider resolution resolves links on the configured host (undefined) through the installed integration	pass
+test	apps/server	UnfurlService provider resolution returns null for github.com links when GitHub Enterprise is configured::UnfurlService provider resolution returns null for github.com links when GitHub Enterprise is configured	pass
+test	apps/server	UnfurlService public cards asks to connect after a rate limit and retries a minute later::UnfurlService public cards asks to connect after a rate limit and retries a minute later	pass
+test	apps/server	UnfurlService public cards asks to connect after a repo that is not public and retries a minute later::UnfurlService public cards asks to connect after a repo that is not public and retries a minute later	pass
+test	apps/server	UnfurlService public cards asks to connect after rejected app credentials and retries a minute later::UnfurlService public cards asks to connect after rejected app credentials and retries a minute later	pass
+test	apps/server	UnfurlService public cards fetches a public card once for every member and workspace::UnfurlService public cards fetches a public card once for every member and workspace	pass
+test	apps/server	UnfurlService public cards shows a member without a connection the card for a public repo::UnfurlService public cards shows a member without a connection the card for a public repo	pass
+test	apps/server	UninstallIntegrationDto integrationId accepts a uuid7::UninstallIntegrationDto integrationId accepts a uuid7	pass
+test	apps/server	UninstallIntegrationDto integrationId rejects a missing value::UninstallIntegrationDto integrationId rejects a missing value	pass
+test	apps/server	UninstallIntegrationDto integrationId rejects a non-UUID string::UninstallIntegrationDto integrationId rejects a non-UUID string	pass
+test	apps/server	UninstallIntegrationDto integrationId rejects a number::UninstallIntegrationDto integrationId rejects a number	pass
+test	apps/server	UninstallIntegrationDto integrationId rejects an empty string::UninstallIntegrationDto integrationId rejects an empty string	pass
+test	apps/server	UpdatePageDto defaults format to json when content is sent without one::UpdatePageDto defaults format to json when content is sent without one	pass
 test	apps/server	UserController should be defined::UserController should be defined	fail
+test	apps/server	UserThrottlerGuard.getTracker falls back to the client ip when nobody is signed in::UserThrottlerGuard.getTracker falls back to the client ip when nobody is signed in	pass
+test	apps/server	UserThrottlerGuard.getTracker falls back to the socket address when the ip is empty::UserThrottlerGuard.getTracker falls back to the socket address when the ip is empty	pass
+test	apps/server	UserThrottlerGuard.getTracker tracks a signed-in request by its user id::UserThrottlerGuard.getTracker tracks a signed-in request by its user id	pass
+test	apps/server	UserThrottlerGuard.getTracker uses a constant tracker for an unidentifiable client::UserThrottlerGuard.getTracker uses a constant tracker for an unidentifiable client	pass
+test	apps/server	WsService.removeUsersWithoutSpaceAccess keeps users in spaces they can still access::WsService.removeUsersWithoutSpaceAccess keeps users in spaces they can still access	pass
+test	apps/server	WsService.removeUsersWithoutSpaceAccess removes users who lost access from the space room and its bases::WsService.removeUsersWithoutSpaceAccess removes users who lost access from the space room and its bases	pass
+test	apps/server	buildGitHubPatterns does not match a longer path segment as the list::buildGitHubPatterns does not match a longer path segment as the list	pass
+test	apps/server	buildGitHubPatterns does not match https://github.com/o/r#/blob/main/a.ts::buildGitHubPatterns does not match https://github.com/o/r#/blob/main/a.ts	pass
+test	apps/server	buildGitHubPatterns does not match https://github.com/o/r#/releases::buildGitHubPatterns does not match https://github.com/o/r#/releases	pass
+test	apps/server	buildGitHubPatterns does not match https://github.com/o/r#x/pull/1::buildGitHubPatterns does not match https://github.com/o/r#x/pull/1	pass
+test	apps/server	buildGitHubPatterns does not match https://github.com/o/r?/commit/abc123::buildGitHubPatterns does not match https://github.com/o/r?/commit/abc123	pass
+test	apps/server	buildGitHubPatterns does not match https://github.com/o/r?x=/issues::buildGitHubPatterns does not match https://github.com/o/r?x=/issues	pass
+test	apps/server	buildGitHubPatterns does not match https://github.com/o/r?x=/pull/1/commits/abc123::buildGitHubPatterns does not match https://github.com/o/r?x=/pull/1/commits/abc123	pass
+test	apps/server	buildGitHubPatterns does not match https://github.com/o/r?x=/pull/1::buildGitHubPatterns does not match https://github.com/o/r?x=/pull/1	pass
+test	apps/server	buildGitHubPatterns does not match https://github.com/o/r?x=/pulls::buildGitHubPatterns does not match https://github.com/o/r?x=/pulls	pass
+test	apps/server	buildGitHubPatterns does not match https://github.com/o?x=/r/issues/1::buildGitHubPatterns does not match https://github.com/o?x=/r/issues/1	pass
+test	apps/server	buildGitHubPatterns keeps the pulls and releases list patterns linear on a crafted input::buildGitHubPatterns keeps the pulls and releases list patterns linear on a crafted input	pass
+test	apps/server	buildGitHubPatterns paths the browser would resolve elsewhere agrees with the editor patterns on https://github.com/../user?x=/pull/1::buildGitHubPatterns paths the browser would resolve elsewhere agrees with the editor patterns on https://github.com/../user?x=/pull/1	pass
+test	apps/server	buildGitHubPatterns paths the browser would resolve elsewhere agrees with the editor patterns on https://github.com/a/b/blob/main/../../../evil/x/blob/main/secret.txt::buildGitHubPatterns paths the browser would resolve elsewhere agrees with the editor patterns on https://github.com/a/b/blob/main/../../../evil/x/blob/main/secret.txt	pass
+test	apps/server	buildGitHubPatterns paths the browser would resolve elsewhere agrees with the editor patterns on https://github.com/a/b/commit/abc123/./x::buildGitHubPatterns paths the browser would resolve elsewhere agrees with the editor patterns on https://github.com/a/b/commit/abc123/./x	pass
+test	apps/server	buildGitHubPatterns paths the browser would resolve elsewhere agrees with the editor patterns on https://github.com/a/b/issues/1/..::buildGitHubPatterns paths the browser would resolve elsewhere agrees with the editor patterns on https://github.com/a/b/issues/1/..	pass
+test	apps/server	buildGitHubPatterns paths the browser would resolve elsewhere agrees with the editor patterns on https://github.com/a/b/issues/1/..?x=1::buildGitHubPatterns paths the browser would resolve elsewhere agrees with the editor patterns on https://github.com/a/b/issues/1/..?x=1	pass
+test	apps/server	buildGitHubPatterns paths the browser would resolve elsewhere agrees with the editor patterns on https://github.com/a/b/issues/created_by/../../../evil/x/issues::buildGitHubPatterns paths the browser would resolve elsewhere agrees with the editor patterns on https://github.com/a/b/issues/created_by/../../../evil/x/issues	pass
+test	apps/server	buildGitHubPatterns paths the browser would resolve elsewhere agrees with the editor patterns on https://github.com/a/b/pull/1/%2e%2e/%2E%2E/%2e./.%2e/evil/x/pull/2::buildGitHubPatterns paths the browser would resolve elsewhere agrees with the editor patterns on https://github.com/a/b/pull/1/%2e%2e/%2E%2E/%2e./.%2e/evil/x/pull/2	pass
+test	apps/server	buildGitHubPatterns paths the browser would resolve elsewhere agrees with the editor patterns on https://github.com/a/b/pull/1/../../../../evil/x/pull/2::buildGitHubPatterns paths the browser would resolve elsewhere agrees with the editor patterns on https://github.com/a/b/pull/1/../../../../evil/x/pull/2	pass
+test	apps/server	buildGitHubPatterns paths the browser would resolve elsewhere agrees with the editor patterns on https://github.com/a/b/pull/1/commits/abc123/../../../../../evil/x/pull/2::buildGitHubPatterns paths the browser would resolve elsewhere agrees with the editor patterns on https://github.com/a/b/pull/1/commits/abc123/../../../../../evil/x/pull/2	pass
+test	apps/server	buildGitHubPatterns paths the browser would resolve elsewhere agrees with the editor patterns on https://github.com/a/b/pull/1\..\..\evil::buildGitHubPatterns paths the browser would resolve elsewhere agrees with the editor patterns on https://github.com/a/b/pull/1\..\..\evil	pass
+test	apps/server	buildGitHubPatterns paths the browser would resolve elsewhere agrees with the editor patterns on https://github.com/a/b/pulls/../../evil/x/pulls::buildGitHubPatterns paths the browser would resolve elsewhere agrees with the editor patterns on https://github.com/a/b/pulls/../../evil/x/pulls	pass
+test	apps/server	buildGitHubPatterns paths the browser would resolve elsewhere agrees with the editor patterns on https://github.com/a/b/releases/./tag/v1::buildGitHubPatterns paths the browser would resolve elsewhere agrees with the editor patterns on https://github.com/a/b/releases/./tag/v1	pass
+test	apps/server	buildGitHubPatterns paths the browser would resolve elsewhere agrees with the editor patterns on https://github.com/a\b/c/pull/1::buildGitHubPatterns paths the browser would resolve elsewhere agrees with the editor patterns on https://github.com/a\b/c/pull/1	pass
+test	apps/server	buildGitHubPatterns paths the browser would resolve elsewhere agrees with the editor patterns on https://github.com/my-org_1/repo.name-x/pull/1::buildGitHubPatterns paths the browser would resolve elsewhere agrees with the editor patterns on https://github.com/my-org_1/repo.name-x/pull/1	pass
+test	apps/server	buildGitHubPatterns paths the browser would resolve elsewhere agrees with the editor patterns on https://github.com/o/.../issues/3::buildGitHubPatterns paths the browser would resolve elsewhere agrees with the editor patterns on https://github.com/o/.../issues/3	pass
+test	apps/server	buildGitHubPatterns paths the browser would resolve elsewhere agrees with the editor patterns on https://github.com/o/.github/pull/1::buildGitHubPatterns paths the browser would resolve elsewhere agrees with the editor patterns on https://github.com/o/.github/pull/1	pass
+test	apps/server	buildGitHubPatterns paths the browser would resolve elsewhere agrees with the editor patterns on https://github.com/o/my..repo/issues/2::buildGitHubPatterns paths the browser would resolve elsewhere agrees with the editor patterns on https://github.com/o/my..repo/issues/2	pass
+test	apps/server	buildGitHubPatterns paths the browser would resolve elsewhere agrees with the editor patterns on https://github.com/o/r#/blob/main/a.ts::buildGitHubPatterns paths the browser would resolve elsewhere agrees with the editor patterns on https://github.com/o/r#/blob/main/a.ts	pass
+test	apps/server	buildGitHubPatterns paths the browser would resolve elsewhere agrees with the editor patterns on https://github.com/o/r#/releases::buildGitHubPatterns paths the browser would resolve elsewhere agrees with the editor patterns on https://github.com/o/r#/releases	pass
+test	apps/server	buildGitHubPatterns paths the browser would resolve elsewhere agrees with the editor patterns on https://github.com/o/r#x/pull/1::buildGitHubPatterns paths the browser would resolve elsewhere agrees with the editor patterns on https://github.com/o/r#x/pull/1	pass
+test	apps/server	buildGitHubPatterns paths the browser would resolve elsewhere agrees with the editor patterns on https://github.com/o/r/blob/main/.github/workflows/ci.yml#L1-L3::buildGitHubPatterns paths the browser would resolve elsewhere agrees with the editor patterns on https://github.com/o/r/blob/main/.github/workflows/ci.yml#L1-L3	pass
+test	apps/server	buildGitHubPatterns paths the browser would resolve elsewhere agrees with the editor patterns on https://github.com/o/r/blob/main/src/..hidden/a.ts::buildGitHubPatterns paths the browser would resolve elsewhere agrees with the editor patterns on https://github.com/o/r/blob/main/src/..hidden/a.ts	pass
+test	apps/server	buildGitHubPatterns paths the browser would resolve elsewhere agrees with the editor patterns on https://github.com/o/r/commit/abc123::buildGitHubPatterns paths the browser would resolve elsewhere agrees with the editor patterns on https://github.com/o/r/commit/abc123	pass
+test	apps/server	buildGitHubPatterns paths the browser would resolve elsewhere agrees with the editor patterns on https://github.com/o/r/pull/1#discussion_r1/../..::buildGitHubPatterns paths the browser would resolve elsewhere agrees with the editor patterns on https://github.com/o/r/pull/1#discussion_r1/../..	pass
+test	apps/server	buildGitHubPatterns paths the browser would resolve elsewhere agrees with the editor patterns on https://github.com/o/r/pulls?q=../../x::buildGitHubPatterns paths the browser would resolve elsewhere agrees with the editor patterns on https://github.com/o/r/pulls?q=../../x	pass
+test	apps/server	buildGitHubPatterns paths the browser would resolve elsewhere agrees with the editor patterns on https://github.com/o/r::buildGitHubPatterns paths the browser would resolve elsewhere agrees with the editor patterns on https://github.com/o/r	pass
+test	apps/server	buildGitHubPatterns paths the browser would resolve elsewhere agrees with the editor patterns on https://github.com/o/r?/commit/abc123::buildGitHubPatterns paths the browser would resolve elsewhere agrees with the editor patterns on https://github.com/o/r?/commit/abc123	pass
+test	apps/server	buildGitHubPatterns paths the browser would resolve elsewhere agrees with the editor patterns on https://github.com/o/r?x=/issues::buildGitHubPatterns paths the browser would resolve elsewhere agrees with the editor patterns on https://github.com/o/r?x=/issues	pass
+test	apps/server	buildGitHubPatterns paths the browser would resolve elsewhere agrees with the editor patterns on https://github.com/o/r?x=/pull/1/commits/abc123::buildGitHubPatterns paths the browser would resolve elsewhere agrees with the editor patterns on https://github.com/o/r?x=/pull/1/commits/abc123	pass
+test	apps/server	buildGitHubPatterns paths the browser would resolve elsewhere agrees with the editor patterns on https://github.com/o/r?x=/pull/1::buildGitHubPatterns paths the browser would resolve elsewhere agrees with the editor patterns on https://github.com/o/r?x=/pull/1	pass
+test	apps/server	buildGitHubPatterns paths the browser would resolve elsewhere agrees with the editor patterns on https://github.com/o/r?x=/pulls::buildGitHubPatterns paths the browser would resolve elsewhere agrees with the editor patterns on https://github.com/o/r?x=/pulls	pass
+test	apps/server	buildGitHubPatterns paths the browser would resolve elsewhere agrees with the editor patterns on https://github.com/o?x=/r/issues/1::buildGitHubPatterns paths the browser would resolve elsewhere agrees with the editor patterns on https://github.com/o?x=/r/issues/1	pass
+test	apps/server	buildGitHubPatterns paths the browser would resolve elsewhere does not match https://github.com/../user?x=/pull/1::buildGitHubPatterns paths the browser would resolve elsewhere does not match https://github.com/../user?x=/pull/1	pass
+test	apps/server	buildGitHubPatterns paths the browser would resolve elsewhere does not match https://github.com/a/b/blob/main/../../../evil/x/blob/main/secret.txt::buildGitHubPatterns paths the browser would resolve elsewhere does not match https://github.com/a/b/blob/main/../../../evil/x/blob/main/secret.txt	pass
+test	apps/server	buildGitHubPatterns paths the browser would resolve elsewhere does not match https://github.com/a/b/commit/abc123/./x::buildGitHubPatterns paths the browser would resolve elsewhere does not match https://github.com/a/b/commit/abc123/./x	pass
+test	apps/server	buildGitHubPatterns paths the browser would resolve elsewhere does not match https://github.com/a/b/issues/1/..::buildGitHubPatterns paths the browser would resolve elsewhere does not match https://github.com/a/b/issues/1/..	pass
+test	apps/server	buildGitHubPatterns paths the browser would resolve elsewhere does not match https://github.com/a/b/issues/1/..?x=1::buildGitHubPatterns paths the browser would resolve elsewhere does not match https://github.com/a/b/issues/1/..?x=1	pass
+test	apps/server	buildGitHubPatterns paths the browser would resolve elsewhere does not match https://github.com/a/b/issues/created_by/../../../evil/x/issues::buildGitHubPatterns paths the browser would resolve elsewhere does not match https://github.com/a/b/issues/created_by/../../../evil/x/issues	pass
+test	apps/server	buildGitHubPatterns paths the browser would resolve elsewhere does not match https://github.com/a/b/pull/1/%2e%2e/%2E%2E/%2e./.%2e/evil/x/pull/2::buildGitHubPatterns paths the browser would resolve elsewhere does not match https://github.com/a/b/pull/1/%2e%2e/%2E%2E/%2e./.%2e/evil/x/pull/2	pass
+test	apps/server	buildGitHubPatterns paths the browser would resolve elsewhere does not match https://github.com/a/b/pull/1/../../../../evil/x/pull/2::buildGitHubPatterns paths the browser would resolve elsewhere does not match https://github.com/a/b/pull/1/../../../../evil/x/pull/2	pass
+test	apps/server	buildGitHubPatterns paths the browser would resolve elsewhere does not match https://github.com/a/b/pull/1/commits/abc123/../../../../../evil/x/pull/2::buildGitHubPatterns paths the browser would resolve elsewhere does not match https://github.com/a/b/pull/1/commits/abc123/../../../../../evil/x/pull/2	pass
+test	apps/server	buildGitHubPatterns paths the browser would resolve elsewhere does not match https://github.com/a/b/pull/1\..\..\evil::buildGitHubPatterns paths the browser would resolve elsewhere does not match https://github.com/a/b/pull/1\..\..\evil	pass
+test	apps/server	buildGitHubPatterns paths the browser would resolve elsewhere does not match https://github.com/a/b/pulls/../../evil/x/pulls::buildGitHubPatterns paths the browser would resolve elsewhere does not match https://github.com/a/b/pulls/../../evil/x/pulls	pass
+test	apps/server	buildGitHubPatterns paths the browser would resolve elsewhere does not match https://github.com/a/b/releases/./tag/v1::buildGitHubPatterns paths the browser would resolve elsewhere does not match https://github.com/a/b/releases/./tag/v1	pass
+test	apps/server	buildGitHubPatterns paths the browser would resolve elsewhere does not match https://github.com/a\b/c/pull/1::buildGitHubPatterns paths the browser would resolve elsewhere does not match https://github.com/a\b/c/pull/1	pass
+test	apps/server	buildGitHubPatterns paths the browser would resolve elsewhere guards a GitHub Enterprise host the same way::buildGitHubPatterns paths the browser would resolve elsewhere guards a GitHub Enterprise host the same way	pass
+test	apps/server	buildGitHubPatterns paths the browser would resolve elsewhere stays linear on hostile input::buildGitHubPatterns paths the browser would resolve elsewhere stays linear on hostile input	pass
+test	apps/server	buildGitHubPatterns paths the browser would resolve elsewhere still matches https://github.com/my-org_1/repo.name-x/pull/1 as github-pr::buildGitHubPatterns paths the browser would resolve elsewhere still matches https://github.com/my-org_1/repo.name-x/pull/1 as github-pr	pass
+test	apps/server	buildGitHubPatterns paths the browser would resolve elsewhere still matches https://github.com/o/.../issues/3 as github-issue::buildGitHubPatterns paths the browser would resolve elsewhere still matches https://github.com/o/.../issues/3 as github-issue	pass
+test	apps/server	buildGitHubPatterns paths the browser would resolve elsewhere still matches https://github.com/o/.github/pull/1 as github-pr::buildGitHubPatterns paths the browser would resolve elsewhere still matches https://github.com/o/.github/pull/1 as github-pr	pass
+test	apps/server	buildGitHubPatterns paths the browser would resolve elsewhere still matches https://github.com/o/my..repo/issues/2 as github-issue::buildGitHubPatterns paths the browser would resolve elsewhere still matches https://github.com/o/my..repo/issues/2 as github-issue	pass
+test	apps/server	buildGitHubPatterns paths the browser would resolve elsewhere still matches https://github.com/o/r as github-repo::buildGitHubPatterns paths the browser would resolve elsewhere still matches https://github.com/o/r as github-repo	pass
+test	apps/server	buildGitHubPatterns paths the browser would resolve elsewhere still matches https://github.com/o/r/blob/main/.github/workflows/ci.yml#L1-L3 as github-file::buildGitHubPatterns paths the browser would resolve elsewhere still matches https://github.com/o/r/blob/main/.github/workflows/ci.yml#L1-L3 as github-file	pass
+test	apps/server	buildGitHubPatterns paths the browser would resolve elsewhere still matches https://github.com/o/r/blob/main/src/..hidden/a.ts as github-file::buildGitHubPatterns paths the browser would resolve elsewhere still matches https://github.com/o/r/blob/main/src/..hidden/a.ts as github-file	pass
+test	apps/server	buildGitHubPatterns paths the browser would resolve elsewhere still matches https://github.com/o/r/commit/abc123 as github-commit::buildGitHubPatterns paths the browser would resolve elsewhere still matches https://github.com/o/r/commit/abc123 as github-commit	pass
+test	apps/server	buildGitHubPatterns paths the browser would resolve elsewhere still matches https://github.com/o/r/pull/1#discussion_r1/../.. as github-pr::buildGitHubPatterns paths the browser would resolve elsewhere still matches https://github.com/o/r/pull/1#discussion_r1/../.. as github-pr	pass
+test	apps/server	buildGitHubPatterns paths the browser would resolve elsewhere still matches https://github.com/o/r/pulls?q=../../x as github-pulls-list::buildGitHubPatterns paths the browser would resolve elsewhere still matches https://github.com/o/r/pulls?q=../../x as github-pulls-list	pass
+test	apps/server	buildGitHubPatterns still matches https://github.com/o/r/pulls as github-pulls-list::buildGitHubPatterns still matches https://github.com/o/r/pulls as github-pulls-list	pass
+test	apps/server	buildGitHubPatterns still matches https://github.com/o/r/pulls/ as github-pulls-list::buildGitHubPatterns still matches https://github.com/o/r/pulls/ as github-pulls-list	pass
+test	apps/server	buildGitHubPatterns still matches https://github.com/o/r/pulls/extra as github-pulls-list::buildGitHubPatterns still matches https://github.com/o/r/pulls/extra as github-pulls-list	pass
+test	apps/server	buildGitHubPatterns still matches https://github.com/o/r/pulls?q=is%3Aopen as github-pulls-list::buildGitHubPatterns still matches https://github.com/o/r/pulls?q=is%3Aopen as github-pulls-list	pass
+test	apps/server	buildGitHubPatterns still matches https://github.com/o/r/releases as github-releases-list::buildGitHubPatterns still matches https://github.com/o/r/releases as github-releases-list	pass
+test	apps/server	buildGitHubPatterns still matches https://github.com/o/r/releases/tag/v1.0.0?x=1 as github-releases-list::buildGitHubPatterns still matches https://github.com/o/r/releases/tag/v1.0.0?x=1 as github-releases-list	pass
 test	apps/server	collapseBlankLines collapses "" to ""::collapseBlankLines collapses "" to ""	pass
 test	apps/server	collapseBlankLines collapses "\n\n\n\na\n\n\n" to "\n\na\n\n"::collapseBlankLines collapses "\n\n\n\na\n\n\n" to "\n\na\n\n"	pass
 test	apps/server	collapseBlankLines collapses "a\n\n\n\nb" to "a\n\nb"::collapseBlankLines collapses "a\n\n\n\nb" to "a\n\nb"	pass
@@ -377,6 +1144,19 @@ test	apps/server	containsDomain normal names — should allow allows "O'Brien"::
 test	apps/server	containsDomain too short suffix — should allow allows "A.B"::containsDomain too short suffix — should allow allows "A.B"	pass
 test	apps/server	containsDomain too short suffix — should allow allows "Foo.a"::containsDomain too short suffix — should allow allows "Foo.a"	pass
 test	apps/server	containsDomain too short suffix — should allow allows "Foo.c"::containsDomain too short suffix — should allow allows "Foo.c"	pass
+test	apps/server	createPinoConfig request serializer falls back to the socket address when no ip was resolved::createPinoConfig request serializer falls back to the socket address when no ip was resolved	pass
+test	apps/server	createPinoConfig request serializer logs the client ip resolved for the request::createPinoConfig request serializer logs the client ip resolved for the request	pass
+test	apps/server	credentialEnvKey names credentials after the provider type by default::credentialEnvKey names credentials after the provider type by default	pass
+test	apps/server	credentialEnvKey names credentials after the shared authorization server when declared::credentialEnvKey names credentials after the shared authorization server when declared	pass
+test	apps/server	getProxyAwareFetch proxyFetch delegates to the platform fetch when no proxy is configured::getProxyAwareFetch proxyFetch delegates to the platform fetch when no proxy is configured	pass
+test	apps/server	getProxyAwareFetch returns a fetch function when HTTPS_PROXY is set::getProxyAwareFetch returns a fetch function when HTTPS_PROXY is set	pass
+test	apps/server	getProxyAwareFetch returns a fetch function when HTTP_PROXY is set::getProxyAwareFetch returns a fetch function when HTTP_PROXY is set	pass
+test	apps/server	getProxyAwareFetch returns a fetch function when lowercase http_proxy is set::getProxyAwareFetch returns a fetch function when lowercase http_proxy is set	pass
+test	apps/server	getProxyAwareFetch returns undefined when no proxy env vars are set::getProxyAwareFetch returns undefined when no proxy env vars are set	pass
+test	apps/server	htmlToMarkdown adds an empty header when the table has no header row::htmlToMarkdown adds an empty header when the table has no header row	pass
+test	apps/server	htmlToMarkdown exports each tab as a level 4 heading followed by its content::htmlToMarkdown exports each tab as a level 4 heading followed by its content	pass
+test	apps/server	htmlToMarkdown marks details blocks so their content is parsed as markdown::htmlToMarkdown marks details blocks so their content is parsed as markdown	pass
+test	apps/server	htmlToMarkdown uses the table header row as the markdown header::htmlToMarkdown uses the table header row as the markdown header	pass
 test	apps/server	indent attribute round-trip clamps out-of-range data-indent values::indent attribute round-trip clamps out-of-range data-indent values	pass
 test	apps/server	indent attribute round-trip omits data-indent for indent zero::indent attribute round-trip omits data-indent for indent zero	pass
 test	apps/server	indent attribute round-trip parses data-indent on a heading into the indent attribute::indent attribute round-trip parses data-indent on a heading into the indent attribute	pass
@@ -474,6 +1254,24 @@ test	apps/server	isPrivateAddress flags fd12::1 as private or reserved::isPrivat
 test	apps/server	isPrivateAddress flags fe80::1 as private or reserved::isPrivateAddress flags fe80::1 as private or reserved	pass
 test	apps/server	isPrivateAddress flags fec0::1 as private or reserved::isPrivateAddress flags fec0::1 as private or reserved	pass
 test	apps/server	isPrivateAddress flags ff02::1 as private or reserved::isPrivateAddress flags ff02::1 as private or reserved	pass
+test	apps/server	linearPatterns are the four patterns the editor matches pasted links with, in the same order::linearPatterns are the four patterns the editor matches pasted links with, in the same order	pass
+test	apps/server	linearPatterns does not match https://linear.app/./view/v1::linearPatterns does not match https://linear.app/./view/v1	pass
+test	apps/server	linearPatterns does not match https://linear.app/acme/initiative/i\..\..\evil::linearPatterns does not match https://linear.app/acme/initiative/i\..\..\evil	pass
+test	apps/server	linearPatterns does not match https://linear.app/acme/issue/ABC-1/%2e%2e/%2E%2e/%2e./evil/issue/XYZ-2::linearPatterns does not match https://linear.app/acme/issue/ABC-1/%2e%2e/%2E%2e/%2e./evil/issue/XYZ-2	pass
+test	apps/server	linearPatterns does not match https://linear.app/acme/issue/ABC-1/../../../evil/issue/XYZ-2::linearPatterns does not match https://linear.app/acme/issue/ABC-1/../../../evil/issue/XYZ-2	pass
+test	apps/server	linearPatterns does not match https://linear.app/acme/issue/ABC-1/slug/..::linearPatterns does not match https://linear.app/acme/issue/ABC-1/slug/..	pass
+test	apps/server	linearPatterns does not match https://linear.app/acme/project/p/../../../evil/project/q::linearPatterns does not match https://linear.app/acme/project/p/../../../evil/project/q	pass
+test	apps/server	linearPatterns does not match https://linear.app/acme/view/v1/..?x=1::linearPatterns does not match https://linear.app/acme/view/v1/..?x=1	pass
+test	apps/server	linearPatterns does not match https://linear.app/acme/view/v1/.::linearPatterns does not match https://linear.app/acme/view/v1/.	pass
+test	apps/server	linearPatterns matches https://linear.app/acme/initiative/q4-goals-8a7b6c5d4e3f as linear-initiative::linearPatterns matches https://linear.app/acme/initiative/q4-goals-8a7b6c5d4e3f as linear-initiative	pass
+test	apps/server	linearPatterns matches https://linear.app/acme/issue/ABC-1 as linear-issue::linearPatterns matches https://linear.app/acme/issue/ABC-1 as linear-issue	pass
+test	apps/server	linearPatterns matches https://linear.app/acme/issue/ABC-1#comment-1/../.. as linear-issue::linearPatterns matches https://linear.app/acme/issue/ABC-1#comment-1/../.. as linear-issue	pass
+test	apps/server	linearPatterns matches https://linear.app/acme/issue/ABC-1/fix-the-login as linear-issue::linearPatterns matches https://linear.app/acme/issue/ABC-1/fix-the-login as linear-issue	pass
+test	apps/server	linearPatterns matches https://linear.app/acme/issue/ABC-1?q=../.. as linear-issue::linearPatterns matches https://linear.app/acme/issue/ABC-1?q=../.. as linear-issue	pass
+test	apps/server	linearPatterns matches https://linear.app/acme/project/mobile-app-1b9607f47174/overview as linear-project::linearPatterns matches https://linear.app/acme/project/mobile-app-1b9607f47174/overview as linear-project	pass
+test	apps/server	linearPatterns matches https://linear.app/acme/view/..x as linear-view::linearPatterns matches https://linear.app/acme/view/..x as linear-view	pass
+test	apps/server	overrideRequestIp is visible to Nest middleware when added before NestFactory.create::overrideRequestIp is visible to Nest middleware when added before NestFactory.create	pass
+test	apps/server	overrideRequestIp replaces the X-Forwarded-For entry trustProxy picks::overrideRequestIp replaces the X-Forwarded-For entry trustProxy picks	pass
 test	apps/server	parseOutboundNetworkPolicy accepts 10.0.0.0/8, whose address sits on its prefix boundary::parseOutboundNetworkPolicy accepts 10.0.0.0/8, whose address sits on its prefix boundary	pass
 test	apps/server	parseOutboundNetworkPolicy accepts 100.64.0.0/10, whose address sits on its prefix boundary::parseOutboundNetworkPolicy accepts 100.64.0.0/10, whose address sits on its prefix boundary	pass
 test	apps/server	parseOutboundNetworkPolicy accepts 172.16.0.0/12, whose address sits on its prefix boundary::parseOutboundNetworkPolicy accepts 172.16.0.0/12, whose address sits on its prefix boundary	pass
@@ -511,6 +1309,40 @@ test	apps/server	parseOutboundNetworkPolicy parses a mode followed by entries::p
 test	apps/server	parseOutboundNetworkPolicy parses an entry with a port and matches only that port::parseOutboundNetworkPolicy parses an entry with a port and matches only that port	pass
 test	apps/server	parseOutboundNetworkPolicy treats an empty value as none with no entries::parseOutboundNetworkPolicy treats an empty value as none with no entries	pass
 test	apps/server	parseOutboundNetworkPolicy treats entries without a mode as none plus those entries::parseOutboundNetworkPolicy treats entries without a mode as none plus those entries	pass
+test	apps/server	providerApiFetch keeps the reason a 401 gives in its body and headers::providerApiFetch keeps the reason a 401 gives in its body and headers	pass
+test	apps/server	providerApiFetch reports a bare 401 with the status alone::providerApiFetch reports a bare 401 with the status alone	pass
+test	apps/server	providerApiFetch reports a redirecting provider endpoint as an unexpected redirect instead of following it::providerApiFetch reports a redirecting provider endpoint as an unexpected redirect instead of following it	pass
+test	apps/server	providerApiFetch response size cap hands back the status, headers and body of a response within the cap::providerApiFetch response size cap hands back the status, headers and body of a response within the cap	pass
+test	apps/server	providerApiFetch response size cap keeps the status of an error whose body is too large to quote::providerApiFetch response size cap keeps the status of an error whose body is too large to quote	pass
+test	apps/server	providerApiFetch response size cap refuses a declared length over the cap without waiting for the body::providerApiFetch response size cap refuses a declared length over the cap without waiting for the body	pass
+test	apps/server	providerApiFetch response size cap stops reading a body that never ends once it passes the cap::providerApiFetch response size cap stops reading a body that never ends once it passes the cap	pass
+test	apps/server	resolveClientIp drops IPv6 zone ids::resolveClientIp drops IPv6 zone ids	pass
+test	apps/server	resolveClientIp falls back to the proxy address when X-Forwarded-For is (null)::resolveClientIp falls back to the proxy address when X-Forwarded-For is (null)	pass
+test	apps/server	resolveClientIp falls back to the proxy address when X-Forwarded-For is unknown::resolveClientIp falls back to the proxy address when X-Forwarded-For is unknown	pass
+test	apps/server	resolveClientIp ignores CF-Connecting-IP from a client that connects directly::resolveClientIp ignores CF-Connecting-IP from a client that connects directly	pass
+test	apps/server	resolveClientIp ignores True-Client-IP from a client that connects directly::resolveClientIp ignores True-Client-IP from a client that connects directly	pass
+test	apps/server	resolveClientIp ignores X-Client-IP from a client that connects directly::resolveClientIp ignores X-Client-IP from a client that connects directly	pass
+test	apps/server	resolveClientIp ignores X-Forwarded-For from a client that connects directly::resolveClientIp ignores X-Forwarded-For from a client that connects directly	pass
+test	apps/server	resolveClientIp ignores X-Real-IP from a client that connects directly::resolveClientIp ignores X-Real-IP from a client that connects directly	pass
+test	apps/server	resolveClientIp reads X-Forwarded-For written by Traefik or Caddy replacing the header::resolveClientIp reads X-Forwarded-For written by Traefik or Caddy replacing the header	pass
+test	apps/server	resolveClientIp reads X-Forwarded-For written by a chain of private proxies::resolveClientIp reads X-Forwarded-For written by a chain of private proxies	pass
+test	apps/server	resolveClientIp reads X-Forwarded-For written by a proxy on loopback::resolveClientIp reads X-Forwarded-For written by a proxy on loopback	pass
+test	apps/server	resolveClientIp reads X-Forwarded-For written by an AWS ALB after a junk entry::resolveClientIp reads X-Forwarded-For written by an AWS ALB after a junk entry	pass
+test	apps/server	resolveClientIp reads X-Forwarded-For written by an Azure App Service front end::resolveClientIp reads X-Forwarded-For written by an Azure App Service front end	pass
+test	apps/server	resolveClientIp reads X-Forwarded-For written by an Azure Container Apps ingress::resolveClientIp reads X-Forwarded-For written by an Azure Container Apps ingress	pass
+test	apps/server	resolveClientIp reads X-Forwarded-For written by nginx appending to a client-sent header::resolveClientIp reads X-Forwarded-For written by nginx appending to a client-sent header	pass
+test	apps/server	resolveClientIp resolves Cloudflare connecting to Docmost directly::resolveClientIp resolves Cloudflare connecting to Docmost directly	pass
+test	apps/server	resolveClientIp resolves Cloudflare over IPv6::resolveClientIp resolves Cloudflare over IPv6	pass
+test	apps/server	resolveClientIp resolves Cloudflare through a proxy that replaces X-Forwarded-For::resolveClientIp resolves Cloudflare through a proxy that replaces X-Forwarded-For	pass
+test	apps/server	resolveClientIp resolves Cloudflare through a proxy that trusts Cloudflare::resolveClientIp resolves Cloudflare through a proxy that trusts Cloudflare	pass
+test	apps/server	resolveClientIp resolves a Cloudflare edge with an invalid CF-Connecting-IP::resolveClientIp resolves a Cloudflare edge with an invalid CF-Connecting-IP	pass
+test	apps/server	resolveClientIp resolves a Cloudflare edge without CF-Connecting-IP::resolveClientIp resolves a Cloudflare edge without CF-Connecting-IP	pass
+test	apps/server	resolveClientIp resolves a client forging a Cloudflare hop behind nginx::resolveClientIp resolves a client forging a Cloudflare hop behind nginx	pass
+test	apps/server	resolveClientIp resolves a direct client forging CF-Connecting-IP::resolveClientIp resolves a direct client forging CF-Connecting-IP	pass
+test	apps/server	resolveClientIp returns undefined when the socket has no address::resolveClientIp returns undefined when the socket has no address	pass
+test	apps/server	resolveClientIp strips the port that Azure Application Gateway adds::resolveClientIp strips the port that Azure Application Gateway adds	pass
+test	apps/server	resolveClientIp strips the port that an ALB with client ports on IPv6 adds::resolveClientIp strips the port that an ALB with client ports on IPv6 adds	pass
+test	apps/server	resolveClientIp unwraps IPv4-mapped addresses::resolveClientIp unwraps IPv4-mapped addresses	pass
 test	apps/server	resolveFrameHeader denies framing with X-Frame-Options when embedding is off::resolveFrameHeader denies framing with X-Frame-Options when embedding is off	pass
 test	apps/server	resolveFrameHeader emits a frame-ancestors CSP for the allowed origins::resolveFrameHeader emits a frame-ancestors CSP for the allowed origins	pass
 test	apps/server	resolveFrameHeader returns null when embedding is on but no origins are configured::resolveFrameHeader returns null when embedding is on but no origins are configured	pass
@@ -549,6 +1381,22 @@ test	apps/server	sanitizeFileName default (storage-safe) strips illegal chars fr
 test	apps/server	sanitizeFileName preserveSpaces option keeps spaces and # untouched::sanitizeFileName preserveSpaces option keeps spaces and # untouched	pass
 test	apps/server	sanitizeFileName preserveSpaces option preserves accented and unicode chars::sanitizeFileName preserveSpaces option preserves accented and unicode chars	pass
 test	apps/server	sanitizeFileName preserveSpaces option still strips illegal chars and decodes percent-encoding::sanitizeFileName preserveSpaces option still strips illegal chars and decodes percent-encoding	pass
-count	apps/server	tests	426
-coverage	apps/server	17.3
+test	apps/server	supportsOAuthConnect is false for providers without OAuth::supportsOAuthConnect is false for providers without OAuth	pass
+test	apps/server	supportsOAuthConnect is false for workspace-scoped providers without an identity flow::supportsOAuthConnect is false for workspace-scoped providers without an identity flow	pass
+test	apps/server	supportsOAuthConnect is true for per-user providers::supportsOAuthConnect is true for per-user providers	pass
+test	apps/server	supportsOAuthConnect is true for workspace-scoped providers with an identity flow::supportsOAuthConnect is true for workspace-scoped providers with an identity flow	pass
+test	apps/server	toProviderAccount leaves out names the provider did not return or left blank::toProviderAccount leaves out names the provider did not return or left blank	pass
+test	apps/server	toProviderAccount refuses a profile without an id ("")::toProviderAccount refuses a profile without an id ("")	pass
+test	apps/server	toProviderAccount refuses a profile without an id (null)::toProviderAccount refuses a profile without an id (null)	pass
+test	apps/server	toProviderAccount refuses a profile without an id (undefined)::toProviderAccount refuses a profile without an id (undefined)	pass
+test	apps/server	toProviderAccount refuses a profile without an id ({})::toProviderAccount refuses a profile without an id ({})	pass
+test	apps/server	toProviderAccount stringifies a numeric id and keeps the names::toProviderAccount stringifies a numeric id and keeps the names	pass
+test	apps/server	withCache returns a cached value without running the lookup::withCache returns a cached value without running the lookup	pass
+test	apps/server	withCache skips the cache entirely when asked::withCache skips the cache entirely when asked	pass
+count	apps/server	tests	905
 lint	apps/server	src/common/helpers/utils.ts	1
+lint	apps/server	src/core/integration/dto/integration.dto.ts	2
+lint	apps/server	src/core/integration/integration.processor.spec.ts	1
+lint	apps/server	src/core/integration/utils/provider-fetch.spec.ts	1
+typecheck	apps/server	src/core/workspace/services/workspace.service.spec.ts	1
+coverage	apps/server	25.22
