@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(/apps/server/src/ee/**)",
+      "Read(/apps/client/src/ee/**)",
+      "Read(/packages/ee/**)",
+      "Edit(/apps/server/src/ee/**)",
+      "Edit(/apps/client/src/ee/**)",
+      "Edit(/packages/ee/**)"
+    ]
+  }
+}

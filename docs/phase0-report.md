@@ -23,7 +23,7 @@ Rule followed throughout: nothing under `apps/server/src/ee`, `apps/client/src/e
 
 - Working tree 13 MB, pack 19 MB, 52 migration files. Monorepo: pnpm 11.25 (corepack) + Nx 23. Server is NestJS + Fastify + Kysely, client is React + Vite + Mantine + Tiptap 3, collaboration is Hocuspocus/Yjs (runs inside the server process by default).
 - **Local setup that works** (verified 2026-10-23, Node 24.22):
-  1. `docker compose -f ../docker-compose.dev.yml up -d`: `pgvector/pgvector:pg18` on 5433 and `redis:8` on 6380. The pgvector image is chosen now because the AI schema needs it.
+  1. `docker compose -f docker-compose.dev.yml up -d`: `pgvector/pgvector:pg18` on 5433 and `redis:8` on 6380. The pgvector image is chosen now because the AI schema needs it.
   2. Copy `.env.example` to `.env`. Set `APP_SECRET` (`openssl rand -hex 32`), `DATABASE_URL=postgresql://docmost:docmost@localhost:5433/docmost`, `REDIS_URL=redis://127.0.0.1:6380`. `MAIL_DRIVER` must be `smtp` or `postmark`; `log` is rejected by validation.
   3. `corepack enable` (installs pnpm), then `pnpm install --frozen-lockfile` (~70 s), `pnpm build` (~90 s), and `pnpm --filter ./apps/server run migration:latest`.
   4. Start with `pnpm start` (prod build on :3000) or `pnpm dev` (client on Vite plus server in watch mode).
