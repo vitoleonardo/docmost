@@ -6,4 +6,4 @@ Status values: `draft` (spec being written) · `approved` (spec approved) · `pl
 
 | Feature | Spec | Status | Branch | Open questions |
 |---|---|---|---|---|
-| _example: invite users_ | `invite-users.md` | draft | 42-invite-users | 1 |
+| Seed data | `seed-data.md` | approved | m2-seed-data | 0 |

@@ -25,8 +25,9 @@ All are recorded in `docs/spec.md` (changelog v1.1, v1.2) or `docs/design/README
 - **Agent is Must** (M8), with a free-text task scoped to one readable space; its tools (search, read page, propose update) define what it can do. Nothing is written without confirmation of the exact diff.
 - **No hosted demo in v1.** Deliverable is a 2 to 3 minute video plus published eval and leak-test reports.
 - **Security hardening is deferred and documented** (spec section 12). The permission model (section 7) and leak tests stay Must.
-- **Seed data:** new fictional company; "Rheinwerk" is taken. Name still to be chosen and checked in M2.
+- **Seed data:** new fictional company; "Rheinwerk" is taken. Chosen 28.10.2026: "Ostmooimooi Anlagenbau GmbH" (web search and Handelsregister clean).
 - **Workflow:** every feature goes through the Agentic Workflow Kit (`vitoleonardo/agentic-development-template`, `templates/agentic-workflow-kit`): spec in `specs/`, plan, tests first, review, PR. UI features need an approved mockup first.
+- **Branches:** each M step gets its own branch `m<n>-<slug>` off `ai-v1` and one PR into `ai-v1` (decision 28.10.2026).
 - **Design:** one assistant panel in the aside with tabs "Fragen" and "Aufgabe", built like the Comments aside. A no-source answer reads the same for missing and restricted content. Sources show only after the citation check. Extraction is offered only to users who can edit the page. Diffs open in a modal.
 
 ## Next: finish M1, then M2
@@ -35,7 +36,7 @@ Done: fork runs locally, Ollama installed natively, kit installed and onboarded 
 
 1. ee lock: the sandbox stays off (spec v1.3). The guard blocks `head packages/ee/LICENSE`, but an indirect path passes it. CI's "ee imports" step (`scripts/check-ee-imports.sh`) fails a PR that adds an import from the ee code; it has not run on GitHub yet.
 2. Make the quality-gates workflow a required check on GitHub (human).
-3. M2: choose the fictional company name, then `/spec-feature seed-data`.
+3. M2 on branch `m2-seed-data`: spec draft in `specs/seed-data.md`; spec approved 28.10.2026, next `/plan-feature seed-data`.
 
 ## Local state that is not in the repo
 
