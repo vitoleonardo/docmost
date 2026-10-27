@@ -1,0 +1,247 @@
+#!/bin/sh
+# Lead time and review metrics of merged pull requests, from GitHub and git. POSIX sh, gh (with its built-in
+# --jq) and git; nothing else.
+# Usage: .claude/bin/leadtime [--since DATE] [--until DATE] [--baseline] [--split-by kit|none] [--format md|csv]
+#                             [--with-titles]
+#   --baseline     measure the 90 days before today; write reports/lead-time-baseline.md and .csv
+#   default        from the baseline's end until today; write reports/lead-time.md (or .csv) with the baseline next to it
+#   --split-by kit PRs with an evidence pack (the kit-evidence comment) and without, side by side
+#   --with-titles  add PR titles and authors; left out by default so the report can be shown as it is
+# Times are wall clock, reported as median and p75 (nearest rank) in hours. Bots and dependency PRs are left out.
+# GH names the gh command (tests use a fake that serves recorded JSON). See docs/SPEC-v1.1.md, section 6.
+set -u
+
+root=$(CDPATH='' cd -- "$(dirname -- "$0")/../.." && pwd) || exit 2
+cd "$root" || exit 2
+GH=${GH:-gh}
+since="" until="" baseline=0 split=none format=md titles=0
+while [ $# -gt 0 ]; do
+  case $1 in
+    --since) since=${2:?--since needs a date}; shift 2 ;;
+    --until) until=${2:?--until needs a date}; shift 2 ;;
+    --baseline) baseline=1; shift ;;
+    --split-by) split=${2:?--split-by needs kit or none}; shift 2 ;;
+    --format) format=${2:?--format needs md or csv}; shift 2 ;;
+    --with-titles) titles=1; shift ;;
+    -h | --help) sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    *) echo "leadtime: unknown option $1" >&2; exit 2 ;;
+  esac
+done
+case $split in kit | none) ;; *) echo "leadtime: --split-by takes kit or none" >&2; exit 2 ;; esac
+case $format in md | csv) ;; *) echo "leadtime: --format takes md or csv" >&2; exit 2 ;; esac
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+
+# Date arithmetic in awk (days from the civil calendar), because date(1) differs between systems.
+dates='
+function days(y, m, d,    era, yoe, doy) {
+  y -= (m <= 2); era = int((y >= 0 ? y : y - 399) / 400); yoe = y - era * 400
+  doy = int((153 * (m + (m > 2 ? -3 : 9)) + 2) / 5) + d - 1
+  return era * 146097 + yoe * 365 + int(yoe / 4) - int(yoe / 100) + doy - 719468
+}
+function civil(z,    era, doe, yoe, y, doy, mp, d, m) {
+  z += 719468; era = int((z >= 0 ? z : z - 146096) / 146097); doe = z - era * 146097
+  yoe = int((doe - int(doe / 1460) + int(doe / 36524) - int(doe / 146096)) / 365)
+  y = yoe + era * 400; doy = doe - (365 * yoe + int(yoe / 4) - int(yoe / 100))
+  mp = int((5 * doy + 2) / 153); d = doy - int((153 * mp + 2) / 5) + 1; m = mp + (mp < 10 ? 3 : -9)
+  return sprintf("%04d-%02d-%02d", y + (m <= 2), m, d)
+}
+function secs(s) {
+  if (s == "") return -1
+  return days(substr(s, 1, 4) + 0, substr(s, 6, 2) + 0, substr(s, 9, 2) + 0) * 86400 + substr(s, 12, 2) * 3600 + substr(s, 15, 2) * 60 + substr(s, 18, 2)
+}
+'
+shift_date() { awk -v s="$1" -v n="$2" "$dates"'BEGIN { print civil(days(substr(s, 1, 4) + 0, substr(s, 6, 2) + 0, substr(s, 9, 2) + 0) + n) }'; }
+
+today=${LEADTIME_TODAY:-$(date -u +%Y-%m-%d)}
+mkdir -p reports
+base_csv=reports/lead-time-baseline.csv
+if [ "$baseline" -eq 1 ]; then
+  until=${until:-$today}
+  since=${since:-$(shift_date "$until" -90)}
+else
+  if [ -z "$since" ] && [ -f "$base_csv" ]; then
+    since=$(awk -F ',' 'NR == 2 { split($1, p, "\\.\\."); print p[2]; exit }' "$base_csv")
+  fi
+  since=${since:-$(shift_date "$today" -90)}
+  until=${until:-$today}
+fi
+
+repo=$($GH repo view --json nameWithOwner,defaultBranchRef --jq '.nameWithOwner + "\t" + .defaultBranchRef.name') || {
+  echo "leadtime: gh repo view failed; run it inside a GitHub repository with gh logged in." >&2
+  exit 2
+}
+name=${repo%%"	"*}
+default=${repo#*"	"}
+
+query='query($q: String!, $endCursor: String) {
+  search(query: $q, type: ISSUE, first: 50, after: $endCursor) {
+    pageInfo { hasNextPage endCursor }
+    nodes {
+      ... on PullRequest {
+        number title createdAt mergedAt additions deletions headRefName
+        author { login __typename }
+        labels(first: 20) { nodes { name } }
+        files(first: 100) { nodes { path } }
+        commits(first: 100) { nodes { commit { authoredDate committedDate } } }
+        reviews(first: 50) { nodes { author { login __typename } submittedAt state } }
+        comments(first: 50) { nodes { author { login __typename } createdAt body } }
+        timelineItems(itemTypes: [READY_FOR_REVIEW_EVENT], first: 5) { nodes { ... on ReadyForReviewEvent { createdAt } } }
+      }
+    }
+  }
+}'
+# One line per PR: number, author, bot, title, created, ready, merged, first commit, first review, changes requested,
+# pushes after the first review, changed lines, kit, fix, head branch, files.
+jq='.data.search.nodes[] | select(.number != null) | . as $p | ($p.author.login // "ghost") as $a
+  | ([($p.reviews.nodes[] | select(.author != null and .author.login != $a and .author.__typename != "Bot") | .submittedAt),
+      ($p.comments.nodes[] | select(.author != null and .author.login != $a and .author.__typename != "Bot"
+        and (.body | startswith("<!-- kit-evidence -->") | not)) | .createdAt)] | sort | .[0] // "") as $first
+  | [$p.number, $a, (if $p.author.__typename == "Bot" then 1 else 0 end), ($p.title | gsub("[\t\n\r]"; " ")),
+     $p.createdAt, (($p.timelineItems.nodes | map(.createdAt) | sort | .[0]) // $p.createdAt), $p.mergedAt,
+     (($p.commits.nodes | map(.commit.authoredDate) | sort | .[0]) // $p.createdAt), $first,
+     ([$p.reviews.nodes[] | select(.state == "CHANGES_REQUESTED")] | length),
+     (if $first == "" then 0 else ([$p.commits.nodes[] | select(.commit.committedDate > $first)] | length) end),
+     ($p.additions + $p.deletions),
+     (if any($p.comments.nodes[]; .body | startswith("<!-- kit-evidence -->")) then 1 else 0 end),
+     (if any($p.labels.nodes[]; .name | ascii_downcase | test("^(bug|fix)$")) or ($p.title | ascii_downcase | test("^(fix|revert)")) then 1 else 0 end),
+     $p.headRefName, ($p.files.nodes | map(.path) | join("|"))] | @tsv'
+
+# fetch <since> <until> <file>: merged PRs into the default branch, merged in the period.
+fetch() {
+  $GH api graphql --paginate -F q="repo:$name is:pr is:merged base:$default merged:$1..$2" -f query="$query" --jq "$jq" >"$3" || {
+    echo "leadtime: the GitHub query failed." >&2
+    exit 2
+  }
+}
+
+# When each feature's spec was first approved, by the branch named in specs/README.md: "<branch> TAB <ISO time>".
+spec_times() {
+  [ -f specs/README.md ] || return 0
+  TZ=UTC git log --reverse --date=format-local:%Y-%m-%dT%H:%M:%SZ --format='%H %cd' -- specs/README.md 2>/dev/null |
+    while read -r sha when; do
+      git show "$sha:specs/README.md" 2>/dev/null | awk -F '|' -v t="$when" '
+        NF >= 6 && $4 ~ /^ *(approved|planned|building|in-review|done) *$/ {
+          f = $2; b = $5; gsub(/^ +| +$/, "", f); gsub(/^ +| +$/, "", b); print f "\t" t "\t" b }'
+    done | awk -F '\t' '
+      !($1 in approved) { approved[$1] = $2 }
+      $3 != "" && $3 != "–" && $3 != "-" { branch[$1] = $3 }
+      END { for (f in branch) print branch[f] "\t" approved[f] }'
+}
+
+# metrics <prs.tsv> <specs.tsv> <period label>: "period,group,metric,n,median,p75" rows.
+metrics() {
+  awk -F '\t' -v period="$3" -v splitby="$split" -v specs="$2" "$dates"'
+    function bot(i) { return isbot[i] || login[i] ~ /(dependabot|renovate)/ || head[i] ~ /^(dependabot|renovate)\// }
+    function stat(g, m, v) { k = g SUBSEP m; vals[k, ++cnt[k]] = v; if (!(k in seen)) { seen[k] = 1; keys[++nk] = k } }
+    function sortk(k, n,    i, j, x) { for (i = 1; i <= n; i++) a[i] = vals[k, i]
+      for (i = 2; i <= n; i++) { x = a[i]; for (j = i - 1; j > 0 && a[j] > x; j--) a[j + 1] = a[j]; a[j + 1] = x } }
+    BEGIN { while ((getline line < specs) > 0) { split(line, s, "\t"); approved[s[1]] = s[2] } }
+    {
+      i = ++n; num[i] = $1; login[i] = $2; isbot[i] = $3 + 0; head[i] = $15; files[i] = $16
+      created[i] = secs($5); ready[i] = secs($6); merged[i] = secs($7); first[i] = secs($8); review[i] = secs($9)
+      rounds[i] = $10 + $11; size[i] = $12; kit[i] = $13 + 0; fix[i] = $14 + 0
+    }
+    END {
+      humans = 0; reviewed = 0
+      for (i = 1; i <= n; i++) {
+        if (bot(i)) { excluded++; continue }
+        if (!(login[i] in people)) { people[login[i]] = 1; humans++ }
+        if (review[i] >= 0) reviewed++
+      }
+      solo = (humans <= 1 && reviewed == 0)
+      for (i = 1; i <= n; i++) {
+        if (bot(i)) continue
+        # Rework: a fix PR merged within 14 days after this one that touches one of its files.
+        rw = 0
+        for (j = 1; j <= n && !rw; j++) {
+          if (j == i || bot(j) || !fix[j] || merged[j] <= merged[i] || merged[j] - merged[i] > 14 * 86400) continue
+          nf = split(files[i], fi, "|")
+          for (x = 1; x <= nf && !rw; x++) if (fi[x] != "" && index("|" files[j] "|", "|" fi[x] "|")) rw = 1
+        }
+        g = (splitby == "kit") ? (kit[i] ? "with-kit" : "without-kit") : "all"
+        prs[g]++
+        stat(g, "lead_time_h", (merged[i] - first[i]) / 3600)
+        stat(g, "cycle_time_h", (merged[i] - ready[i]) / 3600)
+        if (!solo && review[i] >= 0) stat(g, "first_review_h", (review[i] - ready[i]) / 3600)
+        if (!solo) stat(g, "review_rounds", rounds[i])
+        if (head[i] in approved) stat(g, "spec_to_merge_h", (merged[i] - secs(approved[head[i]])) / 3600)
+        stat(g, "pr_size_lines", size[i])
+        reworked[g] += rw
+      }
+      for (g in prs) printf "%s,%s,prs,%d,%d,%d\n", period, g, prs[g], prs[g], prs[g]
+      for (g in prs) printf "%s,%s,rework_pct,%d,%.1f,\n", period, g, prs[g], reworked[g] * 100 / prs[g]
+      printf "%s,all,excluded_bots,%d,,\n", period, excluded + 0
+      if (solo) printf "%s,all,solo,1,,\n", period
+      for (q = 1; q <= nk; q++) {
+        k = keys[q]; c = cnt[k]; split(k, gm, SUBSEP); sortk(k, c)
+        med = (c % 2) ? a[(c + 1) / 2] : (a[c / 2] + a[c / 2 + 1]) / 2
+        p = int(0.75 * c); if (p < 0.75 * c) p++
+        printf "%s,%s,%s,%d,%.1f,%.1f\n", period, gm[1], gm[2], c, med, a[p]
+      }
+    }
+  ' "$1"
+}
+
+label="$since..$until"
+fetch "$since" "$until" "$tmp/prs.tsv"
+spec_times >"$tmp/specs.tsv"
+{ echo "period,group,metric,n,median,p75"; metrics "$tmp/prs.tsv" "$tmp/specs.tsv" "$label" | sort; } >"$tmp/now.csv"
+
+# report <csv> [baseline csv]: the markdown report.
+report() {
+  awk -F ',' -v base="${2:-}" -v label="$label" -v splitby="$split" -v titles="$titles" -v prs="$tmp/prs.tsv" '
+    BEGIN {
+      if (base != "") while ((getline l < base) > 0) { split(l, b, ","); if (b[2] == "all") { bm[b[3]] = b[5]; if (bperiod == "" && b[1] != "period") bperiod = b[1] } }
+      names["lead_time_h"] = "Lead time for changes (h)"; names["cycle_time_h"] = "PR cycle time (h)"
+      names["first_review_h"] = "Time to first review (h)"; names["review_rounds"] = "Review rounds"
+      names["spec_to_merge_h"] = "Spec to merge (h)"; names["pr_size_lines"] = "PR size (changed lines)"
+      names["rework_pct"] = "Rework rate (%)"
+      split("lead_time_h cycle_time_h first_review_h review_rounds spec_to_merge_h rework_pct pr_size_lines", order, " ")
+    }
+    NR > 1 { v[$2, $3] = $5; p[$2, $3] = $6; c[$2, $3] = $4; if (!($2 in groups)) { groups[$2] = 1; gl[++ng] = $2 }; if ($3 == "solo") solo = 1; if ($3 == "excluded_bots") excl = $4 }
+    function change(now, was) { if (was == "" || was + 0 == 0 || now == "") return "–"; d = (now - was) * 100 / was; return sprintf("%+.0f%%", d) }
+    END {
+      printf "# Lead time, %s\n\n", label
+      for (x = 1; x <= ng; x++) {
+        g = gl[x]
+        if (ng > 1 || splitby == "kit") printf "## %s\n\n", (g == "with-kit" ? "With evidence pack" : g == "without-kit" ? "Without evidence pack" : "All PRs")
+        n = c[g, "prs"] + 0
+        if (n < 10) printf "**Too few PRs for a reliable comparison** (%d).\n\n", n
+        printf "PRs: %d. Bots and dependency updates left out: %d.\n\n", n, excl
+        if (base != "") printf "| Metric | Median | p75 | PRs | Baseline median (%s) | Change |\n|--------|--------|-----|-----|-----------------|--------|\n", bperiod
+        else printf "| Metric | Median | p75 | PRs |\n|--------|--------|-----|-----|\n"
+        for (o = 1; o <= 7; o++) {
+          m = order[o]
+          if (solo && (m == "first_review_h" || m == "review_rounds")) { med = "n/a: one contributor"; pp = ""; nn = "" }
+          else if ((g, m) in v) { med = v[g, m]; pp = p[g, m]; nn = c[g, m] }
+          else { med = "–"; pp = ""; nn = 0 }
+          if (base != "") printf "| %s | %s | %s | %s | %s | %s |\n", names[m], med, pp, nn, (m in bm ? bm[m] : "–"), change(med, bm[m])
+          else printf "| %s | %s | %s | %s |\n", names[m], med, pp, nn
+        }
+        print ""
+      }
+      print "These numbers describe what changed between the periods, not why."
+      if (titles) {
+        print ""; print "| PR | Title | Author |"; print "|----|-------|--------|"
+        while ((getline l < prs) > 0) { split(l, f, "\t"); printf "| #%s | %s | %s |\n", f[1], f[4], f[2] }
+      }
+    }
+  ' "$1"
+}
+
+if [ "$baseline" -eq 1 ]; then
+  cp "$tmp/now.csv" "$base_csv"
+  report "$tmp/now.csv" >reports/lead-time-baseline.md
+  echo "Wrote reports/lead-time-baseline.md and $base_csv ($label)."
+  exit 0
+fi
+compare=""
+[ -f "$base_csv" ] && compare=$base_csv
+if [ "$format" = csv ]; then
+  cp "$tmp/now.csv" reports/lead-time.csv
+  echo "Wrote reports/lead-time.csv ($label)."
+else
+  report "$tmp/now.csv" "$compare" >reports/lead-time.md
+  echo "Wrote reports/lead-time.md ($label${compare:+, compared with the baseline})."
+fi

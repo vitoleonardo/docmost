@@ -1,0 +1,122 @@
+#!/bin/sh
+# Check that feature specs meet the kit's standard for acceptance criteria.
+# Usage: .claude/bin/spec-lint [spec files...]   (default: every specs/*.md except specs/README.md)
+# Prints file:line: problem for each finding and exits 1 if there is any.
+set -u
+
+root=$(CDPATH='' cd -- "$(dirname -- "$0")/../.." && pwd) || exit 2
+cd "$root" || exit 2
+
+if [ $# -eq 0 ]; then
+  set -- specs/*.md
+fi
+
+status_of() {
+  [ -f specs/README.md ] || return 0
+  grep -F "${1##*/}" specs/README.md | head -n 1 | awk -F'|' '{ gsub(/[[:space:]`]/, "", $4); print tolower($4) }'
+}
+
+failed=0
+checked=0
+for file in "$@"; do
+  case $file in
+    */README.md | README.md) continue ;;
+  esac
+  [ -f "$file" ] || continue
+  checked=$((checked + 1))
+  awk -v file="$file" -v status="$(status_of "$file")" '
+    function problem(line, message) { printf "%s:%d: %s\n", file, line, message; bad = 1 }
+
+    # Lowercase words separated by single spaces, padded so " word " always matches whole words.
+    function words(text,    t) {
+      t = tolower(text)
+      gsub(/[^a-z0-9-]+/, " ", t)
+      return " " t " "
+    }
+
+    function count(haystack, needle,    n, i) {
+      n = 0
+      while ((i = index(haystack, needle)) > 0) { n++; haystack = substr(haystack, i + length(needle)) }
+      return n
+    }
+
+    function check_criterion(line, id, text,    t, g, w, th, i) {
+      t = words(text)
+      g = index(t, " given "); w = index(t, " when "); th = index(t, " then ")
+      if (!(g && w && th && g < w && w < th))
+        problem(line, id ": write it as \"Given <state>, when <action>, then <observable result>\".")
+      else if (count(t, " then ") > 1)
+        problem(line, id ": has more than one \"then\"; split it so each criterion is one yes/no check.")
+      for (i = 1; i <= nvague; i++)
+        if (index(t, " " vague[i] " "))
+          problem(line, id ": \"" vague[i] "\" cannot be tested; state a concrete, observable result (numbers, exact text, states).")
+    }
+
+    BEGIN {
+      nvague = split("fast|quickly|slow|user-friendly|intuitive|easy|easily|properly|correctly|appropriate|appropriately|reasonable|nice|good|better|best|etc|and so on|as needed|should work|works well|robust|seamless|seamlessly|efficient|efficiently|optimal|tbd|todo|handle|handles|support|supports", vague, "|")
+      required = "Goal|User flow|Acceptance criteria|Edge cases|Out of scope"
+      nrequired = split(required, need, "|")
+    }
+
+    /^ID prefix:/ {
+      prefix = $0
+      sub(/^ID prefix:[[:space:]]*/, "", prefix)
+      sub(/[[:space:]]+$/, "", prefix)
+      if (prefix !~ /^[A-Z][A-Z0-9]*$/) problem(NR, "ID prefix must be uppercase letters and digits, like INVITE.")
+      next
+    }
+
+    /^## / {
+      section = substr($0, 4)
+      sub(/[[:space:]]+$/, "", section)
+      seen[section] = 1
+      next
+    }
+
+    section != "" && /^[[:space:]]*(-|[0-9]+\.)[[:space:]]/ { items[section]++ }
+
+    (section == "Acceptance criteria" || section == "Edge cases") && /^-[[:space:]]/ {
+      if ($0 !~ /^- \*\*[^*]+\*\*/) { problem(NR, "every criterion starts with its bold ID, like - **" (prefix ? prefix : "FEATURE") "-AC1**: Given ..."); next }
+      id = $0
+      sub(/^- \*\*/, "", id)
+      sub(/\*\*.*$/, "", id)
+      rest = $0
+      sub(/^- \*\*[^*]+\*\*/, "", rest)
+      if (prefix == "") problem(NR, "the spec needs an \"ID prefix: <NAME>\" line before the criteria.")
+      else if (id !~ ("^" prefix "-AC[0-9]+$")) problem(NR, id ": IDs look like " prefix "-AC<number>.")
+      if (id in line_of) problem(NR, id ": already used on line " line_of[id] "; IDs are never reused.")
+      line_of[id] = NR
+      criteria++
+      if (rest ~ /^[[:space:]]*\(removed/) next
+      if (section == "Edge cases") edge++
+      sub(/^:[[:space:]]*/, "", rest)
+      check_criterion(NR, id, rest)
+      next
+    }
+
+    section == "Open questions" && /^-[[:space:]]/ {
+      q = tolower($0)
+      if (q !~ /^-[[:space:]]*(none|n\/a|-)\.?[[:space:]]*$/) open_questions++
+    }
+
+    END {
+      if (prefix == "" && !bad) problem(1, "missing the \"ID prefix: <NAME>\" line.")
+      for (i = 1; i <= nrequired; i++)
+        if (!(need[i] in seen)) problem(NR, "missing the \"## " need[i] "\" section.")
+      if (("User flow" in seen) && !items["User flow"]) problem(NR, "the User flow section lists no steps.")
+      if (("Out of scope" in seen) && !items["Out of scope"]) problem(NR, "Out of scope is empty; name at least one thing this feature does not do.")
+      if (!criteria) problem(NR, "no acceptance criteria found.")
+      if (("Edge cases" in seen) && !edge) problem(NR, "no edge cases; cover at least errors, empty data or missing permissions.")
+      if (status != "" && status != "draft" && open_questions)
+        problem(NR, "status is \"" status "\" but " open_questions " open question(s) remain; resolve them before approval.")
+      exit bad
+    }
+  ' "$file" || failed=1
+done
+
+if [ "$checked" -eq 0 ]; then
+  echo "spec-lint: no specs to check."
+  exit 0
+fi
+[ "$failed" -eq 0 ] && echo "spec-lint: $checked spec(s) pass."
+exit "$failed"

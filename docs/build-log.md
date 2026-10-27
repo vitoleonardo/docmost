@@ -19,3 +19,9 @@ Notable moments where the workflow caught or prevented problems.
 - **The gap**: spec 7.3 sent candidates through `filterAccessiblePageIds`. It checks page restrictions only and returns every id unchanged for a space without restrictions, so the space check came from the token and the index. A lost `PAGE_MOVED_TO_SPACE` job (`attempts: 1`) would leave a page under its old open space and pass it into the prompt. The final check had a similar hole: `validateCanView` does not check `deleted_at`.
 - **Fix in design (spec v1.2)**: ai-bridge's filter decides from Docmost's current data only (current space, `deleted_at`, membership, restrictions); stale-index leak cases added to M3 and M6.
 - **Why the kit would not have caught it**: spec-lint checks how criteria are written, not whether the assumptions about the codebase are true. Reading the code did.
+
+## 2026-10-27: M1 setup on the MacBook
+- **Fork runs locally**: dev compose (Postgres 5433, Redis 6380), `.env` from `.env.example`, install, build, migrations, `pnpm start`; `/api/health` returns 200. `.env.example` still has upstream's ports and credentials, so `DATABASE_URL` and `REDIS_URL` must be changed by hand.
+- **pnpm**: a standalone pnpm in `~/Library/pnpm` sits before corepack's shim and fails to switch to the pinned 11.25.0 (`ENOENT` under `.tools`). `corepack pnpm …` works.
+- **Ollama**: native app updated from 0.12.6 to 0.40.11 via the `ollama-app` cask. Docker Desktop's VM has 4 GB, leaving about 14 GB for the model and macOS.
+- **Kit install**: `install.sh` without an adapter copied 40 files and kept the fork's deny-only `.claude/settings.json`; `/onboard` merges it with the kit's settings and the sandbox.
