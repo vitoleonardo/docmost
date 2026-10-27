@@ -45,6 +45,10 @@ jobs:
             npm ci
           fi
 
+      - name: Build workspace packages
+        if: ${{ steps.install.outcome == 'success' }}
+        run: pnpm --filter @docmost/editor-ext --filter @docmost/base-formula run build
+
       - name: Diff size
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         env:
