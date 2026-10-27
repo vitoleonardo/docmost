@@ -2,13 +2,13 @@
 
 Mockups for the Must features with UI: `ai-assistant.html` (open it in a browser; self-contained). Each feature spec links its section in its User flow, and its acceptance criteria refer to the state IDs (A1, E2, G4, ...).
 
-The mockups copy Docmost v0.96's look: Mantine with the theme in `apps/client/src/theme.ts`, Tabler icons, header 45 px, sidebar 300 px, aside panel 350 px. The new UI uses existing Mantine components only (SegmentedControl, Modal, Table, Alert, Badge, Button); no new design system.
+The mockups copy Docmost v0.96's look: Mantine with the theme in `apps/client/src/theme.ts`, Tabler icons, header 45 px, sidebar 300 px, aside panel 350 px. Greys, tab style and the page action row were checked against the running app; `reference/docmost-v0.96-page-with-comments.png` is the screenshot they were compared with. The assistant panel follows the Comments aside: grey background, title with close button, underlined tabs, input below a divider. The new UI uses existing Mantine components only (Tabs, Modal, Table, Alert, Badge, Button); no new design system.
 
 ## States
 
 | ID | Feature | State |
 |---|---|---|
-| Overview | M5, M8 | Entry points: header icon and page menu item; panel in the aside |
+| Overview | M5, M8 | Entry points: icon in the page action row and page menu item; panel in the aside |
 | A1 | M5 Ask | Empty, scope selector, example questions |
 | A2 | M5 Ask | Streaming answer with citations and sources |
 | A3 | M5 Ask | No source (same text for missing and restricted content) |

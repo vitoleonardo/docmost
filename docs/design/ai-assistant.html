@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <title>Docmost AI: mockups v1</title>
 <style>
-  /* Docmost v0.96 light theme: Mantine defaults plus apps/client/src/theme.ts */
+  /* Docmost v0.96 light theme: Mantine defaults plus apps/client/src/theme.ts; greys sampled from the running app */
   :root {
     --m-blue: #0b60d8; --m-blue-light: #e7f3ff; --m-text: #1a1b1e; --m-dimmed: #4b5563;
-    --m-border: #dee2e6; --m-gray0: #f8f9fa; --m-gray1: #f1f3f5; --m-gray2: #e9ecef;
+    --m-border: #e2e5e9; --m-gray0: #f6f7f9; --m-gray1: #f1f3f5; --m-gray2: #e9ecef;
     --m-orange-bg: #fff4e6; --m-orange: #a63508; --m-green-bg: #ebfbee; --m-green: #1b5e20;
     --m-red-bg: #ffebeb; --m-red: #bc2727;
     --m-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -24,7 +24,7 @@
   /* Screen surfaces */
   .screen { background: #fff; color: var(--m-text); font-family: var(--m-font); font-size: 14px;
     border: 1px solid var(--m-border); border-radius: 8px; overflow: hidden; box-sizing: border-box; }
-  .panel { width: 350px; height: 520px; box-sizing: border-box; display: flex; flex-direction: column; padding: 16px; gap: 12px; }
+  .panel { width: 350px; height: 520px; box-sizing: border-box; background: var(--m-gray0); display: flex; flex-direction: column; padding: 16px; gap: 12px; }
   .row { display: flex; align-items: center; gap: 8px; }
   .between { justify-content: space-between; }
   .grow { flex: 1; }
@@ -34,13 +34,13 @@
   .icon { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
   .ai { width: 28px; height: 28px; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; color: var(--m-dimmed); }
   .ai.active { background: var(--m-gray1); color: var(--m-text); }
-  .seg { display: flex; background: var(--m-gray1); border-radius: 4px; padding: 3px; }
-  .seg span { flex: 1; text-align: center; padding: 4px 0; font-size: 13px; border-radius: 4px; color: var(--m-dimmed); }
-  .seg span.on { background: #fff; color: var(--m-text); box-shadow: 0 1px 2px rgba(0,0,0,.12); font-weight: 500; }
+  .seg { display: flex; justify-content: center; border-bottom: 2px solid var(--m-border); }
+  .seg span { padding: 9px 18px; font-size: 14px; color: var(--m-dimmed); margin-bottom: -2px; border-bottom: 2px solid transparent; }
+  .seg span.on { color: var(--m-text); border-bottom-color: var(--m-blue); }
   .chip { display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--m-border); border-radius: 16px; padding: 2px 10px; font-size: 12px; }
   .input { border: 1px solid var(--m-border); border-radius: 4px; padding: 8px 10px; font-size: 14px; color: #686868; background: #fff; }
   .input.filled { color: var(--m-text); }
-  .composer { margin-top: auto; display: flex; gap: 8px; align-items: flex-end; }
+  .composer { margin-top: auto; display: flex; gap: 8px; align-items: flex-end; border-top: 1px solid var(--m-border); padding-top: 12px; }
   .composer .input { flex: 1; min-height: 38px; box-sizing: border-box; }
   .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 34px; padding: 0 14px; border-radius: 4px; font-size: 14px; font-weight: 600; border: 1px solid transparent; white-space: nowrap; }
   .btn.primary { background: var(--m-blue); color: #fff; }
@@ -49,7 +49,7 @@
   .btn.red { background: var(--m-red-bg); color: var(--m-red); }
   .btn.disabled { background: var(--m-gray1); color: #9aa0a6; }
   .btn.icon-only { width: 38px; padding: 0; height: 38px; }
-  .bubble { align-self: flex-end; background: var(--m-gray1); border-radius: 8px; padding: 8px 12px; max-width: 85%; }
+  .bubble { align-self: flex-end; background: #fff; border: 1px solid var(--m-border); border-radius: 8px; padding: 8px 12px; max-width: 85%; }
   .answer { line-height: 1.55; }
   .cite { display: inline-flex; align-items: center; justify-content: center; min-width: 16px; height: 16px; padding: 0 3px; border-radius: 4px;
     background: var(--m-blue-light); color: var(--m-blue); font-size: 11px; font-weight: 600; vertical-align: 1px; }
@@ -59,7 +59,7 @@
   .src .path { color: var(--m-dimmed); font-size: 12px; }
   .src a { color: var(--m-blue); text-decoration: none; font-weight: 500; }
   .alert { border-radius: 4px; padding: 10px 12px; font-size: 13px; line-height: 1.45; display: flex; gap: 8px; }
-  .alert.gray { background: var(--m-gray0); border: 1px solid var(--m-border); }
+  .alert.gray { background: #fff; border: 1px solid var(--m-border); }
   .alert.orange { background: var(--m-orange-bg); color: var(--m-orange); }
   .alert.blue { background: var(--m-blue-light); color: #0b4a9e; }
   .alert.red { background: var(--m-red-bg); color: var(--m-red); }
@@ -67,7 +67,7 @@
   .badge.orange { background: var(--m-orange-bg); color: var(--m-orange); }
   .badge.green { background: var(--m-green-bg); color: var(--m-green); }
   .badge.gray { background: var(--m-gray1); color: var(--m-dimmed); }
-  .suggest { border: 1px solid var(--m-border); border-radius: 4px; padding: 8px 10px; font-size: 13px; }
+  .suggest { background: #fff; border: 1px solid var(--m-border); border-radius: 4px; padding: 8px 10px; font-size: 13px; }
   .steps { display: flex; flex-direction: column; gap: 10px; font-size: 13px; }
   .steps .row { align-items: flex-start; }
   .ok { color: var(--m-green); } .run { color: var(--m-blue); }
@@ -106,11 +106,19 @@
   .shell-scale { width: 720px; height: 396px; position: relative; }
   .shell { width: 1200px; height: 660px; transform: scale(.6); transform-origin: 0 0; position: absolute; display: grid;
     grid-template-columns: 300px 1fr 350px; grid-template-rows: 45px 1fr; }
-  .shell .hdr { grid-column: 1 / -1; border-bottom: 1px solid var(--m-border); display: flex; align-items: center; padding: 0 16px; gap: 16px; }
-  .shell .side { border-right: 1px solid var(--m-border); background: var(--m-gray0); padding: 14px; display: flex; flex-direction: column; gap: 6px; font-size: 14px; }
-  .shell .side .item { padding: 5px 8px; border-radius: 4px; }
-  .shell .side .item.on { background: var(--m-gray2); font-weight: 500; }
-  .shell .main { padding: 18px 48px; display: flex; flex-direction: column; gap: 10px; }
+  .shell .hdr { grid-column: 1 / -1; background: var(--m-gray0); border-bottom: 1px solid var(--m-border); display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; padding: 0 32px; }
+  .shell .search { width: 233px; height: 34px; box-sizing: border-box; border: 1px solid var(--m-border); border-radius: 4px; background: #fff; display: flex; align-items: center; gap: 8px; padding: 0 6px 0 12px; color: var(--m-dimmed); }
+  .shell .kbd { margin-left: auto; font-size: 11px; font-weight: 700; background: var(--m-gray1); border: 1px solid var(--m-border); border-radius: 4px; padding: 1px 6px; }
+  .shell .avatar { width: 26px; height: 26px; border-radius: 13px; background: #c2255c; color: #fff; font-size: 10px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; }
+  .shell .side { background: var(--m-gray0); border-right: 1px solid var(--m-border); padding: 4px 6px; display: flex; flex-direction: column; font-size: 14px; }
+  .shell .side .item { padding: 5px 10px; border-radius: 4px; display: flex; align-items: center; gap: 12px; }
+  .shell .side .item.on { background: var(--m-gray2); }
+  .shell .main { display: flex; flex-direction: column; min-width: 0; }
+  .shell .pagebar { height: 45px; display: flex; align-items: center; gap: 10px; padding: 0 16px; font-size: 14px; }
+  .shell .editread { display: flex; background: var(--m-gray1); border-radius: 4px; padding: 3px; font-size: 12px; font-weight: 600; }
+  .shell .editread span { padding: 3px 6px; border-radius: 4px; color: var(--m-dimmed); }
+  .shell .editread span.on { background: #fff; color: var(--m-text); }
+  .shell .content { padding: 20px 48px; display: flex; flex-direction: column; gap: 14px; }
   .shell .aside { border-left: 1px solid var(--m-border); }
   .shell .aside .panel { height: 100%; width: auto; border: 0; }
   .pin { display: inline-flex; width: 20px; height: 20px; border-radius: 10px; background: #f59f00; color: #fff; font-size: 12px; font-weight: 700; align-items: center; justify-content: center; }
@@ -135,6 +143,12 @@
   <symbol id="i-dots" viewBox="0 0 24 24"><path d="M5 12h.01M12 12h.01M19 12h.01"/></symbol>
   <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 9v4M12 16v.01M10.24 3.96 2.11 17.53A2 2 0 0 0 3.82 20.5h16.36a2 2 0 0 0 1.71-2.97L13.76 3.96a2 2 0 0 0-3.52 0z"/></symbol>
   <symbol id="i-plug" viewBox="0 0 24 24"><path d="m3 21 5-5M15.5 12.5l-4-4M8.5 15.5l-4-4M7 13l4 4 3.5-3.5a2.83 2.83 0 0 0-4-4z"/><path d="m16 3-3 3m8 2-3 3m-4.5-6.5 6 6"/></symbol>
+  <symbol id="i-layout" viewBox="0 0 24 24"><path d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2zM9 4v16M15 10l-2 2 2 2"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><path d="M3 10a7 7 0 1 0 14 0a7 7 0 1 0-14 0M21 21l-6-6"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M10 5a2 2 0 1 1 4 0a7 7 0 0 1 4 6v3a4 4 0 0 0 2 3H4a4 4 0 0 0 2-3v-3a7 7 0 0 1 4-6M9 17v1a3 3 0 0 0 6 0v-1"/></symbol>
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M5 12H3l9-9 9 9h-2M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></symbol>
+  <symbol id="i-settings" viewBox="0 0 24 24"><path d="M10.3 4.3c.4-1.8 3-1.8 3.4 0a1.7 1.7 0 0 0 2.6 1.1c1.5-.9 3.3.8 2.4 2.4a1.7 1.7 0 0 0 1 2.5c1.8.4 1.8 3 0 3.4a1.7 1.7 0 0 0-1 2.6c.9 1.5-.9 3.3-2.4 2.4a1.7 1.7 0 0 0-2.6 1c-.4 1.8-3 1.8-3.4 0a1.7 1.7 0 0 0-2.5-1c-1.6.9-3.4-.9-2.5-2.4a1.7 1.7 0 0 0-1-2.6c-1.8-.4-1.8-3 0-3.4a1.7 1.7 0 0 0 1-2.5c-.9-1.6.9-3.3 2.5-2.4 1 .6 2.3.1 2.5-1.1M9 12a3 3 0 1 0 6 0a3 3 0 0 0-6 0"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
   <symbol id="i-lock" viewBox="0 0 24 24"><path d="M5 13a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2zM8 11V7a4 4 0 1 1 8 0v4"/></symbol>
 </svg>
 
@@ -148,26 +162,40 @@
     <figure class="wide">
       <div class="shell-wrap"><div class="shell-scale"><div class="screen shell">
         <div class="hdr">
-          <b style="font-size:17px">‹Seed-Firma›</b><span class="dim sm">Startseite</span><span class="dim sm">Bereiche</span>
-          <span class="grow"></span><span class="input" style="width:220px;padding:5px 10px">Suchen</span>
+          <div class="row" style="gap:16px"><svg class="icon"><use href="#i-layout"/></svg><b style="font-size:20px">Docmost</b><span class="sm" style="margin-left:56px">Home</span></div>
+          <div class="search"><svg class="icon" style="width:15px;height:15px"><use href="#i-search"/></svg><span>Search</span><span class="kbd">Ctrl + K</span></div>
+          <div class="row" style="justify-content:flex-end;gap:16px"><svg class="icon"><use href="#i-bell"/></svg><span class="avatar">SF</span><span class="sm">‹Seed-Firma›</span></div>
         </div>
         <div class="side">
-          <b class="sm" style="margin-bottom:6px">HR</b>
-          <div class="item">Willkommen im HR-Bereich</div><div class="item on">Urlaubsregelung 2026</div>
-          <div class="item">Arbeitszeitmodelle</div><div class="item">Reisekostenrichtlinie</div><div class="item">Onboarding Checkliste</div>
+          <div class="item" style="font-size:16px;padding:8px 12px"><span class="avatar" style="width:20px;height:20px;font-size:8px;background:#2f9e44">HR</span>HR</div>
+          <div class="item"><svg class="icon dim"><use href="#i-home"/></svg>Overview</div>
+          <div class="item"><svg class="icon dim"><use href="#i-search"/></svg>Search</div>
+          <div class="item"><svg class="icon dim"><use href="#i-settings"/></svg>Space settings</div>
+          <div class="item"><svg class="icon dim"><use href="#i-plus"/></svg>New page</div>
+          <div style="border-top:1px solid var(--m-border);margin:10px -6px"></div>
+          <span class="xs dim" style="padding:6px 12px">Pages</span>
+          <div class="item"><svg class="icon dim"><use href="#i-file"/></svg>Willkommen im HR-Bereich</div>
+          <div class="item on"><svg class="icon dim"><use href="#i-file"/></svg>Urlaubsregelung 2026</div>
+          <div class="item"><svg class="icon dim"><use href="#i-file"/></svg>Arbeitszeitmodelle</div>
+          <div class="item"><svg class="icon dim"><use href="#i-file"/></svg>Reisekostenrichtlinie</div>
+          <div class="item"><svg class="icon dim"><use href="#i-file"/></svg>Onboarding Checkliste</div>
         </div>
         <div class="main">
-          <div class="row" style="justify-content:flex-end;gap:6px">
+          <div class="pagebar">
+            <span>Urlaubsregelung 2026</span><span class="grow"></span>
+            <span class="editread"><span class="on">Edit</span><span>Read</span></span>
+            <b>Share</b>
             <span class="ai active" style="color:var(--m-blue)"><svg class="icon"><use href="#i-sparkles"/></svg></span>
             <span class="ai"><svg class="icon"><use href="#i-msg"/></svg></span>
             <span class="ai"><svg class="icon"><use href="#i-list"/></svg></span>
             <span class="ai"><svg class="icon"><use href="#i-dots"/></svg></span>
           </div>
-          <h1 style="font-size:32px;margin:6px 0 0">Urlaubsregelung 2026</h1>
-          <p class="dim" style="margin:0">Zuletzt geändert vor 3 Tagen</p>
-          <p style="line-height:1.7;margin:0">Vollzeitbeschäftigte erhalten 30 Arbeitstage Urlaub pro Kalenderjahr. Werkstudierende erhalten anteilig Urlaub nach ihrer vertraglichen Wochenarbeitszeit …</p>
-          <div style="height:12px;background:var(--m-gray1);border-radius:4px;width:85%"></div>
-          <div style="height:12px;background:var(--m-gray1);border-radius:4px;width:70%"></div>
+          <div class="content">
+            <h1 style="font-size:40px;margin:0">Urlaubsregelung 2026</h1>
+            <span class="sm dim">By Anna Weber</span>
+            <h2 style="font-size:28px;margin:8px 0 0">Anspruch</h2>
+            <p style="line-height:1.7;margin:0">Vollzeitbeschäftigte erhalten 30 Arbeitstage Urlaub pro Kalenderjahr. Werkstudierende erhalten anteilig Urlaub nach ihrer vertraglichen Wochenarbeitszeit …</p>
+          </div>
         </div>
         <div class="aside"><div class="panel">
           <div class="row between"><span class="h6">Assistent</span><svg class="icon dim"><use href="#i-x"/></svg></div>
@@ -176,12 +204,12 @@
           <div class="answer">Werkstudierende erhalten Urlaub anteilig zur Wochenarbeitszeit: bei 20 Stunden sind es 12 Tage pro Jahr <span class="cite">1</span>.</div>
           <div class="composer"><div class="input">Frage stellen …</div><span class="btn primary icon-only"><svg class="icon"><use href="#i-send"/></svg></span></div>
         </div></div>
-        <span class="pin" style="left:648px;top:62px">1</span>
+        <span class="pin" style="left:728px;top:86px">1</span>
         <span class="pin" style="left:1150px;top:420px">2</span>
       </div></div></div>
       <figcaption class="legend">
-        <span class="row"><span class="pin">1</span><span><b>Neues Symbol im Seitenkopf</b> (Funken) öffnet den Assistenten, neben Kommentare und Inhaltsverzeichnis. Zusätzlich im Seitenmenü „…“: <i>Zu dieser Seite fragen</i> öffnet das Panel mit Bereich „Diese Seite“.</span></span>
-        <span class="row"><span class="pin">2</span><span><b>Panel „Assistent“</b> als neuer Tab im bestehenden Seitenrand. Verlauf bleibt erhalten, solange das Panel offen ist (M5: mehrere Fragen nacheinander).</span></span>
+        <span class="row"><span class="pin">1</span><span><b>Neues Symbol in der Seitenleiste oben</b> (Funken) zwischen „Share“ und Kommentare öffnet den Assistenten. Zusätzlich im Seitenmenü „…“: <i>Zu dieser Seite fragen</i> öffnet das Panel mit Bereich „Diese Seite“.</span></span>
+        <span class="row"><span class="pin">2</span><span><b>Panel „Assistent“</b> als neuer Tab im bestehenden Seitenrand, aufgebaut wie die Kommentare: Titel, Tabs mit Unterstrich, Eingabe unten. Verlauf bleibt erhalten, solange das Panel offen ist (M5: mehrere Fragen nacheinander).</span></span>
       </figcaption>
     </figure>
   </div>
