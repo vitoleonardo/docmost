@@ -21,7 +21,7 @@ if [ -n "$red" ] && ! json_bool stop_hook_active; then
     [ -f "$f" ] && matches_any "$f" "$(file_value "$f" KIT_SOURCE_PATTERNS)" && printf '%s\n' "$f"
   done)
   specs=$(sort -u "$turn_files" 2>/dev/null | while IFS= read -r f; do
-    case $f in specs/README.md) ;; specs/*.md) [ -f "$f" ] && printf '%s\n' "$f" ;; esac
+    case $f in (specs/README.md) ;; (specs/*.md) [ -f "$f" ] && printf '%s\n' "$f" ;; esac
   done)
   export NO_COLOR=1 FORCE_COLOR=0 CI=1
   still=""
