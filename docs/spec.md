@@ -1,4 +1,4 @@
-# Docmost AI: Specification v1.2
+# Docmost AI: Specification v1.3
 
 Working name: `docmost-ai` (final name open).
 
@@ -23,7 +23,7 @@ The demo is a 2 to 3 minute video plus published eval and leak-test reports and 
 ## 3. Hard rules
 
 1. Pin Docmost to upstream `main` at `de0b7d75` (23.10.2026, after v0.96.0). The fork's `main` already contained those commits, and CI checks PRs against it, so `ai-v1` merged them on 27.10.2026. Do not merge upstream again during v1.
-2. Never read, copy, modify or depend on code in `apps/server/src/ee`, `apps/client/src/ee` or `packages/ee` (enterprise license). Do not reimplement enterprise features 1:1. Enforced by the kit's protected paths and sandbox (section 13), not by agent discipline.
+2. Never read, copy, modify or depend on code in `apps/server/src/ee`, `apps/client/src/ee` or `packages/ee` (enterprise license). Do not reimplement enterprise features 1:1. Enforced by the kit's protected paths (deny rules and the guard, section 13) and a CI check on imports, not by agent discipline.
 3. Keep changes inside Docmost minimal and isolated: one NestJS module (`integrations/ai-bridge`), one client feature folder (`features/ai-assistant`), and the wiring listed in `docs/phase0-report.md` section 7. All AI logic lives in the Python ai-service.
 4. The full fork stays public under AGPL-3.0.
 5. No real company data. All demo content is fictional seed data.
@@ -261,7 +261,7 @@ Built with the Agentic Workflow Kit (`vitoleonardo/agentic-development-template`
    - `apps/server/.claude/kit.conf`: Jest (`jest`), NestJS preset. The server's `lint` script runs with `--fix`; the kit's lint command must not. The server has no `typecheck` script: set `KIT_TYPECHECK` to an incremental `tsc --noEmit`, because the hooks run it after every batch of edits. The baseline needs a JUnit report, so `jest-junit` is added as a dev dependency (a wiring change to `package.json` and the lockfile).
    - `apps/client/.claude/kit.conf`: Vitest (JUnit reporter built in), ESLint. No `typecheck` script either; same incremental `tsc --noEmit`.
    - `ai-service/.claude/kit.conf`: Python adapter (uv, ruff, pyright, pytest), LLM suites excluded.
-3. Protected paths: `apps/server/src/ee`, `apps/client/src/ee`, `packages/ee` through sandbox `denyRead`, deny rules and `KIT_PROTECTED_PATHS`. This replaces the current deny-only `.claude/settings.json` and closes the gap recorded in `docs/build-log.md`. The sandbox needs `bubblewrap` and `socat` on Linux (missing on the Linux dev machine); set `sandbox.failIfUnavailable: true` so a missing sandbox fails instead of running unsandboxed. Verify on each dev machine that `head packages/ee/LICENSE` through Bash is blocked, also with the RTK hook active.
+3. Protected paths: `apps/server/src/ee`, `apps/client/src/ee`, `packages/ee` through `Read`/`Edit` deny rules and `KIT_PROTECTED_PATHS` (the guard blocks commands and git output that name them). The sandbox stays off (decision 28.10.2026): it changes how the toolchain behaves, and the Linux dev machine lacks `bubblewrap` and `socat`. Both layers match patterns, so they are best effort: a command that reaches a path indirectly (`f=packages/ee; head $f/…`) passes the guard (`docs/build-log.md`). The remaining safeguards are the uninitialised `apps/server/src/ee` submodule, the CI import check (item 4) and review. Verify on each dev machine that `head packages/ee/LICENSE` through Bash is blocked by the guard, also with the RTK hook active.
 4. The kit's `quality-gates` workflow becomes the first CI test workflow in the fork (upstream only has `release.yml`). The kit ships one workflow per adapter; the fork needs one merged workflow that sets up pnpm and uv, starts the services from section 10 and runs every package's checks. Extended with the prompt-content leak test and a check that no new file imports from the ee paths.
 5. Decide during `/onboard` how the 70 % coverage gate treats one-line wiring edits in untested upstream files (exclusion list or small tests).
 6. The diff-size limit (`KIT_MAX_CHANGED_LINES`, 400) excludes generated seed data, PDFs, golden sets and `reports/`, so it measures code. Features above it are split into several PRs; M3 is expected to be.
@@ -327,6 +327,7 @@ Positioning: not "a better Docmost", but "what a production-grade AI feature loo
 
 ## Changelog
 
+- **v1.3 (28.10.2026)**: Sandbox stays off; ee paths are protected by deny rules, the guard and the CI import check, which are best effort (3, 13).
 - **v1.2 (2026-10-27)**: Pre-kit review. The filter before generation decides from Docmost's current data only, because `filterAccessiblePageIds` ignores space membership and soft deletes and the index can be stale (7.3, 7.4); new stale-index leak cases (M3, M6). ai-service never touches Docmost's tables (7.9). One bridge/ai-service contract file owned by M3's plan (5). "Not in v1" list and how the feature is switched on in Must (8). CI services and a fake embedder for the leak test (10). Eval judge: deterministic metrics first, Claude over the API for correctness and groundedness (M10, 11). Agent stale check covers unsaved collaborative edits (M8). Session end, retention owners, latency and freshness thresholds from a first measurement. Kit setup prerequisites found by reading the kit and the fork (13). Phase 0 "Decisions after review" marked superseded.
 - **v1.1 (2026-10-27)**: Phase 0 findings folded in (permission filter before generation, enterprise AI Chat, core AI plumbing). Scope split into Must, Should and Later. Local inference on the MacBook is the only Must mode; the four modes become configurations of one OpenAI-compatible adapter. Hosted demo replaced by a video. Deferred security documented. Workflow through the Agentic Workflow Kit with feature specs in `specs/`. New seed company name. Mockups for M5, M7 and M8 in `docs/design/`.
 - **v1 (2026-10-23)**: initial spec.

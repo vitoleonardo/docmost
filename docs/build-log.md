@@ -25,3 +25,11 @@ Notable moments where the workflow caught or prevented problems.
 - **pnpm**: a standalone pnpm in `~/Library/pnpm` sits before corepack's shim and fails to switch to the pinned 11.25.0 (`ENOENT` under `.tools`). `corepack pnpm …` works.
 - **Ollama**: native app updated from 0.12.6 to 0.40.11 via the `ollama-app` cask. Docker Desktop's VM has 4 GB, leaving about 14 GB for the model and macOS.
 - **Kit install**: `install.sh` without an adapter copied 40 files and kept the fork's deny-only `.claude/settings.json`; `/onboard` merges it with the kit's settings and the sandbox.
+
+## 28.10.2026: Kit update to 795eb90 and `/onboard --refresh`
+- **Stale stage**: `.work/onboard/files/` still held the first onboard's `CLAUDE.md`, `settings.json` and `quality-gates.yml`. `onboard-apply` copies everything staged, so it would have reverted the kit update. Moved aside before restaging.
+- **Sandbox reset**: the kit update replaced `settings.json` with the kit's default, `sandbox.enabled: false`. Kept off by decision (spec v1.3).
+- **Default Map**: the kit's structure Map (`src/features/`, `src/data/`) matched none of docmost's homes, so `.claude/bin/structure` would have blocked new files in `integrations/ai-bridge`. Rewritten from the layout; `common/`, `helpers/` and `utils` are legacy.
+- **Duplicates gate**: needs jscpd 5, added as a root devDependency. 521 existing clones count as legacy.
+- **Gates on the unchanged branch**: typecheck, lint (client 95, server 5 legacy errors), tests (client 432/0, server 905/15 legacy), coverage, duplicates and structure all pass.
+- **ee lock without the sandbox**: the guard blocks `head -c 0 packages/ee/LICENSE` and the Read tool is denied, but `f=packages/ee; head -c 0 $f/LICENSE` passed the guard (only `head` rejected the byte count). The lock is best effort; the CI import check (spec 13, item 4) is still missing.
