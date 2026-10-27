@@ -1,4 +1,4 @@
-# Docmost AI: Specification v1.1
+# Docmost AI: Specification v1.2
 
 Working name: `docmost-ai` (final name open).
 
@@ -33,7 +33,7 @@ The demo is a 2 to 3 minute video plus published eval and leak-test reports and 
 
 Report: `docs/phase0-report.md` (2026-10-23). Competitive check: `docs/competitive-analysis.md`. The findings are folded into this spec. Still open from Phase 0:
 
-- Does `getUserSpaceIds` exclude soft-deleted spaces? Answered by a test in the ai-bridge feature.
+- Does `getUserSpaceIds` exclude soft-deleted spaces? It does not filter `spaces.deleted_at`, but core deletes spaces hard (`space.repo.ts` `deleteSpace`) and never sets the column. Still confirmed by a test in the ai-bridge feature.
 - Hands-on tests of Docmost Enterprise AI and the restyler fork: moved to Later.
 
 ## 5. Architecture
@@ -57,6 +57,8 @@ Postgres + pgvector: Docmost's database, ai-service in its own schema `ai` (Alem
 Redis: Docmost's queues; ai-service's own job queue
 Ollama: native on the Mac (Metal), not in Docker
 ```
+
+The API between ai-bridge and ai-service (endpoints, token claims, error codes, streaming format) is one contract file in the repo. M3's plan creates it; every later plan that changes the API updates it in the same PR, and both sides have contract tests against it.
 
 Framework choice is made per feature and recorded as an ADR. Start with the fewest frameworks that do the job; each one must earn its place:
 
@@ -90,12 +92,13 @@ This is the core claim, so it is Must and not part of the deferred security work
 
 1. **User token.** The client calls `/api/ai/*` with the normal Docmost session. ai-bridge checks it and signs a token for ai-service with `AI_BRIDGE_SECRET` (not `APP_SECRET`): sub, workspaceId, readable spaceIds, aud `ai-service`, exp ≤ 60 s.
 2. **Service token.** ai-service authenticates to ai-bridge's internal endpoints with a static service token. On calls made for a user it also passes the user token, and ai-bridge verifies that token itself. A user id sent without a valid user token is rejected.
-3. **Filter before generation.** Retrieval narrows by spaceIds, then every candidate chunk's page goes through `filterAccessiblePageIds` via ai-bridge before any text reaches the model. Restricted pages inside readable spaces never enter the prompt.
-4. **Final check.** Every cited page is checked with `validateCanView` before the answer is returned.
+3. **Filter before generation.** Retrieval narrows by spaceIds, then every candidate chunk's page goes through ai-bridge's filter before any text reaches the model. Restricted pages inside readable spaces never enter the prompt. The filter decides from Docmost's current data only: the page's current space, its `deleted_at`, the user's current space membership and the page restrictions. It never trusts a space id, page metadata or anything else sent by ai-service, because the index can be stale (a lost move job). `filterAccessiblePageIds` alone is not enough: it checks page restrictions only and returns all ids unchanged for a space without restrictions.
+4. **Final check.** Every cited page is checked with `validateCanView` and must not be soft-deleted before the answer is returned. `validateCanView` does not check `deleted_at`, and `pageRepo.findById` returns trashed pages.
 5. **Extracted data** belongs to its attachment's page. Any query over it (agent tools, lists) is filtered through the same page check.
 6. **Agent tools** call ai-bridge as the user, through Docmost's own services, never with admin rights. Agent runs longer than the user token's lifetime use a task token bound to user, run and expiry, issued by ai-bridge.
 7. **Deletes.** A page that is deleted, soft-deleted or moved out of a space is removed from, or re-scoped in, the index and the extracted data. A soft-deleted page is never retrieved.
 8. **Output rendering.** The client renders AI output as markdown without raw HTML and without loading remote images.
+9. **Data access.** ai-service never reads or writes Docmost's tables. It gets page content, attachments and permission decisions only through ai-bridge. Its database role has rights on schema `ai` only.
 
 ## 8. Scope
 
@@ -132,6 +135,17 @@ This is the core claim, so it is Must and not part of the deferred security work
 - Specification schema; slash command.
 - Hands-on tests of Docmost Enterprise AI and the restyler fork.
 
+### Not in v1
+
+- In-editor writing assistance (improve, translate, continue); Docmost Enterprise has it.
+- Public share pages and anonymous users: every AI request needs a logged-in user.
+- Indexing comments, page history and attachments other than PDF (no DOCX, no OCR).
+- More than one workspace: self-hosted Docmost allows one. All AI data is still scoped by workspace id.
+
+### Switching the feature on
+
+In Must the assistant is on for every user of the workspace when ai-bridge is configured (`AI_BRIDGE_SECRET` and the ai-service URL are set) and off otherwise. A per-workspace switch comes with the admin pages (Should).
+
 ## 9. What each feature spec must cover
 
 Input for `/spec-feature`. Feature specs state observable behaviour; the mechanisms named here go into the plan. Features with UI link their mockup section in `docs/design/ai-assistant.html` in the User flow and refer to its state IDs (index and design decisions: `docs/design/README.md`).
@@ -145,7 +159,9 @@ Input for `/spec-feature`. Feature specs state observable behaviour; the mechani
 - One command rebuilds everything from scratch.
 
 **M3 AI bridge**
-- Section 7 items 1, 2 and 6. Rejection cases: expired token, wrong audience, missing service token, user id without user token.
+- Section 7 items 1, 2, 3 (the filter endpoint), 6 and 9. Rejection cases: expired token, wrong audience, missing service token, user id without user token.
+- The filter endpoint's cases from Docmost's current data: page moved to a space the user cannot read, soft-deleted page, user removed from the space, restricted page inside a readable space.
+- Creates the bridge/ai-service contract file (section 5).
 - `{ai-queue}` processor hands jobs to ai-service's own durable queue (the core queue has `attempts: 1`).
 - Docmost works unchanged when ai-service is down; the AI UI shows that the assistant is unavailable.
 - Answers the open question about soft-deleted spaces in `getUserSpaceIds`.
@@ -153,19 +169,22 @@ Input for `/spec-feature`. Feature specs state observable behaviour; the mechani
 **M4 Indexing**
 - Markdown via `jsonToMarkdown`, chunks keep their heading path for section citations.
 - Attachments: ai-service parses PDFs itself (core text extraction is ee-only). PDFs are searchable in Ask.
-- Freshness: the time from a saved edit to searchable is measured and recorded; collaborative saves arrive with Hocuspocus' 10 to 45 s debounce.
+- Freshness: the time from a saved edit to searchable is measured and recorded; collaborative saves arrive with Hocuspocus' 10 to 45 s debounce. The first measurement sets the threshold, recorded in the spec's Decisions.
 - Section 7 item 7. Reconcile job compares `updated_at` and fixes gaps.
 - German full-text search alongside vectors if the evals show it helps.
 
 **M5 Ask** (design: overview, A1 to A4)
 - Section 7 items 3, 4 and 8. Answers in German, streamed, each claim with a citation linking page and section.
 - "I don't know" when no chunk passes the relevance threshold; the threshold is set from the eval baseline.
-- Multi-turn within one panel session; history is kept in ai-service.
+- Multi-turn within one panel session; history is kept in ai-service. A session ends when the user starts a new conversation or reloads the app; ai-service drops a history after 24 h without activity.
+- Time to the first streamed token on the M3 Pro is measured; the first measurement sets the threshold, recorded in the spec's Decisions.
+- The prompt-content check (M6) for the questions this feature's tests use lands with this feature; M6 extends it to the full matrix.
 
 **M6 Leak tests**
 - Prompt-content test: for every user in the permission matrix and every golden question, no chunk from a page the user cannot view is in the assembled prompt. Needs no model, runs in CI on every PR, any failure blocks.
 - Canary suite: users without access ask about restricted content in many phrasings, including prompt injection in the question and inside readable pages. A canary string in any answer is a leak. Runs locally on the active mode.
 - Revocation case: a user removed from a space gets no content from it on the next request.
+- Stale-index cases: a page moved into a space the user cannot read while its move job is dropped, and a soft-deleted page still in the index. Neither reaches the prompt.
 
 **M7 Contract extraction** (design: E1 to E4)
 - Fields: parties, term, notice period, value, renewal.
@@ -178,20 +197,24 @@ Input for `/spec-feature`. Feature specs state observable behaviour; the mechani
 - The user writes the task as free text and picks one readable space. The evaluated scenario is "find pages about X that look outdated and propose updates"; other tasks that the tools cover work too, and a task outside them gets a reply listing what the agent can do.
 - Tools: search, read page, propose update. Reads and proposals run with the user's permissions.
 - A proposal is stored in ai-service and shown as a diff. Nothing is written without the user's confirmation, and the confirmation applies exactly the shown diff.
-- If the page changed after the proposal was made, applying is refused and the user can request a new proposal.
+- If the page changed after the proposal was made, applying is refused and the user can request a new proposal. This includes edits in an open editor that the collaboration server has not saved yet (10 to 45 s debounce).
 - A user with read-only access gets proposals but cannot apply them.
 - Limits: maximum steps, run time and tokens per run; the user can cancel a run.
 - Pages changed by the agent are recorded with user, run and time.
+- Agent runs and proposals are deleted after 30 days (section 11).
 
 **M9 Request log**
 - Cost per request from a dated price table per model; local mode costs 0 USD (hardware and energy not counted, stated in the report).
 - User ids are stored as an HMAC with a secret, not in clear text.
+- Rows are deleted after 30 days (section 11).
 
 **M10 Evals**
 - Golden set: about 20 questions with expected source pages, the PDFs' ground truth, scripted agent scenarios.
 - RAG: answer correctness, citation accuracy, groundedness, refusal when no source. Extraction: field-level accuracy. Agent: task success, no write without confirmation.
 - First run sets the baseline; thresholds are set from it and recorded in the spec's Decisions.
-- LLM-judged suites run locally (CI runners have no GPU); reports go to `reports/`.
+- Deterministic metrics wherever possible: citation accuracy against the expected source pages, refusal when no source, exact field match against the ground truth, no write without confirmation.
+- Answer correctness and groundedness are judged by Claude over the API, not by the local model under test (an 8B model is a weak judge). Judge model, prompt and date go into the report. The judge sees only fictional seed data; its key lives in the eval runner, never in ai-service.
+- LLM suites run locally (CI runners have no GPU); reports go to `reports/`.
 
 ## 10. Evals and CI split
 
@@ -204,9 +227,15 @@ Input for `/spec-feature`. Feature specs state observable behaviour; the mechani
 
 LLM suites are excluded from the kit's `KIT_TEST` (pytest marker) so CI stays deterministic.
 
+CI services for the tests that need a database:
+
+- Postgres with pgvector and Redis as service containers. Docmost's migrations, ai-service's Alembic migrations and the M2 seed run before the tests.
+- Permission tests (ai-bridge filter, `page_permissions` CTEs) run against that Postgres, never against mocks.
+- The prompt-content leak test uses a deterministic fake embedder in CI. It checks the filter, not retrieval quality, so it must hold for any candidate set. Locally it also runs with the real embedding model.
+
 ## 11. Data protection
 
-In local mode no page content, question or attachment leaves the developer's machine. The README and the video say so. Retention: request log and agent runs are kept for 30 days in the seed setup; conversation history until the panel session ends. `docs/data-protection.md` (data flows, AVV notes, TOMs) is written when API mode arrives (Should).
+In local mode no page content, question or attachment leaves the developer's machine. The README and the video say so. The one exception is the eval judge (section 9, M10), which sends fictional seed data to the Anthropic API; the eval report says so. Retention: request log (M9) and agent runs (M8) are kept for 30 days in the seed setup, each feature deleting its own rows; conversation history until the panel session ends (M5). `docs/data-protection.md` (data flows, AVV notes, TOMs) is written when API mode arrives (Should).
 
 ## 12. Deferred security
 
@@ -229,12 +258,14 @@ Built with the Agentic Workflow Kit (`vitoleonardo/agentic-development-template`
 **Setup (M1)**
 1. `./install.sh <fork>` without an adapter, then `/onboard` in the fork. It records `.claude/baseline.tsv` so upstream test failures count as legacy.
 2. Per-package configs (kit monorepo support):
-   - `apps/server/.claude/kit.conf`: Jest (`jest`), NestJS preset. The server's `lint` script runs with `--fix`; the kit's lint command must not.
-   - `apps/client/.claude/kit.conf`: Vitest, ESLint.
+   - `apps/server/.claude/kit.conf`: Jest (`jest`), NestJS preset. The server's `lint` script runs with `--fix`; the kit's lint command must not. The server has no `typecheck` script: set `KIT_TYPECHECK` to an incremental `tsc --noEmit`, because the hooks run it after every batch of edits. The baseline needs a JUnit report, so `jest-junit` is added as a dev dependency (a wiring change to `package.json` and the lockfile).
+   - `apps/client/.claude/kit.conf`: Vitest (JUnit reporter built in), ESLint. No `typecheck` script either; same incremental `tsc --noEmit`.
    - `ai-service/.claude/kit.conf`: Python adapter (uv, ruff, pyright, pytest), LLM suites excluded.
-3. Protected paths: `apps/server/src/ee`, `apps/client/src/ee`, `packages/ee` through sandbox `denyRead`, deny rules and `KIT_PROTECTED_PATHS`. This replaces the current deny-only `.claude/settings.json` and closes the gap recorded in `docs/build-log.md`.
-4. The kit's `quality-gates` workflow becomes the first CI test workflow in the fork (upstream only has `release.yml`), extended with the prompt-content leak test and a check that no new file imports from the ee paths.
+3. Protected paths: `apps/server/src/ee`, `apps/client/src/ee`, `packages/ee` through sandbox `denyRead`, deny rules and `KIT_PROTECTED_PATHS`. This replaces the current deny-only `.claude/settings.json` and closes the gap recorded in `docs/build-log.md`. The sandbox needs `bubblewrap` and `socat` on Linux (missing on the Linux dev machine); set `sandbox.failIfUnavailable: true` so a missing sandbox fails instead of running unsandboxed. Verify on each dev machine that `head packages/ee/LICENSE` through Bash is blocked, also with the RTK hook active.
+4. The kit's `quality-gates` workflow becomes the first CI test workflow in the fork (upstream only has `release.yml`). The kit ships one workflow per adapter; the fork needs one merged workflow that sets up pnpm and uv, starts the services from section 10 and runs every package's checks. Extended with the prompt-content leak test and a check that no new file imports from the ee paths.
 5. Decide during `/onboard` how the 70 % coverage gate treats one-line wiring edits in untested upstream files (exclusion list or small tests).
+6. The diff-size limit (`KIT_MAX_CHANGED_LINES`, 400) excludes generated seed data, PDFs, golden sets and `reports/`, so it measures code. Features above it are split into several PRs; M3 is expected to be.
+7. The kit has not yet been onboarded onto a real repository of this size (its own build log). Budget M1 at about a day and record what breaks in `docs/build-log.md`.
 
 **Per feature**
 - Features with UI need an approved mockup in `docs/design/` before `/spec-feature`. A UI change that departs from the mockup updates the mockup in the same PR.
@@ -296,5 +327,6 @@ Positioning: not "a better Docmost", but "what a production-grade AI feature loo
 
 ## Changelog
 
+- **v1.2 (2026-10-27)**: Pre-kit review. The filter before generation decides from Docmost's current data only, because `filterAccessiblePageIds` ignores space membership and soft deletes and the index can be stale (7.3, 7.4); new stale-index leak cases (M3, M6). ai-service never touches Docmost's tables (7.9). One bridge/ai-service contract file owned by M3's plan (5). "Not in v1" list and how the feature is switched on in Must (8). CI services and a fake embedder for the leak test (10). Eval judge: deterministic metrics first, Claude over the API for correctness and groundedness (M10, 11). Agent stale check covers unsaved collaborative edits (M8). Session end, retention owners, latency and freshness thresholds from a first measurement. Kit setup prerequisites found by reading the kit and the fork (13). Phase 0 "Decisions after review" marked superseded.
 - **v1.1 (2026-10-27)**: Phase 0 findings folded in (permission filter before generation, enterprise AI Chat, core AI plumbing). Scope split into Must, Should and Later. Local inference on the MacBook is the only Must mode; the four modes become configurations of one OpenAI-compatible adapter. Hosted demo replaced by a video. Deferred security documented. Workflow through the Agentic Workflow Kit with feature specs in `specs/`. New seed company name. Mockups for M5, M7 and M8 in `docs/design/`.
 - **v1 (2026-10-23)**: initial spec.

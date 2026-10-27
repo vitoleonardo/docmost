@@ -167,6 +167,8 @@ See `docs/competitive-analysis.md`. Desk research has been verified. Hands-on ru
 
 ## Decisions after review
 
+> **Superseded by `docs/spec.md` v1.1 (2026-10-27).** Local inference through Ollama is the only Must mode, API mode is Should, and there is no hosted demo in v1. The decisions below stay as a record; where they conflict with the spec, the spec applies. Still valid: embeddings run in-process in ai-service, and the API key never reaches the client.
+
 - **2026-10-23: The demo LLM is the Anthropic API**, using the owner's regular Anthropic API key (about $100 of API credit that comes with the Max plan).
   - **Prices** (Anthropic list, cached 2026-10-06; re-check at build time):
 
