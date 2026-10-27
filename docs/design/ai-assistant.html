@@ -361,21 +361,23 @@
       <div class="screen panel">
         <div class="row between"><span class="h6">Assistent</span><svg class="icon dim"><use href="#i-x"/></svg></div>
         <div class="seg"><span>Fragen</span><span class="on">Aufgabe</span></div>
-        <span class="sm" style="font-weight:500">Bereich</span>
-        <div class="input filled">HR ▾</div>
-        <span class="sm" style="font-weight:500">Thema</span>
-        <div class="input filled" style="min-height:60px">Urlaub und Abwesenheiten</div>
-        <div class="alert blue"><svg class="icon"><use href="#i-lock"/></svg><span>Der Assistent prüft die Seiten auf veraltete oder widersprüchliche Angaben und schlägt Änderungen vor. Nichts wird ohne deine Bestätigung geändert.</span></div>
-        <div class="composer"><span class="grow"></span><span class="btn primary">Prüfung starten</span></div>
+        <div class="row"><span class="chip">Bereich: HR ▾</span></div>
+        <div class="alert blue"><svg class="icon"><use href="#i-lock"/></svg><span>Der Assistent kann Seiten suchen, lesen und Änderungen vorschlagen. Nichts wird ohne deine Bestätigung geändert.</span></div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <span class="xs dim" style="font-weight:600">BEISPIELE</span>
+          <div class="suggest">Finde veraltete Seiten zu Urlaub und schlage Updates vor</div>
+          <div class="suggest">Prüfe, ob sich Seiten zu Reisekosten widersprechen</div>
+        </div>
+        <div class="composer"><div class="input filled" style="min-height:58px">Finde veraltete Seiten zu Urlaub und Abwesenheiten und schlage Updates vor</div><span class="btn primary icon-only"><svg class="icon"><use href="#i-send"/></svg></span></div>
       </div>
-      <figcaption><b>G1 Aufgabe starten.</b> In v1 genau ein Szenario, deshalb ein Formular statt freiem Prompt: Bereich (nur lesbare Bereiche) und Thema. Das ist robuster mit einem 8B-Modell und leichter zu testen.</figcaption>
+      <figcaption><b>G1 Aufgabe beschreiben.</b> Freier Text wie im Fragen-Modus, dazu die Bereichsauswahl (nur lesbare Bereiche). Was der Agent kann, legen seine Werkzeuge fest, nicht die Eingabe. Passt eine Aufgabe nicht dazu, antwortet er im Panel, was er stattdessen kann, statt es zu versuchen.</figcaption>
     </figure>
 
     <figure>
       <div class="screen panel">
         <div class="row between"><span class="h6">Assistent</span><svg class="icon dim"><use href="#i-x"/></svg></div>
         <div class="seg"><span>Fragen</span><span class="on">Aufgabe</span></div>
-        <span class="sm"><b>HR</b> · Urlaub und Abwesenheiten</span>
+        <div class="bubble">Finde veraltete Seiten zu Urlaub und Abwesenheiten und schlage Updates vor <span class="xs dim">· HR</span></div>
         <div class="steps">
           <div class="row"><svg class="icon ok"><use href="#i-check"/></svg><span>Gesucht: „Urlaub“, „Abwesenheit“: 7 Seiten</span></div>
           <div class="row"><svg class="icon ok"><use href="#i-check"/></svg><span>5 Seiten gelesen</span></div>

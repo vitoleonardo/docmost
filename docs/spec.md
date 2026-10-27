@@ -175,7 +175,7 @@ Input for `/spec-feature`. Feature specs state observable behaviour; the mechani
 - Extraction time on the M3 Pro is measured and recorded.
 
 **M8 Agent: outdated pages** (design: G1 to G6)
-- "Find pages about X in space Y that look outdated and propose updates."
+- The user writes the task as free text and picks one readable space. The evaluated scenario is "find pages about X that look outdated and propose updates"; other tasks that the tools cover work too, and a task outside them gets a reply listing what the agent can do.
 - Tools: search, read page, propose update. Reads and proposals run with the user's permissions.
 - A proposal is stored in ai-service and shown as a diff. Nothing is written without the user's confirmation, and the confirmation applies exactly the shown diff.
 - If the page changed after the proposal was made, applying is refused and the user can request a new proposal.
