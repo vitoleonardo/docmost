@@ -1,12 +1,228 @@
 {
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "permissions": {
+    "allow": [
+      "Bash(git status *)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git show *)",
+      "Bash(git blame *)",
+      "Bash(git rev-parse *)",
+      "Bash(git branch --show-current)",
+      "Bash(.claude/bin/check *)",
+      "Bash(.claude/bin/spec-lint *)",
+      "Bash(.claude/bin/route *)",
+      "Bash(.claude/bin/usage *)"
+    ],
+    "ask": [
+      "Bash(npm install *)",
+      "Bash(npm i *)",
+      "Bash(npm ci *)",
+      "Bash(npm uninstall *)",
+      "Bash(npm update *)",
+      "Bash(pnpm install *)",
+      "Bash(pnpm i *)",
+      "Bash(pnpm add *)",
+      "Bash(pnpm remove *)",
+      "Bash(pnpm update *)",
+      "Bash(pnpm up *)",
+      "Bash(yarn add *)",
+      "Bash(yarn remove *)",
+      "Bash(yarn install *)",
+      "Bash(bun add *)",
+      "Bash(bun install *)",
+      "Bash(pip install *)",
+      "Bash(uv add *)",
+      "Bash(uv pip *)",
+      "Bash(poetry add *)",
+      "Bash(cargo add *)",
+      "Bash(go get *)",
+      "Bash(bundle add *)",
+      "Bash(composer require *)",
+      "Bash(dotnet add *)",
+      "Bash(git push *)",
+      "Bash(gh pr create *)",
+      "Bash(gh pr merge *)",
+      "Edit(.github/**)",
+      "Edit(.gitlab-ci.yml)",
+      "Edit(package-lock.json)",
+      "Edit(pnpm-lock.yaml)",
+      "Edit(yarn.lock)",
+      "Edit(bun.lock)",
+      "Edit(poetry.lock)",
+      "Edit(uv.lock)",
+      "Edit(Cargo.lock)",
+      "Edit(go.sum)",
+      "Edit(Gemfile.lock)",
+      "Edit(composer.lock)",
+      "Edit(migrations/**)",
+      "Edit(/apps/server/src/database/migrations/**)",
+      "Edit(Dockerfile*)",
+      "Edit(docker-compose*)",
+      "Edit(compose.yaml)",
+      "Edit(compose.yml)",
+      "Edit(infra/**)",
+      "Edit(terraform/**)",
+      "Edit(.claude/settings.json)",
+      "Edit(.claude/kit.conf)",
+      "Edit(**/.claude/kit.conf)",
+      "Edit(.claude/baseline.tsv)",
+      "Edit(.claude/bin/**)",
+      "Edit(.claude/hooks/**)",
+      "Edit(.claude/rules/**)"
+    ],
     "deny": [
+      "Read(.env)",
+      "Read(.env.*)",
+      "Read(!.env.example)",
+      "Read(.npmrc)",
+      "Read(.pypirc)",
+      "Read(*.pem)",
+      "Read(*.key)",
+      "Read(*.p12)",
+      "Read(secrets/**)",
+      "Read(~/.ssh/**)",
+      "Read(~/.aws/**)",
+      "Bash(cat .env*)",
+      "Bash(head .env*)",
+      "Bash(tail .env*)",
+      "Bash(less .env*)",
+      "Bash(more .env*)",
+      "Bash(source .env*)",
+      "Bash(. .env*)",
+      "Bash(rm -rf *)",
+      "Bash(rm -fr *)",
+      "Bash(sudo *)",
+      "Bash(git reset --hard *)",
+      "Bash(git push --force *)",
+      "Bash(git push -f *)",
+      "Bash(git push --force-with-lease *)",
+      "Bash(git clean *)",
+      "Bash(curl *)",
+      "Bash(wget *)",
+      "Bash(nc *)",
+      "Bash(ssh *)",
+      "Bash(scp *)",
+      "Bash(printenv *)",
+      "Bash(env)",
       "Read(/apps/server/src/ee/**)",
       "Read(/apps/client/src/ee/**)",
       "Read(/packages/ee/**)",
       "Edit(/apps/server/src/ee/**)",
       "Edit(/apps/client/src/ee/**)",
-      "Edit(/packages/ee/**)"
+      "Edit(/packages/ee/**)",
+      "Read(/apps/server/src/ee)",
+      "Edit(/apps/server/src/ee)",
+      "Read(/apps/client/src/ee)",
+      "Edit(/apps/client/src/ee)",
+      "Read(/packages/ee)",
+      "Edit(/packages/ee)"
+    ]
+  },
+  "sandbox": {
+    "enabled": true,
+    "failIfUnavailable": true,
+    "allowUnsandboxedCommands": false,
+    "excludedCommands": [
+      ".claude/bin/check",
+      ".claude/bin/check *"
+    ],
+    "filesystem": {
+      "denyRead": [
+        "./apps/server/src/ee",
+        "./apps/client/src/ee",
+        "./packages/ee"
+      ],
+      "denyWrite": [
+        "./apps/server/src/ee",
+        "./apps/client/src/ee",
+        "./packages/ee"
+      ]
+    }
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Read|Edit|Write|Grep|Glob",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/guard",
+            "timeout": 10,
+            "onFailure": "block"
+          }
+        ]
+      },
+      {
+        "matcher": "Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/usage",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/record-edit",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/usage",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "PostToolBatch": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/check-edits",
+            "timeout": 300
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/summary",
+            "timeout": 300
+          },
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/usage",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/usage",
+            "timeout": 30
+          }
+        ]
+      }
     ]
   }
 }

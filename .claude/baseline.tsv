@@ -1,0 +1,552 @@
+meta	sha	40feb56e4ddcb9cda0de5bf2b0138294f39fd2a4	created	2026-10-27T14:17:57Z
+test	apps/client	src/components/ui/document-title.test.tsx::DocumentTitle > appends the app name	pass
+test	apps/client	src/components/ui/document-title.test.tsx::DocumentTitle > falls back to the app name without a title	pass
+test	apps/client	src/components/ui/document-title.test.tsx::DocumentTitle > never renders an empty title	pass
+test	apps/client	src/components/ui/document-title.test.tsx::DocumentTitle > omits the app name when asked	pass
+test	apps/client	src/components/ui/document-title.test.tsx::DocumentTitle > renders extra head children	pass
+test	apps/client	src/features/editor/extensions/document.test.ts::TiptapDocument > stops on the gap when arrowing down from a selected block node	pass
+test	apps/client	src/features/editor/extensions/document.test.ts::TiptapDocument > stops on the gap when arrowing right out of an isolating block	pass
+test	apps/client	src/features/page-history/utils/resolve-compare-pair.test.ts::resolveComparePair > orders newer before older regardless of selection order	pass
+test	apps/client	src/features/page-history/utils/resolve-compare-pair.test.ts::resolveComparePair > returns null unless exactly two versions are selected	pass
+test	apps/client	src/features/page-history/utils/resolve-compare-pair.test.ts::resolveComparePair > returns null when a selected id is not in the list	pass
+test	apps/client	src/features/page-history/utils/resolve-compare-pair.test.ts::resolveComparePair > returns null when the same id is selected twice	pass
+test	apps/client	src/features/page/tree/hooks/drop-op-to-move-payload.test.ts::dropOpToMovePayload > make-child appends with position after last child	pass
+test	apps/client	src/features/page/tree/hooks/drop-op-to-move-payload.test.ts::dropOpToMovePayload > make-child when source is already last child of target uses post-move neighbors	pass
+test	apps/client	src/features/page/tree/hooks/drop-op-to-move-payload.test.ts::dropOpToMovePayload > reorder-after computes position between target and next	pass
+test	apps/client	src/features/page/tree/hooks/drop-op-to-move-payload.test.ts::dropOpToMovePayload > reorder-after when source is immediately after target uses post-move neighbors	pass
+test	apps/client	src/features/page/tree/hooks/drop-op-to-move-payload.test.ts::dropOpToMovePayload > reorder-before at root: parentPageId is null	pass
+test	apps/client	src/features/page/tree/hooks/drop-op-to-move-payload.test.ts::dropOpToMovePayload > reorder-before computes parentId + position between prev and target	pass
+test	apps/client	src/features/page/tree/hooks/drop-op-to-move-payload.test.ts::dropOpToMovePayload > reorder-before when source is immediately before target uses post-move neighbors	pass
+test	apps/client	src/features/page/tree/model/tree-model.test.ts::treeModel.appendChildren > appends to existing children	pass
+test	apps/client	src/features/page/tree/model/tree-model.test.ts::treeModel.appendChildren > dedups against existing children by id	pass
+test	apps/client	src/features/page/tree/model/tree-model.test.ts::treeModel.appendChildren > initializes children when parent had none	pass
+test	apps/client	src/features/page/tree/model/tree-model.test.ts::treeModel.appendChildren > returns same array reference for unknown parentId	pass
+test	apps/client	src/features/page/tree/model/tree-model.test.ts::treeModel.appendChildren > returns same array reference when every child is a duplicate	pass
+test	apps/client	src/features/page/tree/model/tree-model.test.ts::treeModel.find > finds a deeply nested node	pass
+test	apps/client	src/features/page/tree/model/tree-model.test.ts::treeModel.find > finds a root node	pass
+test	apps/client	src/features/page/tree/model/tree-model.test.ts::treeModel.find > returns null for unknown id	pass
+test	apps/client	src/features/page/tree/model/tree-model.test.ts::treeModel.insert > initializes children array when parent had no children	pass
+test	apps/client	src/features/page/tree/model/tree-model.test.ts::treeModel.insert > inserts at end when index is undefined	pass
+test	apps/client	src/features/page/tree/model/tree-model.test.ts::treeModel.insert > inserts at index 0	pass
+test	apps/client	src/features/page/tree/model/tree-model.test.ts::treeModel.insert > inserts at root when parentId is null	pass
+test	apps/client	src/features/page/tree/model/tree-model.test.ts::treeModel.insert > inserts in the middle	pass
+test	apps/client	src/features/page/tree/model/tree-model.test.ts::treeModel.insert > returns same array reference for unknown parentId	pass
+test	apps/client	src/features/page/tree/model/tree-model.test.ts::treeModel.isDescendant > returns false for unknown ids	pass
+test	apps/client	src/features/page/tree/model/tree-model.test.ts::treeModel.isDescendant > returns false when ancestorId is the same as descendantId	pass
+test	apps/client	src/features/page/tree/model/tree-model.test.ts::treeModel.isDescendant > returns false when ids are siblings	pass
+test	apps/client	src/features/page/tree/model/tree-model.test.ts::treeModel.isDescendant > returns true when descendantId is nested under ancestorId	pass
+test	apps/client	src/features/page/tree/model/tree-model.test.ts::treeModel.move > make-child appends at end of target children	pass
+test	apps/client	src/features/page/tree/model/tree-model.test.ts::treeModel.move > make-child initializes children when target had none	pass
+test	apps/client	src/features/page/tree/model/tree-model.test.ts::treeModel.move > no-op when source is unknown	pass
+test	apps/client	src/features/page/tree/model/tree-model.test.ts::treeModel.move > no-op when sourceId === targetId	pass
+test	apps/client	src/features/page/tree/model/tree-model.test.ts::treeModel.move > no-op when target is descendant of source	pass
+test	apps/client	src/features/page/tree/model/tree-model.test.ts::treeModel.move > no-op when target is unknown	pass
+test	apps/client	src/features/page/tree/model/tree-model.test.ts::treeModel.move > reorder-after to root	pass
+test	apps/client	src/features/page/tree/model/tree-model.test.ts::treeModel.move > reorder-after within same parent	pass
+test	apps/client	src/features/page/tree/model/tree-model.test.ts::treeModel.move > reorder-before across parents	pass
+test	apps/client	src/features/page/tree/model/tree-model.test.ts::treeModel.move > reorder-before within same parent: moves source to target index	pass
+test	apps/client	src/features/page/tree/model/tree-model.test.ts::treeModel.path > returns [node] for root-level id	pass
+test	apps/client	src/features/page/tree/model/tree-model.test.ts::treeModel.path > returns null for unknown id	pass
+test	apps/client	src/features/page/tree/model/tree-model.test.ts::treeModel.path > returns root-to-leaf path for nested id	pass
+test	apps/client	src/features/page/tree/model/tree-model.test.ts::treeModel.place > moves a node to a new parent at a given index	pass
+test	apps/client	src/features/page/tree/model/tree-model.test.ts::treeModel.place > moves a node to root	pass
+test	apps/client	src/features/page/tree/model/tree-model.test.ts::treeModel.place > reorders within the same parent	pass
+test	apps/client	src/features/page/tree/model/tree-model.test.ts::treeModel.place > returns same array reference for unknown destination parent	pass
+test	apps/client	src/features/page/tree/model/tree-model.test.ts::treeModel.place > returns same array reference for unknown source	pass
+test	apps/client	src/features/page/tree/model/tree-model.test.ts::treeModel.remove > removes a leaf	pass
+test	apps/client	src/features/page/tree/model/tree-model.test.ts::treeModel.remove > removes a root node	pass
+test	apps/client	src/features/page/tree/model/tree-model.test.ts::treeModel.remove > removes a subtree	pass
+test	apps/client	src/features/page/tree/model/tree-model.test.ts::treeModel.remove > returns same array reference for unknown id	pass
+test	apps/client	src/features/page/tree/model/tree-model.test.ts::treeModel.siblingsOf > returns null for unknown id	pass
+test	apps/client	src/features/page/tree/model/tree-model.test.ts::treeModel.siblingsOf > returns parentId null + root siblings for a root id	pass
+test	apps/client	src/features/page/tree/model/tree-model.test.ts::treeModel.siblingsOf > returns siblings + parent + index for a child	pass
+test	apps/client	src/features/page/tree/model/tree-model.test.ts::treeModel.update > preserves children when patching parent's own fields	pass
+test	apps/client	src/features/page/tree/model/tree-model.test.ts::treeModel.update > preserves reference identity of unrelated subtrees	pass
+test	apps/client	src/features/page/tree/model/tree-model.test.ts::treeModel.update > returns same array reference for unknown id	pass
+test	apps/client	src/features/page/tree/model/tree-model.test.ts::treeModel.update > shallow-merges a patch on the matching node	pass
+test	apps/client	src/features/page/tree/model/tree-model.test.ts::treeModel.visible > ignores openIds that are not in the tree	pass
+test	apps/client	src/features/page/tree/model/tree-model.test.ts::treeModel.visible > includes children of open ids in DFS order	pass
+test	apps/client	src/features/page/tree/model/tree-model.test.ts::treeModel.visible > recursively descends through chains of open ids	pass
+test	apps/client	src/features/page/tree/model/tree-model.test.ts::treeModel.visible > returns only root nodes when no openIds	pass
+count	apps/client	tests	69
+lint	apps/client	src/components/layouts/global/global-app-shell.tsx	1
+lint	apps/client	src/components/layouts/global/global-sidebar.tsx	1
+lint	apps/client	src/components/settings/settings-sidebar.tsx	1
+lint	apps/client	src/components/ui/destination-picker/destination-picker-modal.tsx	1
+lint	apps/client	src/components/ui/destination-picker/destination-picker.tsx	1
+lint	apps/client	src/features/editor/components/attachment/attachment-view.tsx	1
+lint	apps/client	src/features/editor/components/audio/audio-menu.tsx	1
+lint	apps/client	src/features/editor/components/audio/audio-view.tsx	1
+lint	apps/client	src/features/editor/components/bubble-menu/readonly-bubble-menu.tsx	1
+lint	apps/client	src/features/editor/components/common/lightbox-view.tsx	2
+lint	apps/client	src/features/editor/components/common/node-width-resize.tsx	1
+lint	apps/client	src/features/editor/components/common/resizable-wrapper.tsx	8
+lint	apps/client	src/features/editor/components/emoji-menu/emoji-list.tsx	3
+lint	apps/client	src/features/editor/components/image/image-menu.tsx	1
+lint	apps/client	src/features/editor/components/image/image-view.tsx	1
+lint	apps/client	src/features/editor/components/link/link-editor-panel.tsx	1
+lint	apps/client	src/features/editor/components/link/link-view.tsx	3
+lint	apps/client	src/features/editor/components/math/math-block.tsx	3
+lint	apps/client	src/features/editor/components/math/math-inline.tsx	3
+lint	apps/client	src/features/editor/components/mention/mention-list.tsx	2
+lint	apps/client	src/features/editor/components/search-and-replace/search-and-replace-dialog.tsx	4
+lint	apps/client	src/features/editor/components/slash-menu/command-list.tsx	4
+lint	apps/client	src/features/editor/components/status/status-view.tsx	1
+lint	apps/client	src/features/editor/components/table-of-contents/table-of-contents.tsx	1
+lint	apps/client	src/features/editor/components/table/handle/cell-chevron.tsx	2
+lint	apps/client	src/features/editor/components/table/handle/column-handle.tsx	1
+lint	apps/client	src/features/editor/components/table/handle/row-handle.tsx	1
+lint	apps/client	src/features/editor/components/transclusion/transclusion-lookup-context.tsx	2
+lint	apps/client	src/features/editor/components/video/video-menu.tsx	1
+lint	apps/client	src/features/editor/components/video/video-view.tsx	1
+lint	apps/client	src/features/editor/extensions/autojoiner.ts	11
+lint	apps/client	src/features/editor/extensions/drag-handle.ts	1
+lint	apps/client	src/features/editor/extensions/markdown-clipboard.ts	2
+lint	apps/client	src/features/editor/hooks/use-editor-scroll.ts	1
+lint	apps/client	src/features/editor/page-editor.tsx	1
+lint	apps/client	src/features/editor/title-editor.tsx	3
+lint	apps/client	src/features/group/components/multi-group-select.tsx	1
+lint	apps/client	src/features/group/components/multi-user-select.tsx	1
+lint	apps/client	src/features/page-history/hooks/use-diff-navigation.ts	1
+lint	apps/client	src/features/page/components/breadcrumbs/breadcrumb.tsx	1
+lint	apps/client	src/features/page/components/header/page-header-menu.tsx	1
+lint	apps/client	src/features/page/tree/components/space-tree.tsx	1
+lint	apps/client	src/features/public-space/components/appearance-settings.tsx	1
+lint	apps/client	src/features/public-space/components/docs/docs-toc.tsx	1
+lint	apps/client	src/features/public-space/components/public-space-layout.tsx	1
+lint	apps/client	src/features/public-space/components/publish-space-settings.tsx	1
+lint	apps/client	src/features/share/components/share-layout.tsx	1
+lint	apps/client	src/features/share/components/share-modal.tsx	1
+lint	apps/client	src/features/space/components/multi-member-select.tsx	1
+lint	apps/client	src/features/space/components/sidebar/space-select.tsx	1
+lint	apps/client	src/features/user/components/page-state-pref.tsx	1
+lint	apps/client	src/features/workspace/components/settings/components/workspace-default-page-edit-mode.tsx	1
+lint	apps/client	src/pages/settings/workspace/workspace-members.tsx	1
+test	apps/server		pass
+test	apps/server	AuthController should be defined::AuthController should be defined	fail
+test	apps/server	AuthService should be defined::AuthService should be defined	fail
+test	apps/server	BacklinkService.countByPageId passes the userId to findRelatedPageIds so the repo can apply space membership filtering::BacklinkService.countByPageId passes the userId to findRelatedPageIds so the repo can apply space membership filtering	pass
+test	apps/server	BacklinkService.countByPageId returns post-filter counts for both directions::BacklinkService.countByPageId returns post-filter counts for both directions	pass
+test	apps/server	BacklinkService.countByPageId skips the permission filter when there are no candidates::BacklinkService.countByPageId skips the permission filter when there are no candidates	pass
+test	apps/server	BacklinkService.findByPageId hands an empty list to the repo when there are no accessible ids::BacklinkService.findByPageId hands an empty list to the repo when there are no accessible ids	pass
+test	apps/server	BacklinkService.findByPageId passes filtered ids through to the paginated repo call::BacklinkService.findByPageId passes filtered ids through to the paginated repo call	pass
+test	apps/server	CommentService should be defined::CommentService should be defined	fail
+test	apps/server	EncryptionService cross-key isolation cannot decrypt ciphertext produced under a different APP_SECRET::EncryptionService cross-key isolation cannot decrypt ciphertext produced under a different APP_SECRET	pass
+test	apps/server	EncryptionService encrypt + decrypt round-trip decrypts back to the original plaintext::EncryptionService encrypt + decrypt round-trip decrypts back to the original plaintext	pass
+test	apps/server	EncryptionService encrypt + decrypt round-trip handles empty string::EncryptionService encrypt + decrypt round-trip handles empty string	pass
+test	apps/server	EncryptionService encrypt + decrypt round-trip handles long plaintext (>1 block)::EncryptionService encrypt + decrypt round-trip handles long plaintext (>1 block)	pass
+test	apps/server	EncryptionService encrypt + decrypt round-trip handles unicode (multi-byte UTF-8)::EncryptionService encrypt + decrypt round-trip handles unicode (multi-byte UTF-8)	pass
+test	apps/server	EncryptionService encrypt + decrypt round-trip produces distinct ciphertexts for the same plaintext (random IV)::EncryptionService encrypt + decrypt round-trip produces distinct ciphertexts for the same plaintext (random IV)	pass
+test	apps/server	EncryptionService envelope format returns base64 of JSON envelope with iv (12B), authTag (16B), cipherText::EncryptionService envelope format returns base64 of JSON envelope with iv (12B), authTag (16B), cipherText	pass
+test	apps/server	EncryptionService initialization compiles via Nest DI::EncryptionService initialization compiles via Nest DI	pass
+test	apps/server	EncryptionService initialization throws UnableToInitialize when APP_SECRET is missing::EncryptionService initialization throws UnableToInitialize when APP_SECRET is missing	pass
+test	apps/server	EncryptionService malformed payloads rejects JSON missing required fields::EncryptionService malformed payloads rejects JSON missing required fields	pass
+test	apps/server	EncryptionService malformed payloads rejects base64 of non-JSON::EncryptionService malformed payloads rejects base64 of non-JSON	pass
+test	apps/server	EncryptionService malformed payloads rejects non-base64 garbage::EncryptionService malformed payloads rejects non-base64 garbage	pass
+test	apps/server	EncryptionService malformed payloads rejects wrong-length IV::EncryptionService malformed payloads rejects wrong-length IV	pass
+test	apps/server	EncryptionService malformed payloads rejects wrong-length auth tag::EncryptionService malformed payloads rejects wrong-length auth tag	pass
+test	apps/server	EncryptionService tamper detection rejects modified IV::EncryptionService tamper detection rejects modified IV	pass
+test	apps/server	EncryptionService tamper detection rejects modified auth tag::EncryptionService tamper detection rejects modified auth tag	pass
+test	apps/server	EncryptionService tamper detection rejects modified ciphertext::EncryptionService tamper detection rejects modified ciphertext	pass
+test	apps/server	EnvironmentService should be defined::EnvironmentService should be defined	fail
+test	apps/server	GroupController should be defined::GroupController should be defined	fail
+test	apps/server	GroupService should be defined::GroupService should be defined	fail
+test	apps/server	JwtAuthGuard.handleRequest forbids an oauth user on a route without scope metadata::JwtAuthGuard.handleRequest forbids an oauth user on a route without scope metadata	pass
+test	apps/server	JwtAuthGuard.handleRequest forbids read scope on a write route with insufficient_scope::JwtAuthGuard.handleRequest forbids read scope on a write route with insufficient_scope	pass
+test	apps/server	JwtAuthGuard.handleRequest lets handler metadata override class metadata::JwtAuthGuard.handleRequest lets handler metadata override class metadata	pass
+test	apps/server	JwtAuthGuard.handleRequest passes read scope on a read route::JwtAuthGuard.handleRequest passes read scope on a read route	pass
+test	apps/server	JwtAuthGuard.handleRequest passes write scope on a read route::JwtAuthGuard.handleRequest passes write scope on a read route	pass
+test	apps/server	JwtAuthGuard.handleRequest passes write scope on a write route::JwtAuthGuard.handleRequest passes write scope on a write route	pass
+test	apps/server	JwtAuthGuard.handleRequest rethrows the strategy error::JwtAuthGuard.handleRequest rethrows the strategy error	pass
+test	apps/server	JwtAuthGuard.handleRequest returns a non-oauth user untouched without consulting scope metadata::JwtAuthGuard.handleRequest returns a non-oauth user untouched without consulting scope metadata	pass
+test	apps/server	JwtAuthGuard.handleRequest session-only routes allows a signed-in session::JwtAuthGuard.handleRequest session-only routes allows a signed-in session	pass
+test	apps/server	JwtAuthGuard.handleRequest session-only routes forbids an api key::JwtAuthGuard.handleRequest session-only routes forbids an api key	pass
+test	apps/server	JwtAuthGuard.handleRequest session-only routes forbids an oauth token even when it carries write scope::JwtAuthGuard.handleRequest session-only routes forbids an oauth token even when it carries write scope	pass
+test	apps/server	JwtAuthGuard.handleRequest session-only routes leaves api keys working on routes without the marker::JwtAuthGuard.handleRequest session-only routes leaves api keys working on routes without the marker	pass
+test	apps/server	JwtAuthGuard.handleRequest throws UnauthorizedException when there is no user::JwtAuthGuard.handleRequest throws UnauthorizedException when there is no user	pass
+test	apps/server	LocalDriver._fullPath absolute path rejected throws for "/absolute"::LocalDriver._fullPath absolute path rejected throws for "/absolute"	pass
+test	apps/server	LocalDriver._fullPath absolute path rejected throws for "/etc/passwd"::LocalDriver._fullPath absolute path rejected throws for "/etc/passwd"	pass
+test	apps/server	LocalDriver._fullPath absolute path rejected throws for "/root/.ssh/id_rsa"::LocalDriver._fullPath absolute path rejected throws for "/root/.ssh/id_rsa"	pass
+test	apps/server	LocalDriver._fullPath legitimate inputs (behavior preserved) resolves "" to "/data/storage"::LocalDriver._fullPath legitimate inputs (behavior preserved) resolves "" to "/data/storage"	pass
+test	apps/server	LocalDriver._fullPath legitimate inputs (behavior preserved) resolves "." to "/data/storage"::LocalDriver._fullPath legitimate inputs (behavior preserved) resolves "." to "/data/storage"	pass
+test	apps/server	LocalDriver._fullPath legitimate inputs (behavior preserved) resolves "./x/y.png" to "/data/storage/x/y.png"::LocalDriver._fullPath legitimate inputs (behavior preserved) resolves "./x/y.png" to "/data/storage/x/y.png"	pass
+test	apps/server	LocalDriver._fullPath legitimate inputs (behavior preserved) resolves "a//b" to "/data/storage/a/b"::LocalDriver._fullPath legitimate inputs (behavior preserved) resolves "a//b" to "/data/storage/a/b"	pass
+test	apps/server	LocalDriver._fullPath legitimate inputs (behavior preserved) resolves "a/b/../c" to "/data/storage/a/c"::LocalDriver._fullPath legitimate inputs (behavior preserved) resolves "a/b/../c" to "/data/storage/a/c"	pass
+test	apps/server	LocalDriver._fullPath legitimate inputs (behavior preserved) resolves "a/b/c/d/e.bin" to "/data/storage/a/b/c/d/e.bin"::LocalDriver._fullPath legitimate inputs (behavior preserved) resolves "a/b/c/d/e.bin" to "/data/storage/a/b/c/d/e.bin"	pass
+test	apps/server	LocalDriver._fullPath legitimate inputs (behavior preserved) resolves "workspace-id/avatars/uuid.png" to "/data/storage/workspace-id/avatars/uuid.png"::LocalDriver._fullPath legitimate inputs (behavior preserved) resolves "workspace-id/avatars/uuid.png" to "/data/storage/workspace-id/avatars/uuid.png"	pass
+test	apps/server	LocalDriver._fullPath legitimate inputs (behavior preserved) resolves "workspace-id/files/uuid/file.pdf" to "/data/storage/workspace-id/files/uuid/file.pdf"::LocalDriver._fullPath legitimate inputs (behavior preserved) resolves "workspace-id/files/uuid/file.pdf" to "/data/storage/workspace-id/files/uuid/file.pdf"	pass
+test	apps/server	LocalDriver._fullPath prefix-confusion rejected rejects a sibling directory whose name starts with the storage root::LocalDriver._fullPath prefix-confusion rejected rejects a sibling directory whose name starts with the storage root	pass
+test	apps/server	LocalDriver._fullPath storage root itself accepts the root when input resolves to it::LocalDriver._fullPath storage root itself accepts the root when input resolves to it	pass
+test	apps/server	LocalDriver._fullPath traversal rejected throws for ".."::LocalDriver._fullPath traversal rejected throws for ".."	pass
+test	apps/server	LocalDriver._fullPath traversal rejected throws for "../.."::LocalDriver._fullPath traversal rejected throws for "../.."	pass
+test	apps/server	LocalDriver._fullPath traversal rejected throws for "../../../etc/passwd"::LocalDriver._fullPath traversal rejected throws for "../../../etc/passwd"	pass
+test	apps/server	LocalDriver._fullPath traversal rejected throws for "../etc/passwd"::LocalDriver._fullPath traversal rejected throws for "../etc/passwd"	pass
+test	apps/server	LocalDriver._fullPath traversal rejected throws for "a/../../.."::LocalDriver._fullPath traversal rejected throws for "a/../../.."	pass
+test	apps/server	LocalDriver._fullPath traversal rejected throws for "workspace/../../../etc/passwd"::LocalDriver._fullPath traversal rejected throws for "workspace/../../../etc/passwd"	pass
+test	apps/server	OutboundAgentFactory propagates guard rejections::OutboundAgentFactory propagates guard rejections	pass
+test	apps/server	OutboundAgentFactory validates the URL through the guard and returns a releasable undici Agent::OutboundAgentFactory validates the URL through the guard and returns a releasable undici Agent	pass
+test	apps/server	OutboundUrlGuard.validate a bracketed IPv6 entry with a port accepts only that port::OutboundUrlGuard.validate a bracketed IPv6 entry with a port accepts only that port	pass
+test	apps/server	OutboundUrlGuard.validate a public address is allowed in every mode::OutboundUrlGuard.validate a public address is allowed in every mode	pass
+test	apps/server	OutboundUrlGuard.validate all accepts private network 10.1.2.3::OutboundUrlGuard.validate all accepts private network 10.1.2.3	pass
+test	apps/server	OutboundUrlGuard.validate all accepts private network 100.64.0.1::OutboundUrlGuard.validate all accepts private network 100.64.0.1	pass
+test	apps/server	OutboundUrlGuard.validate all accepts private network 192.168.1.10::OutboundUrlGuard.validate all accepts private network 192.168.1.10	pass
+test	apps/server	OutboundUrlGuard.validate all accepts private network fc00::1::OutboundUrlGuard.validate all accepts private network fc00::1	pass
+test	apps/server	OutboundUrlGuard.validate all still refuses loopback, and a loopback entry opts it back in::OutboundUrlGuard.validate all still refuses loopback, and a loopback entry opts it back in	pass
+test	apps/server	OutboundUrlGuard.validate allows LAN hosts and http on self-hosted when private networks are allowed::OutboundUrlGuard.validate allows LAN hosts and http on self-hosted when private networks are allowed	pass
+test	apps/server	OutboundUrlGuard.validate an entry with a port matches only that port::OutboundUrlGuard.validate an entry with a port matches only that port	pass
+test	apps/server	OutboundUrlGuard.validate an entry without a port matches every port::OutboundUrlGuard.validate an entry without a port matches every port	pass
+test	apps/server	OutboundUrlGuard.validate an unparseable value denies everything private or reserved and logs once per process::OutboundUrlGuard.validate an unparseable value denies everything private or reserved and logs once per process	pass
+test	apps/server	OutboundUrlGuard.validate cloud ignores ALLOWED_PRIVATE_NETWORKS and always refuses private and reserved ranges::OutboundUrlGuard.validate cloud ignores ALLOWED_PRIVATE_NETWORKS and always refuses private and reserved ranges	pass
+test	apps/server	OutboundUrlGuard.validate entries without a mode none every private network not named::OutboundUrlGuard.validate entries without a mode none every private network not named	pass
+test	apps/server	OutboundUrlGuard.validate marks resolution failures retryable and configuration failures not::OutboundUrlGuard.validate marks resolution failures retryable and configuration failures not	pass
+test	apps/server	OutboundUrlGuard.validate pins the first resolved address and keeps the hostname for SNI::OutboundUrlGuard.validate pins the first resolved address and keeps the hostname for SNI	pass
+test	apps/server	OutboundUrlGuard.validate refuses a resolved address that is not an IP address::OutboundUrlGuard.validate refuses a resolved address that is not an IP address	pass
+test	apps/server	OutboundUrlGuard.validate refuses an IPv4-translated loopback address even when private networks are allowed::OutboundUrlGuard.validate refuses an IPv4-translated loopback address even when private networks are allowed	pass
+test	apps/server	OutboundUrlGuard.validate refuses the whole host when any one of its addresses is refused::OutboundUrlGuard.validate refuses the whole host when any one of its addresses is refused	pass
+test	apps/server	OutboundUrlGuard.validate rejects credentials in the URL and unresolvable hosts::OutboundUrlGuard.validate rejects credentials in the URL and unresolvable hosts	pass
+test	apps/server	OutboundUrlGuard.validate rejects hosts that resolve to a private range on cloud::OutboundUrlGuard.validate rejects hosts that resolve to a private range on cloud	pass
+test	apps/server	OutboundUrlGuard.validate rejects http on cloud::OutboundUrlGuard.validate rejects http on cloud	pass
+test	apps/server	OutboundUrlGuard.validate rejects the cloud metadata address literal::OutboundUrlGuard.validate rejects the cloud metadata address literal	pass
+test	apps/server	OutboundUrlGuard.validate self-hosted refuses 0.0.0.0 under every ALLOWED_PRIVATE_NETWORKS value::OutboundUrlGuard.validate self-hosted refuses 0.0.0.0 under every ALLOWED_PRIVATE_NETWORKS value	pass
+test	apps/server	OutboundUrlGuard.validate self-hosted refuses 127.0.0.1 unless an entry names it::OutboundUrlGuard.validate self-hosted refuses 127.0.0.1 unless an entry names it	pass
+test	apps/server	OutboundUrlGuard.validate self-hosted refuses 169.254.169.254 under every ALLOWED_PRIVATE_NETWORKS value::OutboundUrlGuard.validate self-hosted refuses 169.254.169.254 under every ALLOWED_PRIVATE_NETWORKS value	pass
+test	apps/server	OutboundUrlGuard.validate self-hosted refuses 192.0.2.1 unless an entry names it::OutboundUrlGuard.validate self-hosted refuses 192.0.2.1 unless an entry names it	pass
+test	apps/server	OutboundUrlGuard.validate self-hosted refuses ::1 unless an entry names it::OutboundUrlGuard.validate self-hosted refuses ::1 unless an entry names it	pass
+test	apps/server	OutboundUrlGuard.validate self-hosted refuses ::ffff:127.0.0.1 unless an entry names it::OutboundUrlGuard.validate self-hosted refuses ::ffff:127.0.0.1 unless an entry names it	pass
+test	apps/server	OutboundUrlGuard.validate self-hosted refuses fe80::1 under every ALLOWED_PRIVATE_NETWORKS value::OutboundUrlGuard.validate self-hosted refuses fe80::1 under every ALLOWED_PRIVATE_NETWORKS value	pass
+test	apps/server	OutboundUrlGuard.validate self-hosted refuses ff02::1 under every ALLOWED_PRIVATE_NETWORKS value::OutboundUrlGuard.validate self-hosted refuses ff02::1 under every ALLOWED_PRIVATE_NETWORKS value	pass
+test	apps/server	OutboundUrlGuard.validate self-hosted refuses private network 10.1.2.3 by default::OutboundUrlGuard.validate self-hosted refuses private network 10.1.2.3 by default	pass
+test	apps/server	OutboundUrlGuard.validate self-hosted refuses private network 192.168.1.10 by default::OutboundUrlGuard.validate self-hosted refuses private network 192.168.1.10 by default	pass
+test	apps/server	PageController should be defined::PageController should be defined	fail
+test	apps/server	PageService should be defined::PageService should be defined	fail
+test	apps/server	PublicSpaceService BETA_PUBLIC_SPACES off directory 404s before any lookup even with the double opt-in on::PublicSpaceService BETA_PUBLIC_SPACES off directory 404s before any lookup even with the double opt-in on	pass
+test	apps/server	PublicSpaceService BETA_PUBLIC_SPACES off getPublicPage 404s before any lookup even with the workspace opted in::PublicSpaceService BETA_PUBLIC_SPACES off getPublicPage 404s before any lookup even with the workspace opted in	pass
+test	apps/server	PublicSpaceService BETA_PUBLIC_SPACES off getPublicSpaceInfo 404s before any lookup even with the workspace opted in::PublicSpaceService BETA_PUBLIC_SPACES off getPublicSpaceInfo 404s before any lookup even with the workspace opted in	pass
+test	apps/server	PublicSpaceService BETA_PUBLIC_SPACES off getPublicSpaceTree 404s before any lookup even with the workspace opted in::PublicSpaceService BETA_PUBLIC_SPACES off getPublicSpaceTree 404s before any lookup even with the workspace opted in	pass
+test	apps/server	PublicSpaceService BETA_PUBLIC_SPACES off lookupTransclusionForPublicSpace 404s before any lookup even with the workspace opted in::PublicSpaceService BETA_PUBLIC_SPACES off lookupTransclusionForPublicSpace 404s before any lookup even with the workspace opted in	pass
+test	apps/server	PublicSpaceService BETA_PUBLIC_SPACES off publish rejects every write (enabled=false) without touching the row::PublicSpaceService BETA_PUBLIC_SPACES off publish rejects every write (enabled=false) without touching the row	pass
+test	apps/server	PublicSpaceService BETA_PUBLIC_SPACES off publish rejects every write (enabled=true) without touching the row::PublicSpaceService BETA_PUBLIC_SPACES off publish rejects every write (enabled=true) without touching the row	pass
+test	apps/server	PublicSpaceService byline defaults to a hidden author and a visible updated date::PublicSpaceService byline defaults to a hidden author and a visible updated date	pass
+test	apps/server	PublicSpaceService byline leaves stored settings untouched when no byline field is sent::PublicSpaceService byline leaves stored settings untouched when no byline field is sent	pass
+test	apps/server	PublicSpaceService byline merges a single byline field into the stored byline::PublicSpaceService byline merges a single byline field into the stored byline	pass
+test	apps/server	PublicSpaceService byline requests the creator only when the author byline is enabled::PublicSpaceService byline requests the creator only when the author byline is enabled	pass
+test	apps/server	PublicSpaceService byline returns the byline for an empty published space::PublicSpaceService byline returns the byline for an empty published space	pass
+test	apps/server	PublicSpaceService byline strips a creator from the page when the author byline is off::PublicSpaceService byline strips a creator from the page when the author byline is off	pass
+test	apps/server	PublicSpaceService cross-space link resolution 404s a cross-space target when content is requested::PublicSpaceService cross-space link resolution 404s a cross-space target when content is requested	pass
+test	apps/server	PublicSpaceService cross-space link resolution 404s when the cross-space target has a restricted ancestor::PublicSpaceService cross-space link resolution 404s when the cross-space target has a restricted ancestor	pass
+test	apps/server	PublicSpaceService cross-space link resolution 404s when the target space is not published::PublicSpaceService cross-space link resolution 404s when the target space is not published	pass
+test	apps/server	PublicSpaceService cross-space link resolution 404s when the target space is outside the workspace::PublicSpaceService cross-space link resolution 404s when the target space is outside the workspace	pass
+test	apps/server	PublicSpaceService cross-space link resolution resolves a contentless probe into another published space::PublicSpaceService cross-space link resolution resolves a contentless probe into another published space	pass
+test	apps/server	PublicSpaceService directory 404s when the directory flag is off::PublicSpaceService directory 404s when the directory flag is off	pass
+test	apps/server	PublicSpaceService directory 404s when the workspace opt-in is off::PublicSpaceService directory 404s when the workspace opt-in is off	pass
+test	apps/server	PublicSpaceService directory lists only spaces opted into the directory with whitelisted fields::PublicSpaceService directory lists only spaces opted into the directory with whitelisted fields	pass
+test	apps/server	PublicSpaceService directory publish leaves settings untouched when directory is omitted::PublicSpaceService directory publish leaves settings untouched when directory is omitted	pass
+test	apps/server	PublicSpaceService directory publish stores the directory flag while preserving other settings::PublicSpaceService directory publish stores the directory flag while preserving other settings	pass
+test	apps/server	PublicSpaceService getPublicPage 404s for a page belonging to another space::PublicSpaceService getPublicPage 404s for a page belonging to another space	pass
+test	apps/server	PublicSpaceService getPublicPage 404s for a restricted page::PublicSpaceService getPublicPage 404s for a restricted page	pass
+test	apps/server	PublicSpaceService getPublicPage resolves the first unrestricted root page as the home::PublicSpaceService getPublicPage resolves the first unrestricted root page as the home	pass
+test	apps/server	PublicSpaceService getPublicPage returns page null for an empty published space::PublicSpaceService getPublicPage returns page null for an empty published space	pass
+test	apps/server	PublicSpaceService getPublicPage sanitizes the served page content for public delivery::PublicSpaceService getPublicPage sanitizes the served page content for public delivery	pass
+test	apps/server	PublicSpaceService getPublicPage skips content preparation when includeContent is false::PublicSpaceService getPublicPage skips content preparation when includeContent is false	pass
+test	apps/server	PublicSpaceService getPublicSpace 404s when BETA_PUBLIC_SPACES is off even with the workspace opt-in on::PublicSpaceService getPublicSpace 404s when BETA_PUBLIC_SPACES is off even with the workspace opt-in on	pass
+test	apps/server	PublicSpaceService getPublicSpace 404s when the space is deleted::PublicSpaceService getPublicSpace 404s when the space is deleted	pass
+test	apps/server	PublicSpaceService getPublicSpace 404s when the space row is disabled::PublicSpaceService getPublicSpace 404s when the space row is disabled	pass
+test	apps/server	PublicSpaceService getPublicSpace 404s when the workspace opt-in is off (default)::PublicSpaceService getPublicSpace 404s when the workspace opt-in is off (default)	pass
+test	apps/server	PublicSpaceService getPublicSpace 404s when there is no public_spaces row::PublicSpaceService getPublicSpace 404s when there is no public_spaces row	pass
+test	apps/server	PublicSpaceService getPublicSpace resolves when opted in, enabled, and space exists::PublicSpaceService getPublicSpace resolves when opted in, enabled, and space exists	pass
+test	apps/server	PublicSpaceService getPublicSpace resolves when public page sharing is disabled::PublicSpaceService getPublicSpace resolves when public page sharing is disabled	pass
+test	apps/server	PublicSpaceService lookupTransclusionForPublicSpace delegates item sanitization to the share service::PublicSpaceService lookupTransclusionForPublicSpace delegates item sanitization to the share service	pass
+test	apps/server	PublicSpaceService lookupTransclusionForPublicSpace excludes a candidate from another space::PublicSpaceService lookupTransclusionForPublicSpace excludes a candidate from another space	pass
+test	apps/server	PublicSpaceService lookupTransclusionForPublicSpace excludes a restricted candidate::PublicSpaceService lookupTransclusionForPublicSpace excludes a restricted candidate	pass
+test	apps/server	PublicSpaceService lookupTransclusionForPublicSpace includes a valid same-space candidate by its page id::PublicSpaceService lookupTransclusionForPublicSpace includes a valid same-space candidate by its page id	pass
+test	apps/server	PublicSpaceService public appearance exposure omits appearance when none is stored::PublicSpaceService public appearance exposure omits appearance when none is stored	pass
+test	apps/server	PublicSpaceService public appearance exposure strips appearance when the workspace lacks the license feature::PublicSpaceService public appearance exposure strips appearance when the workspace lacks the license feature	pass
+test	apps/server	PublicSpaceService public appearance exposure whitelists appearance on getPublicSpaceInfo::PublicSpaceService public appearance exposure whitelists appearance on getPublicSpaceInfo	pass
+test	apps/server	PublicSpaceService public appearance exposure whitelists appearance on getPublicSpaceTree::PublicSpaceService public appearance exposure whitelists appearance on getPublicSpaceTree	pass
+test	apps/server	PublicSpaceService public appearance exposure whitelists appearance on the empty-space page response::PublicSpaceService public appearance exposure whitelists appearance on the empty-space page response	pass
+test	apps/server	PublicSpaceService public appearance exposure whitelists appearance on the served page response::PublicSpaceService public appearance exposure whitelists appearance on the served page response	pass
+test	apps/server	PublicSpaceService publish allows disabling even when the opt-in is off::PublicSpaceService publish allows disabling even when the opt-in is off	pass
+test	apps/server	PublicSpaceService publish allows enabling when public page sharing is disabled::PublicSpaceService publish allows enabling when public page sharing is disabled	pass
+test	apps/server	PublicSpaceService publish appearance deletes an appearance key when its value is null::PublicSpaceService publish appearance deletes an appearance key when its value is null	pass
+test	apps/server	PublicSpaceService publish appearance merges appearance into existing settings preserving unknown keys::PublicSpaceService publish appearance merges appearance into existing settings preserving unknown keys	pass
+test	apps/server	PublicSpaceService publish appearance passes settings undefined when appearance is omitted::PublicSpaceService publish appearance passes settings undefined when appearance is omitted	pass
+test	apps/server	PublicSpaceService publish appearance rejects appearance when the workspace lacks the license feature::PublicSpaceService publish appearance rejects appearance when the workspace lacks the license feature	pass
+test	apps/server	PublicSpaceService publish defaults every option on except the author byline on first publish::PublicSpaceService publish defaults every option on except the author byline on first publish	pass
+test	apps/server	PublicSpaceService publish keeps explicitly provided flags on first publish::PublicSpaceService publish keeps explicitly provided flags on first publish	pass
+test	apps/server	PublicSpaceService publish rejects enabling when the workspace opt-in is off::PublicSpaceService publish rejects enabling when the workspace opt-in is off	pass
+test	apps/server	PublicSpaceService publish republish preserves prior customization instead of re-applying defaults::PublicSpaceService publish republish preserves prior customization instead of re-applying defaults	pass
+test	apps/server	PublicSpaceService publish skips the directory default when the workspace directory is off::PublicSpaceService publish skips the directory default when the workspace directory is off	pass
+test	apps/server	SearchController public-space-search gate does not read pages or search when the public space gate rejects::SearchController public-space-search gate does not read pages or search when the public space gate rejects	pass
+test	apps/server	SearchController public-space-search gate searches only the unrestricted pages of the gated space, ignoring client filters::SearchController public-space-search gate searches only the unrestricted pages of the gated space, ignoring client filters	pass
+test	apps/server	SearchController should be defined::SearchController should be defined	fail
+test	apps/server	SearchService should be defined::SearchService should be defined	fail
+test	apps/server	SpaceController should be defined::SpaceController should be defined	fail
+test	apps/server	SpaceService should be defined::SpaceService should be defined	fail
+test	apps/server	StorageService should be defined::StorageService should be defined	fail
+test	apps/server	TokenService should be defined::TokenService should be defined	fail
+test	apps/server	TransclusionController.lookup passes the references, viewer id and workspace id through to the service and returns its result::TransclusionController.lookup passes the references, viewer id and workspace id through to the service and returns its result	pass
+test	apps/server	UserController should be defined::UserController should be defined	fail
+test	apps/server	collapseBlankLines collapses "" to ""::collapseBlankLines collapses "" to ""	pass
+test	apps/server	collapseBlankLines collapses "\n\n\n\na\n\n\n" to "\n\na\n\n"::collapseBlankLines collapses "\n\n\n\na\n\n\n" to "\n\na\n\n"	pass
+test	apps/server	collapseBlankLines collapses "a\n\n\n\nb" to "a\n\nb"::collapseBlankLines collapses "a\n\n\n\nb" to "a\n\nb"	pass
+test	apps/server	collapseBlankLines collapses "a\n\nb" to "a\n\nb"::collapseBlankLines collapses "a\n\nb" to "a\n\nb"	pass
+test	apps/server	collapseBlankLines collapses "a\nb" to "a\nb"::collapseBlankLines collapses "a\nb" to "a\nb"	pass
+test	apps/server	collapseBlankLines collapses "no newlines" to "no newlines"::collapseBlankLines collapses "no newlines" to "no newlines"	pass
+test	apps/server	collectReferencesFromPmJson dedupes identical (sourcePageId, transclusionId) pairs::collectReferencesFromPmJson dedupes identical (sourcePageId, transclusionId) pairs	pass
+test	apps/server	collectReferencesFromPmJson does not recurse into a transclusion source (schema forbids references inside)::collectReferencesFromPmJson does not recurse into a transclusion source (schema forbids references inside)	pass
+test	apps/server	collectReferencesFromPmJson extracts a top-level reference::collectReferencesFromPmJson extracts a top-level reference	pass
+test	apps/server	collectReferencesFromPmJson finds references nested in other block containers (column, callout, etc.)::collectReferencesFromPmJson finds references nested in other block containers (column, callout, etc.)	pass
+test	apps/server	collectReferencesFromPmJson returns [] for a doc with no transclusionReference nodes::collectReferencesFromPmJson returns [] for a doc with no transclusionReference nodes	pass
+test	apps/server	collectReferencesFromPmJson returns [] for null/undefined doc::collectReferencesFromPmJson returns [] for null/undefined doc	pass
+test	apps/server	collectReferencesFromPmJson skips references missing sourcePageId or transclusionId::collectReferencesFromPmJson skips references missing sourcePageId or transclusionId	pass
+test	apps/server	collectTransclusionsFromPmJson does not recurse into a nested transclusion (transclusion cannot contain transclusion per schema, but be defensive)::collectTransclusionsFromPmJson does not recurse into a nested transclusion (transclusion cannot contain transclusion per schema, but be defensive)	pass
+test	apps/server	collectTransclusionsFromPmJson extracts a top-level transclusion with id and content::collectTransclusionsFromPmJson extracts a top-level transclusion with id and content	pass
+test	apps/server	collectTransclusionsFromPmJson finds transclusions nested inside other block containers (e.g. column)::collectTransclusionsFromPmJson finds transclusions nested inside other block containers (e.g. column)	pass
+test	apps/server	collectTransclusionsFromPmJson returns [] for a doc with no transclusion nodes::collectTransclusionsFromPmJson returns [] for a doc with no transclusion nodes	pass
+test	apps/server	collectTransclusionsFromPmJson returns [] for null/undefined doc::collectTransclusionsFromPmJson returns [] for null/undefined doc	pass
+test	apps/server	collectTransclusionsFromPmJson returns multiple top-level transclusions::collectTransclusionsFromPmJson returns multiple top-level transclusions	pass
+test	apps/server	collectTransclusionsFromPmJson skips transclusion nodes with no id (transient before UniqueID assigns one)::collectTransclusionsFromPmJson skips transclusion nodes with no id (transient before UniqueID assigns one)	pass
+test	apps/server	collectTransclusionsFromPmJson uses the last id when duplicate ids appear (later wins, deterministic)::collectTransclusionsFromPmJson uses the last id when duplicate ids appear (later wins, deterministic)	pass
+test	apps/server	containsDomain IP addresses — should allow allows "10.0.0.1"::containsDomain IP addresses — should allow allows "10.0.0.1"	pass
+test	apps/server	containsDomain IP addresses — should allow allows "127.0.0.1"::containsDomain IP addresses — should allow allows "127.0.0.1"	pass
+test	apps/server	containsDomain IP addresses — should allow allows "192.168.1.1"::containsDomain IP addresses — should allow allows "192.168.1.1"	pass
+test	apps/server	containsDomain bare domains with real TLDs — should block blocks "example.abc"::containsDomain bare domains with real TLDs — should block blocks "example.abc"	pass
+test	apps/server	containsDomain bare domains with real TLDs — should block blocks "example.aero"::containsDomain bare domains with real TLDs — should block blocks "example.aero"	pass
+test	apps/server	containsDomain bare domains with real TLDs — should block blocks "example.app"::containsDomain bare domains with real TLDs — should block blocks "example.app"	pass
+test	apps/server	containsDomain bare domains with real TLDs — should block blocks "example.cloud"::containsDomain bare domains with real TLDs — should block blocks "example.cloud"	pass
+test	apps/server	containsDomain bare domains with real TLDs — should block blocks "example.co"::containsDomain bare domains with real TLDs — should block blocks "example.co"	pass
+test	apps/server	containsDomain bare domains with real TLDs — should block blocks "example.com"::containsDomain bare domains with real TLDs — should block blocks "example.com"	pass
+test	apps/server	containsDomain bare domains with real TLDs — should block blocks "example.de"::containsDomain bare domains with real TLDs — should block blocks "example.de"	pass
+test	apps/server	containsDomain bare domains with real TLDs — should block blocks "example.dev"::containsDomain bare domains with real TLDs — should block blocks "example.dev"	pass
+test	apps/server	containsDomain bare domains with real TLDs — should block blocks "example.fr"::containsDomain bare domains with real TLDs — should block blocks "example.fr"	pass
+test	apps/server	containsDomain bare domains with real TLDs — should block blocks "example.info"::containsDomain bare domains with real TLDs — should block blocks "example.info"	pass
+test	apps/server	containsDomain bare domains with real TLDs — should block blocks "example.io"::containsDomain bare domains with real TLDs — should block blocks "example.io"	pass
+test	apps/server	containsDomain bare domains with real TLDs — should block blocks "example.me"::containsDomain bare domains with real TLDs — should block blocks "example.me"	pass
+test	apps/server	containsDomain bare domains with real TLDs — should block blocks "example.museum"::containsDomain bare domains with real TLDs — should block blocks "example.museum"	pass
+test	apps/server	containsDomain bare domains with real TLDs — should block blocks "example.net"::containsDomain bare domains with real TLDs — should block blocks "example.net"	pass
+test	apps/server	containsDomain bare domains with real TLDs — should block blocks "example.org"::containsDomain bare domains with real TLDs — should block blocks "example.org"	pass
+test	apps/server	containsDomain bare domains with real TLDs — should block blocks "example.ru"::containsDomain bare domains with real TLDs — should block blocks "example.ru"	pass
+test	apps/server	containsDomain bare domains with real TLDs — should block blocks "example.tech"::containsDomain bare domains with real TLDs — should block blocks "example.tech"	pass
+test	apps/server	containsDomain bare domains with real TLDs — should block blocks "example.uk"::containsDomain bare domains with real TLDs — should block blocks "example.uk"	pass
+test	apps/server	containsDomain case insensitive — should block blocks "EXAMPLE.COM"::containsDomain case insensitive — should block blocks "EXAMPLE.COM"	pass
+test	apps/server	containsDomain case insensitive — should block blocks "Example.Com"::containsDomain case insensitive — should block blocks "Example.Com"	pass
+test	apps/server	containsDomain case insensitive — should block blocks "example.COM"::containsDomain case insensitive — should block blocks "example.COM"	pass
+test	apps/server	containsDomain domain in sentence — should block blocks "Reset your password at example.com"::containsDomain domain in sentence — should block blocks "Reset your password at example.com"	pass
+test	apps/server	containsDomain domain in sentence — should block blocks "URGENT click example.com/reset"::containsDomain domain in sentence — should block blocks "URGENT click example.com/reset"	pass
+test	apps/server	containsDomain domain in sentence — should block blocks "Visit example.org for details"::containsDomain domain in sentence — should block blocks "Visit example.org for details"	pass
+test	apps/server	containsDomain domain in sentence — should block blocks "go to mysite.io now"::containsDomain domain in sentence — should block blocks "go to mysite.io now"	pass
+test	apps/server	containsDomain domains with paths — should block blocks "click example.com/page"::containsDomain domains with paths — should block blocks "click example.com/page"	pass
+test	apps/server	containsDomain domains with paths — should block blocks "example.com/reset"::containsDomain domains with paths — should block blocks "example.com/reset"	pass
+test	apps/server	containsDomain domains with paths — should block blocks "example.com/reset-password"::containsDomain domains with paths — should block blocks "example.com/reset-password"	pass
+test	apps/server	containsDomain domains with paths — should block blocks "go to example.net/login"::containsDomain domains with paths — should block blocks "go to example.net/login"	pass
+test	apps/server	containsDomain edge cases — should allow allows " "::containsDomain edge cases — should allow allows " "	pass
+test	apps/server	containsDomain edge cases — should allow allows ""::containsDomain edge cases — should allow allows ""	pass
+test	apps/server	containsDomain edge cases — should allow allows "."::containsDomain edge cases — should allow allows "."	pass
+test	apps/server	containsDomain edge cases — should allow allows ".."::containsDomain edge cases — should allow allows ".."	pass
+test	apps/server	containsDomain edge cases — should allow allows ".com"::containsDomain edge cases — should allow allows ".com"	pass
+test	apps/server	containsDomain edge cases — should allow allows "a.b"::containsDomain edge cases — should allow allows "a.b"	pass
+test	apps/server	containsDomain edge cases — should allow allows "hello"::containsDomain edge cases — should allow allows "hello"	pass
+test	apps/server	containsDomain emails — should allow allows "admin@company.org"::containsDomain emails — should allow allows "admin@company.org"	pass
+test	apps/server	containsDomain emails — should allow allows "test@sub.domain.co.uk"::containsDomain emails — should allow allows "test@sub.domain.co.uk"	pass
+test	apps/server	containsDomain emails — should allow allows "user@example.com"::containsDomain emails — should allow allows "user@example.com"	pass
+test	apps/server	containsDomain fake TLDs — should allow allows "Foo.abcd"::containsDomain fake TLDs — should allow allows "Foo.abcd"	pass
+test	apps/server	containsDomain fake TLDs — should allow allows "Foo.abcde"::containsDomain fake TLDs — should allow allows "Foo.abcde"	pass
+test	apps/server	containsDomain fake TLDs — should allow allows "Foo.abcdef"::containsDomain fake TLDs — should allow allows "Foo.abcdef"	pass
+test	apps/server	containsDomain fake TLDs — should allow allows "Foo.abcdefg"::containsDomain fake TLDs — should allow allows "Foo.abcdefg"	pass
+test	apps/server	containsDomain fake TLDs — should allow allows "Foo.blarg"::containsDomain fake TLDs — should allow allows "Foo.blarg"	pass
+test	apps/server	containsDomain fake TLDs — should allow allows "Foo.mine"::containsDomain fake TLDs — should allow allows "Foo.mine"	pass
+test	apps/server	containsDomain fake TLDs — should allow allows "Foo.qqq"::containsDomain fake TLDs — should allow allows "Foo.qqq"	pass
+test	apps/server	containsDomain fake TLDs — should allow allows "Foo.zz"::containsDomain fake TLDs — should allow allows "Foo.zz"	pass
+test	apps/server	containsDomain multi-part domains — should block blocks "Foo.com."::containsDomain multi-part domains — should block blocks "Foo.com."	pass
+test	apps/server	containsDomain multi-part domains — should block blocks "Foo.com.net"::containsDomain multi-part domains — should block blocks "Foo.com.net"	pass
+test	apps/server	containsDomain multi-part domains — should block blocks "Foo.mine.ne"::containsDomain multi-part domains — should block blocks "Foo.mine.ne"	pass
+test	apps/server	containsDomain multi-part domains — should block blocks "Foo.mine.net"::containsDomain multi-part domains — should block blocks "Foo.mine.net"	pass
+test	apps/server	containsDomain multi-part domains — should block blocks "login.example.co.uk"::containsDomain multi-part domains — should block blocks "login.example.co.uk"	pass
+test	apps/server	containsDomain multi-part domains — should block blocks "sub.example.com"::containsDomain multi-part domains — should block blocks "sub.example.com"	pass
+test	apps/server	containsDomain multi-part with fake TLD — should allow allows "Foo.mine."::containsDomain multi-part with fake TLD — should allow allows "Foo.mine."	pass
+test	apps/server	containsDomain multi-part with fake TLD — should allow allows "Foo.mine.n"::containsDomain multi-part with fake TLD — should allow allows "Foo.mine.n"	pass
+test	apps/server	containsDomain normal names — should allow allows "A. B. Charlie"::containsDomain normal names — should allow allows "A. B. Charlie"	pass
+test	apps/server	containsDomain normal names — should allow allows "Dr. Smith"::containsDomain normal names — should allow allows "Dr. Smith"	pass
+test	apps/server	containsDomain normal names — should allow allows "Jean-Pierre"::containsDomain normal names — should allow allows "Jean-Pierre"	pass
+test	apps/server	containsDomain normal names — should allow allows "John Smith"::containsDomain normal names — should allow allows "John Smith"	pass
+test	apps/server	containsDomain normal names — should allow allows "John"::containsDomain normal names — should allow allows "John"	pass
+test	apps/server	containsDomain normal names — should allow allows "José García"::containsDomain normal names — should allow allows "José García"	pass
+test	apps/server	containsDomain normal names — should allow allows "Mary Jane"::containsDomain normal names — should allow allows "Mary Jane"	pass
+test	apps/server	containsDomain normal names — should allow allows "O'Brien"::containsDomain normal names — should allow allows "O'Brien"	pass
+test	apps/server	containsDomain too short suffix — should allow allows "A.B"::containsDomain too short suffix — should allow allows "A.B"	pass
+test	apps/server	containsDomain too short suffix — should allow allows "Foo.a"::containsDomain too short suffix — should allow allows "Foo.a"	pass
+test	apps/server	containsDomain too short suffix — should allow allows "Foo.c"::containsDomain too short suffix — should allow allows "Foo.c"	pass
+test	apps/server	indent attribute round-trip clamps out-of-range data-indent values::indent attribute round-trip clamps out-of-range data-indent values	pass
+test	apps/server	indent attribute round-trip omits data-indent for indent zero::indent attribute round-trip omits data-indent for indent zero	pass
+test	apps/server	indent attribute round-trip parses data-indent on a heading into the indent attribute::indent attribute round-trip parses data-indent on a heading into the indent attribute	pass
+test	apps/server	indent attribute round-trip parses data-indent on a paragraph into the indent attribute::indent attribute round-trip parses data-indent on a paragraph into the indent attribute	pass
+test	apps/server	indent attribute round-trip preserves indent through HTML → JSON → HTML::indent attribute round-trip preserves indent through HTML → JSON → HTML	pass
+test	apps/server	indent attribute round-trip renders nonzero indent back to data-indent on HTML serialization::indent attribute round-trip renders nonzero indent back to data-indent on HTML serialization	pass
+test	apps/server	isAlwaysBlockedAddress / isPrivateNetworkAddress allows public 100.128.0.1 in both::isAlwaysBlockedAddress / isPrivateNetworkAddress allows public 100.128.0.1 in both	pass
+test	apps/server	isAlwaysBlockedAddress / isPrivateNetworkAddress allows public 172.32.0.1 in both::isAlwaysBlockedAddress / isPrivateNetworkAddress allows public 172.32.0.1 in both	pass
+test	apps/server	isAlwaysBlockedAddress / isPrivateNetworkAddress allows public 2606:4700::1111 in both::isAlwaysBlockedAddress / isPrivateNetworkAddress allows public 2606:4700::1111 in both	pass
+test	apps/server	isAlwaysBlockedAddress / isPrivateNetworkAddress allows public 8.8.8.8 in both::isAlwaysBlockedAddress / isPrivateNetworkAddress allows public 8.8.8.8 in both	pass
+test	apps/server	isAlwaysBlockedAddress / isPrivateNetworkAddress flags 0.0.0.0 as always-blocked but not a private network::isAlwaysBlockedAddress / isPrivateNetworkAddress flags 0.0.0.0 as always-blocked but not a private network	pass
+test	apps/server	isAlwaysBlockedAddress / isPrivateNetworkAddress flags 10.0.0.5 as a private network but not always-blocked::isAlwaysBlockedAddress / isPrivateNetworkAddress flags 10.0.0.5 as a private network but not always-blocked	pass
+test	apps/server	isAlwaysBlockedAddress / isPrivateNetworkAddress flags 100.64.0.1 as a private network but not always-blocked::isAlwaysBlockedAddress / isPrivateNetworkAddress flags 100.64.0.1 as a private network but not always-blocked	pass
+test	apps/server	isAlwaysBlockedAddress / isPrivateNetworkAddress flags 100::1 as always-blocked but not a private network::isAlwaysBlockedAddress / isPrivateNetworkAddress flags 100::1 as always-blocked but not a private network	pass
+test	apps/server	isAlwaysBlockedAddress / isPrivateNetworkAddress flags 127.0.0.1 as always-blocked but not a private network::isAlwaysBlockedAddress / isPrivateNetworkAddress flags 127.0.0.1 as always-blocked but not a private network	pass
+test	apps/server	isAlwaysBlockedAddress / isPrivateNetworkAddress flags 169.254.169.254 as always-blocked but not a private network::isAlwaysBlockedAddress / isPrivateNetworkAddress flags 169.254.169.254 as always-blocked but not a private network	pass
+test	apps/server	isAlwaysBlockedAddress / isPrivateNetworkAddress flags 172.16.0.1 as a private network but not always-blocked::isAlwaysBlockedAddress / isPrivateNetworkAddress flags 172.16.0.1 as a private network but not always-blocked	pass
+test	apps/server	isAlwaysBlockedAddress / isPrivateNetworkAddress flags 172.31.255.255 as a private network but not always-blocked::isAlwaysBlockedAddress / isPrivateNetworkAddress flags 172.31.255.255 as a private network but not always-blocked	pass
+test	apps/server	isAlwaysBlockedAddress / isPrivateNetworkAddress flags 192.0.0.1 as always-blocked but not a private network::isAlwaysBlockedAddress / isPrivateNetworkAddress flags 192.0.0.1 as always-blocked but not a private network	pass
+test	apps/server	isAlwaysBlockedAddress / isPrivateNetworkAddress flags 192.0.2.1 as always-blocked but not a private network::isAlwaysBlockedAddress / isPrivateNetworkAddress flags 192.0.2.1 as always-blocked but not a private network	pass
+test	apps/server	isAlwaysBlockedAddress / isPrivateNetworkAddress flags 192.168.1.1 as a private network but not always-blocked::isAlwaysBlockedAddress / isPrivateNetworkAddress flags 192.168.1.1 as a private network but not always-blocked	pass
+test	apps/server	isAlwaysBlockedAddress / isPrivateNetworkAddress flags 192.88.99.1 as always-blocked but not a private network::isAlwaysBlockedAddress / isPrivateNetworkAddress flags 192.88.99.1 as always-blocked but not a private network	pass
+test	apps/server	isAlwaysBlockedAddress / isPrivateNetworkAddress flags 198.18.0.1 as always-blocked but not a private network::isAlwaysBlockedAddress / isPrivateNetworkAddress flags 198.18.0.1 as always-blocked but not a private network	pass
+test	apps/server	isAlwaysBlockedAddress / isPrivateNetworkAddress flags 198.51.100.7 as always-blocked but not a private network::isAlwaysBlockedAddress / isPrivateNetworkAddress flags 198.51.100.7 as always-blocked but not a private network	pass
+test	apps/server	isAlwaysBlockedAddress / isPrivateNetworkAddress flags 2001::1 as always-blocked but not a private network::isAlwaysBlockedAddress / isPrivateNetworkAddress flags 2001::1 as always-blocked but not a private network	pass
+test	apps/server	isAlwaysBlockedAddress / isPrivateNetworkAddress flags 2001:db8::1 as always-blocked but not a private network::isAlwaysBlockedAddress / isPrivateNetworkAddress flags 2001:db8::1 as always-blocked but not a private network	pass
+test	apps/server	isAlwaysBlockedAddress / isPrivateNetworkAddress flags 2002:a00:1::1 as always-blocked but not a private network::isAlwaysBlockedAddress / isPrivateNetworkAddress flags 2002:a00:1::1 as always-blocked but not a private network	pass
+test	apps/server	isAlwaysBlockedAddress / isPrivateNetworkAddress flags 203.0.113.5 as always-blocked but not a private network::isAlwaysBlockedAddress / isPrivateNetworkAddress flags 203.0.113.5 as always-blocked but not a private network	pass
+test	apps/server	isAlwaysBlockedAddress / isPrivateNetworkAddress flags 224.0.0.1 as always-blocked but not a private network::isAlwaysBlockedAddress / isPrivateNetworkAddress flags 224.0.0.1 as always-blocked but not a private network	pass
+test	apps/server	isAlwaysBlockedAddress / isPrivateNetworkAddress flags 64:ff9b:1::a00:1 as always-blocked but not a private network::isAlwaysBlockedAddress / isPrivateNetworkAddress flags 64:ff9b:1::a00:1 as always-blocked but not a private network	pass
+test	apps/server	isAlwaysBlockedAddress / isPrivateNetworkAddress flags 64:ff9b::a00:1 as always-blocked but not a private network::isAlwaysBlockedAddress / isPrivateNetworkAddress flags 64:ff9b::a00:1 as always-blocked but not a private network	pass
+test	apps/server	isAlwaysBlockedAddress / isPrivateNetworkAddress flags :: as always-blocked but not a private network::isAlwaysBlockedAddress / isPrivateNetworkAddress flags :: as always-blocked but not a private network	pass
+test	apps/server	isAlwaysBlockedAddress / isPrivateNetworkAddress flags ::1 as always-blocked but not a private network::isAlwaysBlockedAddress / isPrivateNetworkAddress flags ::1 as always-blocked but not a private network	pass
+test	apps/server	isAlwaysBlockedAddress / isPrivateNetworkAddress flags ::ffff:0:7f00:1 as always-blocked but not a private network::isAlwaysBlockedAddress / isPrivateNetworkAddress flags ::ffff:0:7f00:1 as always-blocked but not a private network	pass
+test	apps/server	isAlwaysBlockedAddress / isPrivateNetworkAddress flags ::ffff:127.0.0.1 as always-blocked but not a private network::isAlwaysBlockedAddress / isPrivateNetworkAddress flags ::ffff:127.0.0.1 as always-blocked but not a private network	pass
+test	apps/server	isAlwaysBlockedAddress / isPrivateNetworkAddress flags fc00::1 as a private network but not always-blocked::isAlwaysBlockedAddress / isPrivateNetworkAddress flags fc00::1 as a private network but not always-blocked	pass
+test	apps/server	isAlwaysBlockedAddress / isPrivateNetworkAddress flags fd12::1 as a private network but not always-blocked::isAlwaysBlockedAddress / isPrivateNetworkAddress flags fd12::1 as a private network but not always-blocked	pass
+test	apps/server	isAlwaysBlockedAddress / isPrivateNetworkAddress flags fe80::1 as always-blocked but not a private network::isAlwaysBlockedAddress / isPrivateNetworkAddress flags fe80::1 as always-blocked but not a private network	pass
+test	apps/server	isAlwaysBlockedAddress / isPrivateNetworkAddress flags fec0::1 as always-blocked but not a private network::isAlwaysBlockedAddress / isPrivateNetworkAddress flags fec0::1 as always-blocked but not a private network	pass
+test	apps/server	isAlwaysBlockedAddress / isPrivateNetworkAddress flags ff02::1 as always-blocked but not a private network::isAlwaysBlockedAddress / isPrivateNetworkAddress flags ff02::1 as always-blocked but not a private network	pass
+test	apps/server	isAlwaysBlockedAddress / isPrivateNetworkAddress the two lists together are exactly isPrivateAddress::isAlwaysBlockedAddress / isPrivateNetworkAddress the two lists together are exactly isPrivateAddress	pass
+test	apps/server	isHardBlockedAddress does not flag 127.0.0.1 as hard-blocked (it may still be always-blocked)::isHardBlockedAddress does not flag 127.0.0.1 as hard-blocked (it may still be always-blocked)	pass
+test	apps/server	isHardBlockedAddress does not flag 192.0.2.1 as hard-blocked (it may still be always-blocked)::isHardBlockedAddress does not flag 192.0.2.1 as hard-blocked (it may still be always-blocked)	pass
+test	apps/server	isHardBlockedAddress does not flag 8.8.8.8 as hard-blocked (it may still be always-blocked)::isHardBlockedAddress does not flag 8.8.8.8 as hard-blocked (it may still be always-blocked)	pass
+test	apps/server	isHardBlockedAddress does not flag ::1 as hard-blocked (it may still be always-blocked)::isHardBlockedAddress does not flag ::1 as hard-blocked (it may still be always-blocked)	pass
+test	apps/server	isHardBlockedAddress does not flag fec0::1 as hard-blocked (it may still be always-blocked)::isHardBlockedAddress does not flag fec0::1 as hard-blocked (it may still be always-blocked)	pass
+test	apps/server	isHardBlockedAddress flags 0.0.0.0 as hard-blocked::isHardBlockedAddress flags 0.0.0.0 as hard-blocked	pass
+test	apps/server	isHardBlockedAddress flags 169.254.169.254 as hard-blocked::isHardBlockedAddress flags 169.254.169.254 as hard-blocked	pass
+test	apps/server	isHardBlockedAddress flags 224.0.0.1 as hard-blocked::isHardBlockedAddress flags 224.0.0.1 as hard-blocked	pass
+test	apps/server	isHardBlockedAddress flags 255.255.255.255 as hard-blocked::isHardBlockedAddress flags 255.255.255.255 as hard-blocked	pass
+test	apps/server	isHardBlockedAddress flags :: as hard-blocked::isHardBlockedAddress flags :: as hard-blocked	pass
+test	apps/server	isHardBlockedAddress flags fe80::1 as hard-blocked::isHardBlockedAddress flags fe80::1 as hard-blocked	pass
+test	apps/server	isHardBlockedAddress flags ff02::1 as hard-blocked::isHardBlockedAddress flags ff02::1 as hard-blocked	pass
+test	apps/server	isHardBlockedAddress is a subset of isAlwaysBlockedAddress::isHardBlockedAddress is a subset of isAlwaysBlockedAddress	pass
+test	apps/server	isPrivateAddress allows public 100.128.0.1::isPrivateAddress allows public 100.128.0.1	pass
+test	apps/server	isPrivateAddress allows public 172.32.0.1::isPrivateAddress allows public 172.32.0.1	pass
+test	apps/server	isPrivateAddress allows public 198.17.255.255::isPrivateAddress allows public 198.17.255.255	pass
+test	apps/server	isPrivateAddress allows public 2001:4860:4860::8888::isPrivateAddress allows public 2001:4860:4860::8888	pass
+test	apps/server	isPrivateAddress allows public 2606:4700::1111::isPrivateAddress allows public 2606:4700::1111	pass
+test	apps/server	isPrivateAddress allows public 8.8.8.8::isPrivateAddress allows public 8.8.8.8	pass
+test	apps/server	isPrivateAddress allows public ::ffff:5db8:d822::isPrivateAddress allows public ::ffff:5db8:d822	pass
+test	apps/server	isPrivateAddress allows public ::ffff:8.8.8.8::isPrivateAddress allows public ::ffff:8.8.8.8	pass
+test	apps/server	isPrivateAddress flags 0.0.0.0 as private or reserved::isPrivateAddress flags 0.0.0.0 as private or reserved	pass
+test	apps/server	isPrivateAddress flags 0000:0000:0000:0000:0000:0000:0000:0000 as private or reserved::isPrivateAddress flags 0000:0000:0000:0000:0000:0000:0000:0000 as private or reserved	pass
+test	apps/server	isPrivateAddress flags 0:0:0:0:0:0:0:1 as private or reserved::isPrivateAddress flags 0:0:0:0:0:0:0:1 as private or reserved	pass
+test	apps/server	isPrivateAddress flags 10.0.0.5 as private or reserved::isPrivateAddress flags 10.0.0.5 as private or reserved	pass
+test	apps/server	isPrivateAddress flags 100.64.0.1 as private or reserved::isPrivateAddress flags 100.64.0.1 as private or reserved	pass
+test	apps/server	isPrivateAddress flags 100::1 as private or reserved::isPrivateAddress flags 100::1 as private or reserved	pass
+test	apps/server	isPrivateAddress flags 127.0.0.1 as private or reserved::isPrivateAddress flags 127.0.0.1 as private or reserved	pass
+test	apps/server	isPrivateAddress flags 169.254.169.254 as private or reserved::isPrivateAddress flags 169.254.169.254 as private or reserved	pass
+test	apps/server	isPrivateAddress flags 172.16.0.1 as private or reserved::isPrivateAddress flags 172.16.0.1 as private or reserved	pass
+test	apps/server	isPrivateAddress flags 172.31.255.255 as private or reserved::isPrivateAddress flags 172.31.255.255 as private or reserved	pass
+test	apps/server	isPrivateAddress flags 192.0.0.1 as private or reserved::isPrivateAddress flags 192.0.0.1 as private or reserved	pass
+test	apps/server	isPrivateAddress flags 192.0.2.1 as private or reserved::isPrivateAddress flags 192.0.2.1 as private or reserved	pass
+test	apps/server	isPrivateAddress flags 192.168.1.1 as private or reserved::isPrivateAddress flags 192.168.1.1 as private or reserved	pass
+test	apps/server	isPrivateAddress flags 192.88.99.1 as private or reserved::isPrivateAddress flags 192.88.99.1 as private or reserved	pass
+test	apps/server	isPrivateAddress flags 198.18.0.1 as private or reserved::isPrivateAddress flags 198.18.0.1 as private or reserved	pass
+test	apps/server	isPrivateAddress flags 198.51.100.7 as private or reserved::isPrivateAddress flags 198.51.100.7 as private or reserved	pass
+test	apps/server	isPrivateAddress flags 2001:0:a00:1::1 as private or reserved::isPrivateAddress flags 2001:0:a00:1::1 as private or reserved	pass
+test	apps/server	isPrivateAddress flags 2001::1 as private or reserved::isPrivateAddress flags 2001::1 as private or reserved	pass
+test	apps/server	isPrivateAddress flags 2001:db8::1 as private or reserved::isPrivateAddress flags 2001:db8::1 as private or reserved	pass
+test	apps/server	isPrivateAddress flags 2002:a00:1::1 as private or reserved::isPrivateAddress flags 2002:a00:1::1 as private or reserved	pass
+test	apps/server	isPrivateAddress flags 203.0.113.5 as private or reserved::isPrivateAddress flags 203.0.113.5 as private or reserved	pass
+test	apps/server	isPrivateAddress flags 224.0.0.1 as private or reserved::isPrivateAddress flags 224.0.0.1 as private or reserved	pass
+test	apps/server	isPrivateAddress flags 64:ff9b:1::a00:1 as private or reserved::isPrivateAddress flags 64:ff9b:1::a00:1 as private or reserved	pass
+test	apps/server	isPrivateAddress flags 64:ff9b::a00:1 as private or reserved::isPrivateAddress flags 64:ff9b::a00:1 as private or reserved	pass
+test	apps/server	isPrivateAddress flags :: as private or reserved::isPrivateAddress flags :: as private or reserved	pass
+test	apps/server	isPrivateAddress flags ::1 as private or reserved::isPrivateAddress flags ::1 as private or reserved	pass
+test	apps/server	isPrivateAddress flags ::a00:1 as private or reserved::isPrivateAddress flags ::a00:1 as private or reserved	pass
+test	apps/server	isPrivateAddress flags ::ffff:10.0.0.1 as private or reserved::isPrivateAddress flags ::ffff:10.0.0.1 as private or reserved	pass
+test	apps/server	isPrivateAddress flags ::ffff:7f00:1 as private or reserved::isPrivateAddress flags ::ffff:7f00:1 as private or reserved	pass
+test	apps/server	isPrivateAddress flags ::ffff:a00:1 as private or reserved::isPrivateAddress flags ::ffff:a00:1 as private or reserved	pass
+test	apps/server	isPrivateAddress flags fc00::1 as private or reserved::isPrivateAddress flags fc00::1 as private or reserved	pass
+test	apps/server	isPrivateAddress flags fd12::1 as private or reserved::isPrivateAddress flags fd12::1 as private or reserved	pass
+test	apps/server	isPrivateAddress flags fe80::1 as private or reserved::isPrivateAddress flags fe80::1 as private or reserved	pass
+test	apps/server	isPrivateAddress flags fec0::1 as private or reserved::isPrivateAddress flags fec0::1 as private or reserved	pass
+test	apps/server	isPrivateAddress flags ff02::1 as private or reserved::isPrivateAddress flags ff02::1 as private or reserved	pass
+test	apps/server	parseOutboundNetworkPolicy accepts 10.0.0.0/8, whose address sits on its prefix boundary::parseOutboundNetworkPolicy accepts 10.0.0.0/8, whose address sits on its prefix boundary	pass
+test	apps/server	parseOutboundNetworkPolicy accepts 100.64.0.0/10, whose address sits on its prefix boundary::parseOutboundNetworkPolicy accepts 100.64.0.0/10, whose address sits on its prefix boundary	pass
+test	apps/server	parseOutboundNetworkPolicy accepts 172.16.0.0/12, whose address sits on its prefix boundary::parseOutboundNetworkPolicy accepts 172.16.0.0/12, whose address sits on its prefix boundary	pass
+test	apps/server	parseOutboundNetworkPolicy accepts 192.168.1.20/32, whose address sits on its prefix boundary::parseOutboundNetworkPolicy accepts 192.168.1.20/32, whose address sits on its prefix boundary	pass
+test	apps/server	parseOutboundNetworkPolicy accepts ::1/128, whose address sits on its prefix boundary::parseOutboundNetworkPolicy accepts ::1/128, whose address sits on its prefix boundary	pass
+test	apps/server	parseOutboundNetworkPolicy accepts a bracketed IPv6 entry without a port as the unbracketed form::parseOutboundNetworkPolicy accepts a bracketed IPv6 entry without a port as the unbracketed form	pass
+test	apps/server	parseOutboundNetworkPolicy accepts fc00::/7, whose address sits on its prefix boundary::parseOutboundNetworkPolicy accepts fc00::/7, whose address sits on its prefix boundary	pass
+test	apps/server	parseOutboundNetworkPolicy accepts fe80::/10, whose address sits on its prefix boundary::parseOutboundNetworkPolicy accepts fe80::/10, whose address sits on its prefix boundary	pass
+test	apps/server	parseOutboundNetworkPolicy fails closed on 0.0.0.0/0::parseOutboundNetworkPolicy fails closed on 0.0.0.0/0	pass
+test	apps/server	parseOutboundNetworkPolicy fails closed on 10.0.0.0/33::parseOutboundNetworkPolicy fails closed on 10.0.0.0/33	pass
+test	apps/server	parseOutboundNetworkPolicy fails closed on 10.0.0.0/8:0::parseOutboundNetworkPolicy fails closed on 10.0.0.0/8:0	pass
+test	apps/server	parseOutboundNetworkPolicy fails closed on 10.0.0.0/8:70000::parseOutboundNetworkPolicy fails closed on 10.0.0.0/8:70000	pass
+test	apps/server	parseOutboundNetworkPolicy fails closed on 10.0.0.0::parseOutboundNetworkPolicy fails closed on 10.0.0.0	pass
+test	apps/server	parseOutboundNetworkPolicy fails closed on 10.1.0.0/8::parseOutboundNetworkPolicy fails closed on 10.1.0.0/8	pass
+test	apps/server	parseOutboundNetworkPolicy fails closed on 172.16.0.1/12::parseOutboundNetworkPolicy fails closed on 172.16.0.1/12	pass
+test	apps/server	parseOutboundNetworkPolicy fails closed on 192.168.1.20/24::parseOutboundNetworkPolicy fails closed on 192.168.1.20/24	pass
+test	apps/server	parseOutboundNetworkPolicy fails closed on 2001:db8::1/32:8088::parseOutboundNetworkPolicy fails closed on 2001:db8::1/32:8088	pass
+test	apps/server	parseOutboundNetworkPolicy fails closed on ::/0::parseOutboundNetworkPolicy fails closed on ::/0	pass
+test	apps/server	parseOutboundNetworkPolicy fails closed on ::1/128:8088::parseOutboundNetworkPolicy fails closed on ::1/128:8088	pass
+test	apps/server	parseOutboundNetworkPolicy fails closed on ::1/129::parseOutboundNetworkPolicy fails closed on ::1/129	pass
+test	apps/server	parseOutboundNetworkPolicy fails closed on [::/0]:8088::parseOutboundNetworkPolicy fails closed on [::/0]:8088	pass
+test	apps/server	parseOutboundNetworkPolicy fails closed on [::1/127]::parseOutboundNetworkPolicy fails closed on [::1/127]	pass
+test	apps/server	parseOutboundNetworkPolicy fails closed on [::1/128]:notaport::parseOutboundNetworkPolicy fails closed on [::1/128]:notaport	pass
+test	apps/server	parseOutboundNetworkPolicy fails closed on all,0.0.0.0/0::parseOutboundNetworkPolicy fails closed on all,0.0.0.0/0	pass
+test	apps/server	parseOutboundNetworkPolicy fails closed on all,10.0.0.0/8,nonsense::parseOutboundNetworkPolicy fails closed on all,10.0.0.0/8,nonsense	pass
+test	apps/server	parseOutboundNetworkPolicy fails closed on all,not-a-cidr::parseOutboundNetworkPolicy fails closed on all,not-a-cidr	pass
+test	apps/server	parseOutboundNetworkPolicy fails closed on fc00::1/7::parseOutboundNetworkPolicy fails closed on fc00::1/7	pass
+test	apps/server	parseOutboundNetworkPolicy fails closed on not-a-cidr::parseOutboundNetworkPolicy fails closed on not-a-cidr	pass
+test	apps/server	parseOutboundNetworkPolicy ignores case and surrounding whitespace on the mode::parseOutboundNetworkPolicy ignores case and surrounding whitespace on the mode	pass
+test	apps/server	parseOutboundNetworkPolicy matches an IPv4-mapped IPv6 address against an IPv4 entry::parseOutboundNetworkPolicy matches an IPv4-mapped IPv6 address against an IPv4 entry	pass
+test	apps/server	parseOutboundNetworkPolicy never names an address when the value is unparseable or the address is not an IP::parseOutboundNetworkPolicy never names an address when the value is unparseable or the address is not an IP	pass
+test	apps/server	parseOutboundNetworkPolicy parses a bare mode::parseOutboundNetworkPolicy parses a bare mode	pass
+test	apps/server	parseOutboundNetworkPolicy parses a bracketed IPv6 entry with a port::parseOutboundNetworkPolicy parses a bracketed IPv6 entry with a port	pass
+test	apps/server	parseOutboundNetworkPolicy parses a mode followed by entries::parseOutboundNetworkPolicy parses a mode followed by entries	pass
+test	apps/server	parseOutboundNetworkPolicy parses an entry with a port and matches only that port::parseOutboundNetworkPolicy parses an entry with a port and matches only that port	pass
+test	apps/server	parseOutboundNetworkPolicy treats an empty value as none with no entries::parseOutboundNetworkPolicy treats an empty value as none with no entries	pass
+test	apps/server	parseOutboundNetworkPolicy treats entries without a mode as none plus those entries::parseOutboundNetworkPolicy treats entries without a mode as none plus those entries	pass
+test	apps/server	resolveFrameHeader denies framing with X-Frame-Options when embedding is off::resolveFrameHeader denies framing with X-Frame-Options when embedding is off	pass
+test	apps/server	resolveFrameHeader emits a frame-ancestors CSP for the allowed origins::resolveFrameHeader emits a frame-ancestors CSP for the allowed origins	pass
+test	apps/server	resolveFrameHeader returns null when embedding is on but no origins are configured::resolveFrameHeader returns null when embedding is on but no origins are configured	pass
+test	apps/server	resolveFrameHeadersForPath does not match an unrelated path that merely contains the prefix::resolveFrameHeadersForPath does not match an unrelated path that merely contains the prefix	pass
+test	apps/server	resolveFrameHeadersForPath force-denies /oauth/consent regardless of configured header::resolveFrameHeadersForPath force-denies /oauth/consent regardless of configured header	pass
+test	apps/server	resolveFrameHeadersForPath force-denies /oauth/consent/nested regardless of configured header::resolveFrameHeadersForPath force-denies /oauth/consent/nested regardless of configured header	pass
+test	apps/server	resolveFrameHeadersForPath force-denies consent even when the global header is absent::resolveFrameHeadersForPath force-denies consent even when the global header is absent	pass
+test	apps/server	resolveFrameHeadersForPath passes the configured header through for other paths::resolveFrameHeadersForPath passes the configured header through for other paths	pass
+test	apps/server	resolveFrameHeadersForPath returns nothing for other paths when no header is configured::resolveFrameHeadersForPath returns nothing for other paths when no header is configured	pass
+test	apps/server	rewriteAttachmentsForUnsync does not mutate the input content object::rewriteAttachmentsForUnsync does not mutate the input content object	pass
+test	apps/server	rewriteAttachmentsForUnsync recurses into nested containers (column, callout)::rewriteAttachmentsForUnsync recurses into nested containers (column, callout)	pass
+test	apps/server	rewriteAttachmentsForUnsync returns content unchanged when no attachment nodes are present::rewriteAttachmentsForUnsync returns content unchanged when no attachment nodes are present	pass
+test	apps/server	rewriteAttachmentsForUnsync reuses one new id per old attachmentId across nodes (dedupe)::rewriteAttachmentsForUnsync reuses one new id per old attachmentId across nodes (dedupe)	pass
+test	apps/server	rewriteAttachmentsForUnsync rewrites attachmentId and src on a single image node::rewriteAttachmentsForUnsync rewrites attachmentId and src on a single image node	pass
+test	apps/server	rewriteAttachmentsForUnsync rewrites every attachment node type (image, video, audio, attachment, drawio, excalidraw, pdf)::rewriteAttachmentsForUnsync rewrites every attachment node type (image, video, audio, attachment, drawio, excalidraw, pdf)	pass
+test	apps/server	rewriteAttachmentsForUnsync skips nodes whose attachmentId is missing or not a uuid-shaped string::rewriteAttachmentsForUnsync skips nodes whose attachmentId is missing or not a uuid-shaped string	pass
+test	apps/server	sanitizeFileName default (storage-safe) caps output at 255 bytes (handled by sanitize-filename internally)::sanitizeFileName default (storage-safe) caps output at 255 bytes (handled by sanitize-filename internally)	pass
+test	apps/server	sanitizeFileName default (storage-safe) decodes percent-encoded path chars before sanitizing "..%2Fevil.svg" → "..evil.svg"::sanitizeFileName default (storage-safe) decodes percent-encoded path chars before sanitizing "..%2Fevil.svg" → "..evil.svg"	pass
+test	apps/server	sanitizeFileName default (storage-safe) decodes percent-encoded path chars before sanitizing "..%2Ffiles%2Fa%2Fevil.svg" → "..filesaevil.svg"::sanitizeFileName default (storage-safe) decodes percent-encoded path chars before sanitizing "..%2Ffiles%2Fa%2Fevil.svg" → "..filesaevil.svg"	pass
+test	apps/server	sanitizeFileName default (storage-safe) decodes percent-encoded path chars before sanitizing "..%5Cevil.svg" → "..evil.svg"::sanitizeFileName default (storage-safe) decodes percent-encoded path chars before sanitizing "..%5Cevil.svg" → "..evil.svg"	pass
+test	apps/server	sanitizeFileName default (storage-safe) decodes percent-encoded path chars before sanitizing "file%00.txt" → "file.txt"::sanitizeFileName default (storage-safe) decodes percent-encoded path chars before sanitizing "file%00.txt" → "file.txt"	pass
+test	apps/server	sanitizeFileName default (storage-safe) decodes percent-encoded path chars before sanitizing "file%3Aname.txt" → "filename.txt"::sanitizeFileName default (storage-safe) decodes percent-encoded path chars before sanitizing "file%3Aname.txt" → "filename.txt"	pass
+test	apps/server	sanitizeFileName default (storage-safe) handles double-encoded payloads after one decode pass::sanitizeFileName default (storage-safe) handles double-encoded payloads after one decode pass	pass
+test	apps/server	sanitizeFileName default (storage-safe) keeps legitimate input "Q4 25% growth.pdf" → "Q4_25%_growth.pdf"::sanitizeFileName default (storage-safe) keeps legitimate input "Q4 25% growth.pdf" → "Q4_25%_growth.pdf"	pass
+test	apps/server	sanitizeFileName default (storage-safe) keeps legitimate input "hash#tag.md" → "hash_tag.md"::sanitizeFileName default (storage-safe) keeps legitimate input "hash#tag.md" → "hash_tag.md"	pass
+test	apps/server	sanitizeFileName default (storage-safe) keeps legitimate input "my page.md" → "my_page.md"::sanitizeFileName default (storage-safe) keeps legitimate input "my page.md" → "my_page.md"	pass
+test	apps/server	sanitizeFileName default (storage-safe) keeps legitimate input "résumé.docx" → "résumé.docx"::sanitizeFileName default (storage-safe) keeps legitimate input "résumé.docx" → "résumé.docx"	pass
+test	apps/server	sanitizeFileName default (storage-safe) keeps legitimate input "simple.txt" → "simple.txt"::sanitizeFileName default (storage-safe) keeps legitimate input "simple.txt" → "simple.txt"	pass
+test	apps/server	sanitizeFileName default (storage-safe) leaves malformed percent sequences alone (not decodable)::sanitizeFileName default (storage-safe) leaves malformed percent sequences alone (not decodable)	pass
+test	apps/server	sanitizeFileName default (storage-safe) returns empty for inputs that are entirely illegal::sanitizeFileName default (storage-safe) returns empty for inputs that are entirely illegal	pass
+test	apps/server	sanitizeFileName default (storage-safe) strips illegal chars from "../traversal.svg" → "..traversal.svg"::sanitizeFileName default (storage-safe) strips illegal chars from "../traversal.svg" → "..traversal.svg"	pass
+test	apps/server	sanitizeFileName default (storage-safe) strips illegal chars from "..\windows.svg" → "..windows.svg"::sanitizeFileName default (storage-safe) strips illegal chars from "..\windows.svg" → "..windows.svg"	pass
+test	apps/server	sanitizeFileName default (storage-safe) strips illegal chars from "evil*pipe|file.txt" → "evilpipefile.txt"::sanitizeFileName default (storage-safe) strips illegal chars from "evil*pipe|file.txt" → "evilpipefile.txt"	pass
+test	apps/server	sanitizeFileName default (storage-safe) strips illegal chars from "file:name?.pdf" → "filename.pdf"::sanitizeFileName default (storage-safe) strips illegal chars from "file:name?.pdf" → "filename.pdf"	pass
+test	apps/server	sanitizeFileName default (storage-safe) strips illegal chars from "file<script>.svg" → "filescript.svg"::sanitizeFileName default (storage-safe) strips illegal chars from "file<script>.svg" → "filescript.svg"	pass
+test	apps/server	sanitizeFileName preserveSpaces option keeps spaces and # untouched::sanitizeFileName preserveSpaces option keeps spaces and # untouched	pass
+test	apps/server	sanitizeFileName preserveSpaces option preserves accented and unicode chars::sanitizeFileName preserveSpaces option preserves accented and unicode chars	pass
+test	apps/server	sanitizeFileName preserveSpaces option still strips illegal chars and decodes percent-encoding::sanitizeFileName preserveSpaces option still strips illegal chars and decodes percent-encoding	pass
+count	apps/server	tests	426
+lint	apps/server	src/common/helpers/utils.ts	1

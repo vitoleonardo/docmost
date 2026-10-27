@@ -4,14 +4,12 @@ Rules in `.claude/rules/` load automatically. Stack rules from the adapter load 
 
 ## Project facts
 
-<!-- Fill this in once per project. Keep it to facts; it describes the current state, not history. -->
-
-- Product: <one sentence: who uses it and what problem it solves>
-- Stack: <framework, database, auth, hosting>
-- Install and dev server: `<install command>`, `<dev server command>`
+- Product: a fork of Docmost v0.96.0 (AGPL-3.0 open-source wiki) that adds an AI knowledge assistant: permission-aware answers, document-to-page extraction and an update agent, on local models. Public portfolio project; purpose and scope in `docs/spec.md`, current state in `docs/status.md`.
+- Stack: pnpm 11 (via corepack) and Nx monorepo. `apps/server`: NestJS on Fastify, Kysely on Postgres 18 with pgvector, Redis, Hocuspocus/Yjs. `apps/client`: React, Vite, Mantine, Tiptap 3, TanStack Query, Jotai. `packages/editor-ext`, `packages/base-formula`: shared libraries. `ai-service/`: planned Python service, empty so far. Auth: Docmost's JWT plus CASL abilities and `PageAccessService`. Runs locally only in v1.
+- Install and dev server: `docker compose -f docker-compose.dev.yml up -d`, `corepack enable`, `pnpm install --frozen-lockfile`, `pnpm build`, `pnpm --filter ./apps/server run migration:latest`; then `pnpm dev` (Vite client plus server in watch mode) or `pnpm start` (production build on http://localhost:3000).
 - Checks: always run them through `.claude/bin/check <typecheck|lint|test|test-related|coverage|format|build> [files]`. The stack adapter defines each one in `.claude/kit.conf` (a package can have its own `<package>/.claude/kit.conf`); a check that reports "not configured" or "n/a" does not exist in this project. Never invent commands. Full runs before a PR use `.claude/bin/check --against-baseline <test|lint|typecheck|coverage>`, which blocks only failures that are not in `.claude/baseline.tsv`.
-- What CI runs on every PR: <the workflow file and its checks>
-- Things only a human can do: <dashboards, API keys, DNS, third-party accounts>
+- What CI runs on every PR: `.github/workflows/quality-gates.yml` (spec lint, then typecheck, lint and tests against `.claude/baseline.tsv`, then build). `release.yml` builds release images on tags.
+- Things only a human can do: `.env` values, Docker Desktop, installing Ollama and pulling models, GitHub repository settings and required checks, recording the demo video. The `apps/server/src/ee` submodule is never initialised.
 
 ## How work flows here
 
