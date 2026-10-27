@@ -86,6 +86,20 @@ jobs:
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: .claude/bin/check --against-baseline coverage || [ $? -eq 4 ]
 
+      - name: Duplicates
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: .claude/bin/check duplicates || [ $? -eq 4 ]
+
+      - name: Structure
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: .claude/bin/structure
+
+      - name: ee imports
+        if: ${{ !cancelled() }}
+        run: |
+          scripts/check-ee-imports.test.sh
+          scripts/check-ee-imports.sh "$KIT_BASE"
+
       - name: Build
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: .claude/bin/check build || [ $? -eq 4 ]

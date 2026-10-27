@@ -11,7 +11,7 @@ Last updated: 28.10.2026. Branch: `ai-v1`.
 | Phase 0 codebase check | Done: `docs/phase0-report.md`, `docs/competitive-analysis.md` |
 | Project spec | v1.3: `docs/spec.md` |
 | Mockups for M5, M7, M8 | Approved 2026-10-27: `docs/design/ai-assistant.html`, `docs/design/README.md` |
-| M1 kit setup | **In progress.** Fork runs locally; kit at 795eb90 onboarded, baseline recorded, quality gates in CI. Local model: `qwen3:8b` (`docs/adr/0001-local-model.md`). Open: ee import check in CI |
+| M1 kit setup | **In progress.** Fork runs locally; kit at 795eb90 onboarded, baseline recorded, quality gates in CI. Local model: `qwen3:8b` (`docs/adr/0001-local-model.md`). CI also runs duplicates, structure and the ee import check |
 | M2 to M10 | Not started; order in spec section 8 |
 
 Nothing is implemented yet. `ai-service/` holds only a README.
@@ -33,7 +33,7 @@ All are recorded in `docs/spec.md` (changelog v1.1, v1.2) or `docs/design/README
 
 Done: fork runs locally, Ollama installed natively, kit installed and onboarded (`docs/build-log.md`, 28.10.2026). Do not init the `apps/server/src/ee` submodule.
 
-1. ee lock: the sandbox stays off (spec v1.3). The guard blocks `head packages/ee/LICENSE`, but an indirect path passes it. Add the CI check that no new file imports from the ee paths (spec 13, item 4).
+1. ee lock: the sandbox stays off (spec v1.3). The guard blocks `head packages/ee/LICENSE`, but an indirect path passes it. CI's "ee imports" step (`scripts/check-ee-imports.sh`) fails a PR that adds an import from the ee code; it has not run on GitHub yet.
 2. Make the quality-gates workflow a required check on GitHub (human).
 3. M2: choose the fictional company name, then `/spec-feature seed-data`.
 
