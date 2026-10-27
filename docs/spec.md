@@ -22,7 +22,7 @@ The demo is a 2 to 3 minute video plus published eval and leak-test reports and 
 
 ## 3. Hard rules
 
-1. Fork Docmost at a pinned release tag (v0.96.0). Do not chase upstream during v1.
+1. Pin Docmost to upstream `main` at `de0b7d75` (23.10.2026, after v0.96.0). The fork's `main` already contained those commits, and CI checks PRs against it, so `ai-v1` merged them on 27.10.2026. Do not merge upstream again during v1.
 2. Never read, copy, modify or depend on code in `apps/server/src/ee`, `apps/client/src/ee` or `packages/ee` (enterprise license). Do not reimplement enterprise features 1:1. Enforced by the kit's protected paths and sandbox (section 13), not by agent discipline.
 3. Keep changes inside Docmost minimal and isolated: one NestJS module (`integrations/ai-bridge`), one client feature folder (`features/ai-assistant`), and the wiring listed in `docs/phase0-report.md` section 7. All AI logic lives in the Python ai-service.
 4. The full fork stays public under AGPL-3.0.
