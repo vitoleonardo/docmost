@@ -81,6 +81,11 @@ jobs:
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: .claude/bin/check --against-baseline test || [ $? -eq 4 ]
 
+      # Coverage of the changed source files (KIT_COVERAGE_THRESHOLD) and overall coverage against the baseline.
+      - name: Coverage
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: .claude/bin/check --against-baseline coverage || [ $? -eq 4 ]
+
       - name: Build
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: .claude/bin/check build || [ $? -eq 4 ]

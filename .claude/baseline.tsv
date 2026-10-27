@@ -69,6 +69,7 @@ test	apps/client	src/features/page/tree/model/tree-model.test.ts::treeModel.visi
 test	apps/client	src/features/page/tree/model/tree-model.test.ts::treeModel.visible > recursively descends through chains of open ids	pass
 test	apps/client	src/features/page/tree/model/tree-model.test.ts::treeModel.visible > returns only root nodes when no openIds	pass
 count	apps/client	tests	69
+coverage	apps/client	1.32
 lint	apps/client	src/components/layouts/global/global-app-shell.tsx	1
 lint	apps/client	src/components/layouts/global/global-sidebar.tsx	1
 lint	apps/client	src/components/settings/settings-sidebar.tsx	1
@@ -549,4 +550,5 @@ test	apps/server	sanitizeFileName preserveSpaces option keeps spaces and # untou
 test	apps/server	sanitizeFileName preserveSpaces option preserves accented and unicode chars::sanitizeFileName preserveSpaces option preserves accented and unicode chars	pass
 test	apps/server	sanitizeFileName preserveSpaces option still strips illegal chars and decodes percent-encoding::sanitizeFileName preserveSpaces option still strips illegal chars and decodes percent-encoding	pass
 count	apps/server	tests	426
+coverage	apps/server	17.3
 lint	apps/server	src/common/helpers/utils.ts	1
