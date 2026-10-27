@@ -1,0 +1,426 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Docmost AI: mockups v1</title>
+<style>
+  /* Docmost v0.96 light theme: Mantine defaults plus apps/client/src/theme.ts */
+  :root {
+    --m-blue: #0b60d8; --m-blue-light: #e7f3ff; --m-text: #1a1b1e; --m-dimmed: #4b5563;
+    --m-border: #dee2e6; --m-gray0: #f8f9fa; --m-gray1: #f1f3f5; --m-gray2: #e9ecef;
+    --m-orange-bg: #fff4e6; --m-orange: #a63508; --m-green-bg: #ebfbee; --m-green: #1b5e20;
+    --m-red-bg: #ffebeb; --m-red: #bc2727;
+    --m-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  .doc { font-family: var(--m-font); color: var(--foreground, #1a1b1e); display: flex; flex-direction: column; gap: 28px; }
+  .doc > section > h2 { font-size: 17px; margin: 0 0 4px; }
+  .doc > section > p.lead { margin: 0 0 14px; font-size: 13px; color: var(--muted-foreground, #555); line-height: 1.5; }
+  .grid { display: flex; flex-wrap: wrap; gap: 16px; }
+  figure { margin: 0; display: flex; flex-direction: column; gap: 8px; }
+  figcaption { font-size: 12px; line-height: 1.45; color: var(--muted-foreground, #555); max-width: 350px; }
+  figcaption b { color: var(--foreground, #111); }
+  figure.wide figcaption { max-width: 700px; }
+
+  /* Screen surfaces */
+  .screen { background: #fff; color: var(--m-text); font-family: var(--m-font); font-size: 14px;
+    border: 1px solid var(--m-border); border-radius: 8px; overflow: hidden; box-sizing: border-box; }
+  .panel { width: 350px; height: 520px; box-sizing: border-box; display: flex; flex-direction: column; padding: 16px; gap: 12px; }
+  .row { display: flex; align-items: center; gap: 8px; }
+  .between { justify-content: space-between; }
+  .grow { flex: 1; }
+  .h6 { font-size: 15px; font-weight: 500; }
+  .dim { color: var(--m-dimmed); }
+  .xs { font-size: 12px; } .sm { font-size: 13px; }
+  .icon { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+  .ai { width: 28px; height: 28px; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; color: var(--m-dimmed); }
+  .ai.active { background: var(--m-gray1); color: var(--m-text); }
+  .seg { display: flex; background: var(--m-gray1); border-radius: 4px; padding: 3px; }
+  .seg span { flex: 1; text-align: center; padding: 4px 0; font-size: 13px; border-radius: 4px; color: var(--m-dimmed); }
+  .seg span.on { background: #fff; color: var(--m-text); box-shadow: 0 1px 2px rgba(0,0,0,.12); font-weight: 500; }
+  .chip { display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--m-border); border-radius: 16px; padding: 2px 10px; font-size: 12px; }
+  .input { border: 1px solid var(--m-border); border-radius: 4px; padding: 8px 10px; font-size: 14px; color: #686868; background: #fff; }
+  .input.filled { color: var(--m-text); }
+  .composer { margin-top: auto; display: flex; gap: 8px; align-items: flex-end; }
+  .composer .input { flex: 1; min-height: 38px; box-sizing: border-box; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 34px; padding: 0 14px; border-radius: 4px; font-size: 14px; font-weight: 600; border: 1px solid transparent; white-space: nowrap; }
+  .btn.primary { background: var(--m-blue); color: #fff; }
+  .btn.default { background: #fff; border-color: var(--m-border); color: var(--m-text); }
+  .btn.subtle { color: var(--m-dimmed); font-weight: 500; }
+  .btn.red { background: var(--m-red-bg); color: var(--m-red); }
+  .btn.disabled { background: var(--m-gray1); color: #9aa0a6; }
+  .btn.icon-only { width: 38px; padding: 0; height: 38px; }
+  .bubble { align-self: flex-end; background: var(--m-gray1); border-radius: 8px; padding: 8px 12px; max-width: 85%; }
+  .answer { line-height: 1.55; }
+  .cite { display: inline-flex; align-items: center; justify-content: center; min-width: 16px; height: 16px; padding: 0 3px; border-radius: 4px;
+    background: var(--m-blue-light); color: var(--m-blue); font-size: 11px; font-weight: 600; vertical-align: 1px; }
+  .caret { display: inline-block; width: 7px; height: 15px; background: var(--m-text); vertical-align: -2px; margin-left: 2px; }
+  .sources { border-top: 1px solid var(--m-border); padding-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+  .src { display: flex; gap: 8px; font-size: 13px; }
+  .src .path { color: var(--m-dimmed); font-size: 12px; }
+  .src a { color: var(--m-blue); text-decoration: none; font-weight: 500; }
+  .alert { border-radius: 4px; padding: 10px 12px; font-size: 13px; line-height: 1.45; display: flex; gap: 8px; }
+  .alert.gray { background: var(--m-gray0); border: 1px solid var(--m-border); }
+  .alert.orange { background: var(--m-orange-bg); color: var(--m-orange); }
+  .alert.blue { background: var(--m-blue-light); color: #0b4a9e; }
+  .alert.red { background: var(--m-red-bg); color: var(--m-red); }
+  .badge { display: inline-block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .02em; padding: 1px 8px; border-radius: 16px; }
+  .badge.orange { background: var(--m-orange-bg); color: var(--m-orange); }
+  .badge.green { background: var(--m-green-bg); color: var(--m-green); }
+  .badge.gray { background: var(--m-gray1); color: var(--m-dimmed); }
+  .suggest { border: 1px solid var(--m-border); border-radius: 4px; padding: 8px 10px; font-size: 13px; }
+  .steps { display: flex; flex-direction: column; gap: 10px; font-size: 13px; }
+  .steps .row { align-items: flex-start; }
+  .ok { color: var(--m-green); } .run { color: var(--m-blue); }
+  .card { border: 1px solid var(--m-border); border-radius: 4px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
+  .plus { color: var(--m-green); font-weight: 600; } .minus { color: var(--m-red); font-weight: 600; }
+  .note { font-size: 12px; color: var(--m-dimmed); line-height: 1.45; }
+
+  /* Modal */
+  .modal { width: 700px; max-width: 100%; display: flex; flex-direction: column; }
+  .modal .head { padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; }
+  .modal .body { padding: 0 20px 16px; display: flex; flex-direction: column; gap: 12px; }
+  .modal .foot { padding: 12px 20px; border-top: 1px solid var(--m-border); display: flex; align-items: center; gap: 8px; }
+  table.t { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.t th { text-align: left; font-weight: 600; padding: 8px; border-bottom: 1px solid var(--m-border); background: var(--m-gray0); }
+  table.t td { padding: 8px; border-bottom: 1px solid var(--m-border); vertical-align: top; }
+  table.t td .input { padding: 5px 8px; font-size: 13px; }
+  .quote { color: var(--m-dimmed); font-style: italic; }
+  tr.flag td { background: #fffaf3; }
+  .diff { font-family: var(--m-font); font-size: 14px; line-height: 1.6; border: 1px solid var(--m-border); border-radius: 4px; padding: 12px 14px; }
+  .diff del { background: var(--m-red-bg); color: var(--m-red); text-decoration: line-through; }
+  .diff ins { background: var(--m-green-bg); color: var(--m-green); text-decoration: none; }
+  .diff h4 { margin: 0 0 6px; font-size: 15px; }
+  .diff p { margin: 0 0 8px; }
+
+  /* Page fragment (editor) */
+  .page { width: 700px; max-width: 100%; padding: 20px 28px; display: flex; flex-direction: column; gap: 12px; }
+  .page h1 { font-size: 26px; margin: 0; }
+  .attach { position: relative; border: 1px solid var(--m-border); border-radius: 4px; padding: 10px 12px; display: flex; align-items: center; gap: 10px; }
+  .tools { margin-left: auto; display: flex; gap: 4px; }
+  .tools .ai { border: 1px solid var(--m-border); background: #fff; }
+  .tools .ai.new { border-color: var(--m-blue); color: var(--m-blue); background: var(--m-blue-light); }
+  .tip { position: absolute; right: 52px; top: -30px; background: #25262b; color: #fff; font-size: 12px; padding: 3px 8px; border-radius: 4px; }
+
+  /* Overview: full app shell at 1200 px, scaled */
+  .shell-wrap { width: 100%; max-width: 728px; overflow-x: auto; }
+  .shell-scale { width: 720px; height: 396px; position: relative; }
+  .shell { width: 1200px; height: 660px; transform: scale(.6); transform-origin: 0 0; position: absolute; display: grid;
+    grid-template-columns: 300px 1fr 350px; grid-template-rows: 45px 1fr; }
+  .shell .hdr { grid-column: 1 / -1; border-bottom: 1px solid var(--m-border); display: flex; align-items: center; padding: 0 16px; gap: 16px; }
+  .shell .side { border-right: 1px solid var(--m-border); background: var(--m-gray0); padding: 14px; display: flex; flex-direction: column; gap: 6px; font-size: 14px; }
+  .shell .side .item { padding: 5px 8px; border-radius: 4px; }
+  .shell .side .item.on { background: var(--m-gray2); font-weight: 500; }
+  .shell .main { padding: 18px 48px; display: flex; flex-direction: column; gap: 10px; }
+  .shell .aside { border-left: 1px solid var(--m-border); }
+  .shell .aside .panel { height: 100%; width: auto; border: 0; }
+  .pin { display: inline-flex; width: 20px; height: 20px; border-radius: 10px; background: #f59f00; color: #fff; font-size: 12px; font-weight: 700; align-items: center; justify-content: center; }
+  .shell .pin { position: absolute; width: 30px; height: 30px; border-radius: 15px; font-size: 17px; }
+  .legend { display: flex; flex-direction: column; gap: 6px; font-size: 12px; line-height: 1.45; color: var(--muted-foreground, #555); }
+  .legend .row { align-items: flex-start; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="i-sparkles" viewBox="0 0 24 24"><path d="M16 18a2 2 0 0 1 2 2a2 2 0 0 1 2-2a2 2 0 0 1-2-2a2 2 0 0 1-2 2zm0-12a2 2 0 0 1 2 2a2 2 0 0 1 2-2a2 2 0 0 1-2-2a2 2 0 0 1-2 2zM9 18a6 6 0 0 1 6-6a6 6 0 0 1-6-6a6 6 0 0 1-6 6a6 6 0 0 1 6 6z"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="M10 14 21 3M21 3l-6.5 18a.55.55 0 0 1-1 0L10 14l-7-3.5a.55.55 0 0 1 0-1z"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 5 5L20 7"/></symbol>
+  <symbol id="i-loader" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/></symbol>
+  <symbol id="i-table" viewBox="0 0 24 24"><path d="M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM3 10h18M10 3v18"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2M7 11l5 5 5-5M12 4v12"/></symbol>
+  <symbol id="i-pdf" viewBox="0 0 24 24"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M5 12V5a2 2 0 0 1 2-2h7l5 5v4M5 18h1.5a1.5 1.5 0 0 0 0-3H5v6m12-3h3m1-3h-4v6m-6-6v6h1a2 2 0 0 0 2-2v-2a2 2 0 0 0-2-2z"/></symbol>
+  <symbol id="i-msg" viewBox="0 0 24 24"><path d="M8 9h8M8 13h6M18 4a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3h-5l-5 3v-3H6a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3z"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11M5 6v.01M5 12v.01M5 18v.01"/></symbol>
+  <symbol id="i-dots" viewBox="0 0 24 24"><path d="M5 12h.01M12 12h.01M19 12h.01"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 9v4M12 16v.01M10.24 3.96 2.11 17.53A2 2 0 0 0 3.82 20.5h16.36a2 2 0 0 0 1.71-2.97L13.76 3.96a2 2 0 0 0-3.52 0z"/></symbol>
+  <symbol id="i-plug" viewBox="0 0 24 24"><path d="m3 21 5-5M15.5 12.5l-4-4M8.5 15.5l-4-4M7 13l4 4 3.5-3.5a2.83 2.83 0 0 0-4-4z"/><path d="m16 3-3 3m8 2-3 3m-4.5-6.5 6 6"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><path d="M5 13a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2zM8 11V7a4 4 0 1 1 8 0v4"/></symbol>
+</svg>
+
+<div class="doc">
+
+<!-- ============ Overview ============ -->
+<section>
+  <h2>Überblick: der Assistent im Seitenrand</h2>
+  <p class="lead">Ein Panel in Docmosts rechtem Seitenrand (350 px, wie Kommentare und Inhaltsverzeichnis) mit zwei Modi: <b>Fragen</b> (M5) und <b>Aufgabe</b> (Agent, M8). „Extrahieren“ (M7) sitzt am PDF in der Seite. UI-Texte auf Deutsch (de-DE); im Code sind die i18n-Schlüssel englisch, wie in Docmost üblich.</p>
+  <div class="grid">
+    <figure class="wide">
+      <div class="shell-wrap"><div class="shell-scale"><div class="screen shell">
+        <div class="hdr">
+          <b style="font-size:17px">‹Seed-Firma›</b><span class="dim sm">Startseite</span><span class="dim sm">Bereiche</span>
+          <span class="grow"></span><span class="input" style="width:220px;padding:5px 10px">Suchen</span>
+        </div>
+        <div class="side">
+          <b class="sm" style="margin-bottom:6px">HR</b>
+          <div class="item">Willkommen im HR-Bereich</div><div class="item on">Urlaubsregelung 2026</div>
+          <div class="item">Arbeitszeitmodelle</div><div class="item">Reisekostenrichtlinie</div><div class="item">Onboarding Checkliste</div>
+        </div>
+        <div class="main">
+          <div class="row" style="justify-content:flex-end;gap:6px">
+            <span class="ai active" style="color:var(--m-blue)"><svg class="icon"><use href="#i-sparkles"/></svg></span>
+            <span class="ai"><svg class="icon"><use href="#i-msg"/></svg></span>
+            <span class="ai"><svg class="icon"><use href="#i-list"/></svg></span>
+            <span class="ai"><svg class="icon"><use href="#i-dots"/></svg></span>
+          </div>
+          <h1 style="font-size:32px;margin:6px 0 0">Urlaubsregelung 2026</h1>
+          <p class="dim" style="margin:0">Zuletzt geändert vor 3 Tagen</p>
+          <p style="line-height:1.7;margin:0">Vollzeitbeschäftigte erhalten 30 Arbeitstage Urlaub pro Kalenderjahr. Werkstudierende erhalten anteilig Urlaub nach ihrer vertraglichen Wochenarbeitszeit …</p>
+          <div style="height:12px;background:var(--m-gray1);border-radius:4px;width:85%"></div>
+          <div style="height:12px;background:var(--m-gray1);border-radius:4px;width:70%"></div>
+        </div>
+        <div class="aside"><div class="panel">
+          <div class="row between"><span class="h6">Assistent</span><svg class="icon dim"><use href="#i-x"/></svg></div>
+          <div class="seg"><span class="on">Fragen</span><span>Aufgabe</span></div>
+          <div class="bubble">Wie viele Urlaubstage haben Werkstudierende?</div>
+          <div class="answer">Werkstudierende erhalten Urlaub anteilig zur Wochenarbeitszeit: bei 20 Stunden sind es 12 Tage pro Jahr <span class="cite">1</span>.</div>
+          <div class="composer"><div class="input">Frage stellen …</div><span class="btn primary icon-only"><svg class="icon"><use href="#i-send"/></svg></span></div>
+        </div></div>
+        <span class="pin" style="left:648px;top:62px">1</span>
+        <span class="pin" style="left:1150px;top:420px">2</span>
+      </div></div></div>
+      <figcaption class="legend">
+        <span class="row"><span class="pin">1</span><span><b>Neues Symbol im Seitenkopf</b> (Funken) öffnet den Assistenten, neben Kommentare und Inhaltsverzeichnis. Zusätzlich im Seitenmenü „…“: <i>Zu dieser Seite fragen</i> öffnet das Panel mit Bereich „Diese Seite“.</span></span>
+        <span class="row"><span class="pin">2</span><span><b>Panel „Assistent“</b> als neuer Tab im bestehenden Seitenrand. Verlauf bleibt erhalten, solange das Panel offen ist (M5: mehrere Fragen nacheinander).</span></span>
+      </figcaption>
+    </figure>
+  </div>
+</section>
+
+<!-- ============ Ask ============ -->
+<section>
+  <h2>M5 Fragen</h2>
+  <p class="lead">Antworten auf Deutsch, gestreamt, jede Aussage mit Quelle. Quellen verlinken auf Seite und Abschnitt.</p>
+  <div class="grid">
+
+    <figure>
+      <div class="screen panel">
+        <div class="row between"><span class="h6">Assistent</span><svg class="icon dim"><use href="#i-x"/></svg></div>
+        <div class="seg"><span class="on">Fragen</span><span>Aufgabe</span></div>
+        <div class="row"><span class="chip">Alle Bereiche ▾</span></div>
+        <div style="margin-top:40px;text-align:center;display:flex;flex-direction:column;gap:8px;align-items:center">
+          <svg class="icon" style="width:28px;height:28px;color:var(--m-blue)"><use href="#i-sparkles"/></svg>
+          <b>Frag das Wiki</b>
+          <span class="sm dim" style="max-width:260px">Antworten stützen sich nur auf Seiten, die du sehen darfst, und nennen ihre Quellen.</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px;margin-top:12px">
+          <div class="suggest">Wie viele Urlaubstage habe ich?</div>
+          <div class="suggest">Wer ist Ansprechpartner für Reisekosten?</div>
+        </div>
+        <div class="composer"><div class="input">Frage stellen …</div><span class="btn primary icon-only"><svg class="icon"><use href="#i-send"/></svg></span></div>
+      </div>
+      <figcaption><b>A1 Leer.</b> Bereichsauswahl: „Alle Bereiche“, ein einzelner Bereich oder „Diese Seite“. Beispielfragen kommen aus den Seed-Daten, nicht aus dem Modell.</figcaption>
+    </figure>
+
+    <figure>
+      <div class="screen panel">
+        <div class="row between"><span class="h6">Assistent</span><svg class="icon dim"><use href="#i-x"/></svg></div>
+        <div class="seg"><span class="on">Fragen</span><span>Aufgabe</span></div>
+        <div class="bubble">Wie viele Urlaubstage haben Werkstudierende?</div>
+        <div class="answer">Werkstudierende erhalten Urlaub anteilig zur vertraglichen Wochenarbeitszeit <span class="cite">1</span>. Bei 20 Stunden pro Woche sind das 12 Arbeitstage im Jahr <span class="cite">1</span>. Resturlaub verfällt am 31. März des Folgejahres <span class="cite">2</span><span class="caret"></span></div>
+        <div class="sources">
+          <span class="xs dim" style="font-weight:600">QUELLEN</span>
+          <div class="src"><span class="cite">1</span><div><a>Urlaubsregelung 2026</a><div class="path">HR › Werkstudierende</div></div></div>
+          <div class="src"><span class="cite">2</span><div><a>Urlaubsregelung 2026</a><div class="path">HR › Übertrag und Verfall</div></div></div>
+        </div>
+        <div class="composer"><div class="input">Frage stellen …</div><span class="btn default icon-only" title="Stoppen">■</span></div>
+      </div>
+      <figcaption><b>A2 Antwort mit Quellen (läuft).</b> Text erscheint während des Streamens; die Quellenliste erst, wenn die Prüfung der zitierten Seiten durch ist (Spec §7.4). Senden wird zu „Stoppen“. Ausgabe ohne HTML und ohne externe Bilder (§7.8).</figcaption>
+    </figure>
+
+    <figure>
+      <div class="screen panel">
+        <div class="row between"><span class="h6">Assistent</span><svg class="icon dim"><use href="#i-x"/></svg></div>
+        <div class="seg"><span class="on">Fragen</span><span>Aufgabe</span></div>
+        <div class="bubble">Welche Gehaltsbänder gelten für die Geschäftsführung?</div>
+        <div class="alert gray"><svg class="icon dim"><use href="#i-sparkles"/></svg><span>Dazu habe ich in den Seiten, auf die du Zugriff hast, keine passende Quelle gefunden. Formuliere die Frage anders oder wende dich an die zuständige Abteilung.</span></div>
+        <div class="composer"><div class="input">Frage stellen …</div><span class="btn primary icon-only"><svg class="icon"><use href="#i-send"/></svg></span></div>
+      </div>
+      <figcaption><b>A3 Keine Quelle.</b> Wortgleich, ob es den Inhalt nicht gibt oder ob er gesperrt ist. Die Antwort verrät nicht, dass ein gesperrter Bereich existiert. Das ist die Szene für den Rollenwechsel im Video.</figcaption>
+    </figure>
+
+    <figure>
+      <div class="screen panel">
+        <div class="row between"><span class="h6">Assistent</span><svg class="icon dim"><use href="#i-x"/></svg></div>
+        <div class="seg"><span class="on">Fragen</span><span>Aufgabe</span></div>
+        <div class="alert orange"><svg class="icon"><use href="#i-plug"/></svg><span>Der Assistent ist gerade nicht erreichbar. Das Wiki funktioniert normal weiter.</span></div>
+        <div><span class="btn default">Erneut versuchen</span></div>
+        <div class="composer"><div class="input" style="background:var(--m-gray1)">Frage stellen …</div><span class="btn disabled icon-only"><svg class="icon"><use href="#i-send"/></svg></span></div>
+      </div>
+      <figcaption><b>A4 Nicht erreichbar.</b> ai-service oder das Modell antwortet nicht (M3). Eingabe gesperrt, Rest von Docmost unberührt.</figcaption>
+    </figure>
+
+  </div>
+</section>
+
+<!-- ============ Extraction ============ -->
+<section>
+  <h2>M7 Vertragsdaten extrahieren</h2>
+  <p class="lead">Aus einer angehängten PDF wird eine geprüfte Tabelle in der Seite. Jedes Feld zeigt seine Quelle; fehlende Felder werden markiert, nie geraten.</p>
+  <div class="grid">
+
+    <figure class="wide">
+      <div class="screen page">
+        <div style="height:12px;background:var(--m-gray1);border-radius:4px;width:60%"></div>
+        <div class="attach" style="margin-top:22px">
+          <svg class="icon dim"><use href="#i-file"/></svg>
+          <span>Liefervertrag_Brenner_Antriebstechnik.pdf</span><span class="sm dim">214 KB</span>
+          <span class="tip">Daten extrahieren</span>
+          <div class="tools">
+            <span class="ai new"><svg class="icon"><use href="#i-table"/></svg></span>
+            <span class="ai"><svg class="icon"><use href="#i-pdf"/></svg></span>
+            <span class="ai"><svg class="icon"><use href="#i-download"/></svg></span>
+          </div>
+        </div>
+      </div>
+      <figcaption><b>E1 Einstieg.</b> Neue Schaltfläche „Daten extrahieren“ in der Hover-Leiste des Anhangs (neben „Als PDF einbetten“ und Download) und im Hover-Menü der eingebetteten PDF. Nur sichtbar für Nutzer mit Schreibrecht auf der Seite, weil das Ergebnis in die Seite geschrieben wird.</figcaption>
+    </figure>
+
+    <figure class="wide">
+      <div class="screen modal">
+        <div class="head"><span class="h6">Daten extrahieren: Liefervertrag_Brenner_Antriebstechnik.pdf</span><svg class="icon dim"><use href="#i-x"/></svg></div>
+        <div class="body">
+          <div class="row sm"><span class="dim">Schema</span><span class="input filled" style="padding:4px 10px">Vertrag ▾</span><span class="grow"></span><span class="badge green">Fertig in 18 s</span></div>
+          <table class="t">
+            <tr><th style="width:22%">Feld</th><th style="width:36%">Wert</th><th>Quelle</th></tr>
+            <tr><td>Vertragsparteien</td><td><div class="input filled">Brenner Antriebstechnik GmbH (Lieferant); ‹Seed-Firma› (Kunde)</div></td><td><span class="quote">„zwischen der Brenner Antriebstechnik GmbH … und der …“</span><br><span class="xs dim">Seite 1</span></td></tr>
+            <tr><td>Laufzeit</td><td><div class="input filled">01.01.2026 bis 31.12.2027</div></td><td><span class="quote">„Der Vertrag beginnt am 1. Januar 2026 und endet …“</span><br><span class="xs dim">Seite 2</span></td></tr>
+            <tr><td>Kündigungsfrist</td><td><div class="input filled">3 Monate zum Laufzeitende</div></td><td><span class="quote">„… mit einer Frist von drei Monaten zum Ende der Laufzeit …“</span><br><span class="xs dim">Seite 4</span></td></tr>
+            <tr class="flag"><td>Vertragswert <br><span class="badge orange">Nicht gefunden</span></td><td><div class="input">Wert manuell eintragen</div></td><td class="dim">Keine Stelle im Dokument nennt einen Gesamtwert.</td></tr>
+            <tr><td>Verlängerung</td><td><div class="input filled">Automatisch um 12 Monate</div></td><td><span class="quote">„… verlängert sich jeweils um zwölf Monate, sofern …“</span><br><span class="xs dim">Seite 4</span></td></tr>
+          </table>
+        </div>
+        <div class="foot"><span class="sm" style="color:var(--m-orange)">1 Feld ohne Quelle</span><span class="grow"></span><span class="btn subtle">Abbrechen</span><span class="btn primary">Als Tabelle einfügen</span></div>
+      </div>
+      <figcaption><b>E2 Prüfen.</b> Werte sind editierbar. Ein Feld ohne Fundstelle bleibt leer und orange markiert; trägt der Nutzer selbst etwas ein, erscheint es in der Tabelle als „manuell“. Während der Extraktion zeigt der Dialog statt der Tabelle „Lese Seite 3 von 6 …“ und „Abbrechen“. Die Dauer wird angezeigt und ins Request-Log geschrieben.</figcaption>
+    </figure>
+
+    <figure>
+      <div class="screen panel" style="height:auto">
+        <div class="row between"><span class="h6">Daten extrahieren</span><svg class="icon dim"><use href="#i-x"/></svg></div>
+        <div class="alert red"><svg class="icon"><use href="#i-alert"/></svg><span>Diese PDF enthält keinen Text (vermutlich eingescannt). Texterkennung ist in dieser Version nicht enthalten.</span></div>
+        <div class="alert red"><svg class="icon"><use href="#i-alert"/></svg><span>Die Datei hat 64 Seiten. Extrahiert werden Dateien bis 30 Seiten und 10 MB.</span></div>
+        <div class="row" style="justify-content:flex-end"><span class="btn default">Schließen</span></div>
+      </div>
+      <figcaption><b>E3 Abgelehnt.</b> Zwei Fehlerfälle aus der Spec. Die Grenzwerte sind Platzhalter, bis M7 sie festlegt.</figcaption>
+    </figure>
+
+    <figure>
+      <div class="screen panel" style="height:auto;gap:8px">
+        <b style="font-size:16px">Vertragsdaten</b>
+        <span class="xs dim">Aus Liefervertrag_Brenner_Antriebstechnik.pdf, geprüft von Anna Weber am 27.10.2026</span>
+        <table class="t">
+          <tr><td style="width:40%">Vertragsparteien</td><td>Brenner Antriebstechnik GmbH (Lieferant); ‹Seed-Firma› (Kunde)</td></tr>
+          <tr><td>Laufzeit</td><td>01.01.2026 bis 31.12.2027</td></tr>
+          <tr><td>Kündigungsfrist</td><td>3 Monate zum Laufzeitende</td></tr>
+          <tr><td>Vertragswert</td><td>48.000 EUR <span class="badge gray">manuell</span></td></tr>
+          <tr><td>Verlängerung</td><td>Automatisch um 12 Monate</td></tr>
+        </table>
+      </div>
+      <figcaption><b>E4 Eingefügt.</b> Normale Docmost-Tabelle direkt unter dem Anhang, für alle gleichzeitig Bearbeitenden sichtbar. Danach ganz normal editierbar. (Quellenangaben pro Feld bleiben im Prüfdialog, nicht in der Tabelle.)</figcaption>
+    </figure>
+
+  </div>
+</section>
+
+<!-- ============ Agent ============ -->
+<section>
+  <h2>M8 Aufgabe: veraltete Seiten finden</h2>
+  <p class="lead">Der Agent liest mit den Rechten des Nutzers und schlägt nur vor. Geschrieben wird erst nach Bestätigung, und zwar genau die gezeigte Änderung.</p>
+  <div class="grid">
+
+    <figure>
+      <div class="screen panel">
+        <div class="row between"><span class="h6">Assistent</span><svg class="icon dim"><use href="#i-x"/></svg></div>
+        <div class="seg"><span>Fragen</span><span class="on">Aufgabe</span></div>
+        <span class="sm" style="font-weight:500">Bereich</span>
+        <div class="input filled">HR ▾</div>
+        <span class="sm" style="font-weight:500">Thema</span>
+        <div class="input filled" style="min-height:60px">Urlaub und Abwesenheiten</div>
+        <div class="alert blue"><svg class="icon"><use href="#i-lock"/></svg><span>Der Assistent prüft die Seiten auf veraltete oder widersprüchliche Angaben und schlägt Änderungen vor. Nichts wird ohne deine Bestätigung geändert.</span></div>
+        <div class="composer"><span class="grow"></span><span class="btn primary">Prüfung starten</span></div>
+      </div>
+      <figcaption><b>G1 Aufgabe starten.</b> In v1 genau ein Szenario, deshalb ein Formular statt freiem Prompt: Bereich (nur lesbare Bereiche) und Thema. Das ist robuster mit einem 8B-Modell und leichter zu testen.</figcaption>
+    </figure>
+
+    <figure>
+      <div class="screen panel">
+        <div class="row between"><span class="h6">Assistent</span><svg class="icon dim"><use href="#i-x"/></svg></div>
+        <div class="seg"><span>Fragen</span><span class="on">Aufgabe</span></div>
+        <span class="sm"><b>HR</b> · Urlaub und Abwesenheiten</span>
+        <div class="steps">
+          <div class="row"><svg class="icon ok"><use href="#i-check"/></svg><span>Gesucht: „Urlaub“, „Abwesenheit“: 7 Seiten</span></div>
+          <div class="row"><svg class="icon ok"><use href="#i-check"/></svg><span>5 Seiten gelesen</span></div>
+          <div class="row"><svg class="icon ok"><use href="#i-check"/></svg><span>Widerspruch gefunden: „Reisekostenrichtlinie“ nennt 28 Urlaubstage</span></div>
+          <div class="row"><svg class="icon run"><use href="#i-loader"/></svg><span>Vorschlag für „Onboarding Checkliste“ wird erstellt …</span></div>
+        </div>
+        <div style="margin-top:auto;display:flex;flex-direction:column;gap:8px">
+          <div class="row xs dim between"><span>Schritt 9 von höchstens 20</span><span>1:12 min</span></div>
+          <div style="height:4px;background:var(--m-gray2);border-radius:2px"><div style="width:45%;height:4px;background:var(--m-blue);border-radius:2px"></div></div>
+          <span class="btn default">Abbrechen</span>
+        </div>
+      </div>
+      <figcaption><b>G2 Läuft.</b> Jeder Werkzeugaufruf erscheint als Schritt in Klartext. Grenzen (Schritte, Zeit, Tokens) sind sichtbar; „Abbrechen“ beendet den Lauf, bisherige Vorschläge bleiben erhalten.</figcaption>
+    </figure>
+
+    <figure>
+      <div class="screen panel">
+        <div class="row between"><span class="h6">Assistent</span><svg class="icon dim"><use href="#i-x"/></svg></div>
+        <div class="seg"><span>Fragen</span><span class="on">Aufgabe</span></div>
+        <span class="sm"><b>2 Vorschläge</b> · 5 Seiten geprüft, 3 aktuell</span>
+        <div class="card">
+          <div class="row between"><b class="sm">Reisekostenrichtlinie</b><span class="xs"><span class="plus">+2</span> <span class="minus">−2</span></span></div>
+          <span class="xs dim">Nennt 28 Urlaubstage; „Urlaubsregelung 2026“ nennt 30.</span>
+          <div class="row"><span class="btn default" style="height:28px;font-size:13px">Ansehen</span></div>
+        </div>
+        <div class="card">
+          <div class="row between"><b class="sm">Onboarding Checkliste</b><span class="xs"><span class="plus">+3</span> <span class="minus">−1</span></span></div>
+          <span class="xs dim">Verweist auf das Urlaubsformular von 2023, das ersetzt wurde.</span>
+          <div class="row"><span class="badge green">Übernommen</span></div>
+        </div>
+        <div class="alert orange" style="margin-top:auto"><svg class="icon"><use href="#i-alert"/></svg><span>Nach 20 Schritten gestoppt. Nicht alle Seiten wurden geprüft.</span></div>
+      </div>
+      <figcaption><b>G3 Ergebnis.</b> Ein Vorschlag pro Seite mit Begründung und Umfang. Status je Karte: offen, übernommen, verworfen, veraltet. Der orange Hinweis erscheint nur, wenn eine Grenze erreicht wurde.</figcaption>
+    </figure>
+
+    <figure class="wide">
+      <div class="screen modal">
+        <div class="head"><span class="h6">Vorschlag: Reisekostenrichtlinie</span><svg class="icon dim"><use href="#i-x"/></svg></div>
+        <div class="body">
+          <span class="sm dim">Begründung: Die Seite nennt 28 Urlaubstage. Laut <a style="color:var(--m-blue)">Urlaubsregelung 2026 › Anspruch</a> sind es seit 01.01.2026 30 Tage.</span>
+          <div class="diff">
+            <h4>Urlaub auf Dienstreisen</h4>
+            <p>Urlaubstage, die an eine Dienstreise angehängt werden, zählen gegen den Jahresanspruch von <del>28</del> <ins>30</ins> Arbeitstagen.</p>
+            <p><del>Stand: März 2024.</del> <ins>Stand: Oktober 2026, angepasst an die Urlaubsregelung 2026.</ins></p>
+          </div>
+        </div>
+        <div class="foot"><span class="xs dim">Wird als deine Änderung gespeichert, mit Vermerk „über KI-Assistent“.</span><span class="grow"></span><span class="btn subtle">Verwerfen</span><span class="btn primary">Übernehmen</span></div>
+      </div>
+      <figcaption><b>G4 Änderung prüfen.</b> Die Diff-Ansicht braucht Platz, deshalb ein Dialog statt des schmalen Panels. „Übernehmen“ schreibt exakt diese Änderung, nichts anderes.</figcaption>
+    </figure>
+
+    <figure>
+      <div class="screen panel" style="height:auto">
+        <div class="row between"><span class="h6">Vorschlag: Reisekostenrichtlinie</span><svg class="icon dim"><use href="#i-x"/></svg></div>
+        <div class="alert orange"><svg class="icon"><use href="#i-alert"/></svg><span>Die Seite wurde nach diesem Vorschlag geändert (Max Krüger, 14:32). Der Vorschlag kann nicht mehr übernommen werden.</span></div>
+        <div class="row" style="justify-content:flex-end"><span class="btn subtle">Schließen</span><span class="btn primary">Neuen Vorschlag erstellen</span></div>
+      </div>
+      <figcaption><b>G5 Veraltet.</b> Die Seite hat sich seit dem Vorschlag geändert; Übernehmen ist gesperrt (Spec §9, M8).</figcaption>
+    </figure>
+
+    <figure>
+      <div class="screen panel" style="height:auto">
+        <div class="row between"><span class="h6">Vorschlag: Reisekostenrichtlinie</span><svg class="icon dim"><use href="#i-x"/></svg></div>
+        <div class="diff sm" style="font-size:13px"><p style="margin:0">… von <del>28</del> <ins>30</ins> Arbeitstagen.</p></div>
+        <div class="row"><svg class="icon dim"><use href="#i-lock"/></svg><span class="sm dim">Du hast nur Leserechte für diese Seite und kannst den Vorschlag nicht übernehmen.</span></div>
+        <div class="row" style="justify-content:flex-end"><span class="btn subtle">Schließen</span><span class="btn disabled">Übernehmen</span></div>
+      </div>
+      <figcaption><b>G6 Nur Leserechte</b> (z. B. Werkstudent). Vorschlag sichtbar, Übernehmen gesperrt, mit Grund. Der Server lehnt es zusätzlich ab, die Sperre in der UI ist nur Komfort.</figcaption>
+    </figure>
+
+  </div>
+</section>
+
+</div>
+</body>
+</html>

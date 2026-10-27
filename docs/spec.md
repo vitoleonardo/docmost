@@ -134,7 +134,7 @@ This is the core claim, so it is Must and not part of the deferred security work
 
 ## 9. What each feature spec must cover
 
-Input for `/spec-feature`. Feature specs state observable behaviour; the mechanisms named here go into the plan.
+Input for `/spec-feature`. Feature specs state observable behaviour; the mechanisms named here go into the plan. Features with UI link their mockup section in `docs/design/ai-assistant.html` in the User flow and refer to its state IDs (index and design decisions: `docs/design/README.md`).
 
 **M2 Seed data**
 - Company name checked against the Handelsregister and a web search; "Rheinwerk" is taken (Rheinwerk Verlag).
@@ -157,7 +157,7 @@ Input for `/spec-feature`. Feature specs state observable behaviour; the mechani
 - Section 7 item 7. Reconcile job compares `updated_at` and fixes gaps.
 - German full-text search alongside vectors if the evals show it helps.
 
-**M5 Ask**
+**M5 Ask** (design: overview, A1 to A4)
 - Section 7 items 3, 4 and 8. Answers in German, streamed, each claim with a citation linking page and section.
 - "I don't know" when no chunk passes the relevance threshold; the threshold is set from the eval baseline.
 - Multi-turn within one panel session; history is kept in ai-service.
@@ -167,14 +167,14 @@ Input for `/spec-feature`. Feature specs state observable behaviour; the mechani
 - Canary suite: users without access ask about restricted content in many phrasings, including prompt injection in the question and inside readable pages. A canary string in any answer is a leak. Runs locally on the active mode.
 - Revocation case: a user removed from a space gets no content from it on the next request.
 
-**M7 Contract extraction**
+**M7 Contract extraction** (design: E1 to E4)
 - Fields: parties, term, notice period, value, renewal.
 - Each field carries a source quote and page number. A field without a source is flagged as missing, never filled.
 - Limits on file size and page count; scanned PDFs without a text layer are refused with a message (no OCR in v1).
 - Insertion goes through Docmost's normal update path so live editors see it. If that is not workable, the plan inserts into a new child page instead and records the decision.
 - Extraction time on the M3 Pro is measured and recorded.
 
-**M8 Agent: outdated pages**
+**M8 Agent: outdated pages** (design: G1 to G6)
 - "Find pages about X in space Y that look outdated and propose updates."
 - Tools: search, read page, propose update. Reads and proposals run with the user's permissions.
 - A proposal is stored in ai-service and shown as a diff. Nothing is written without the user's confirmation, and the confirmation applies exactly the shown diff.
@@ -237,6 +237,7 @@ Built with the Agentic Workflow Kit (`vitoleonardo/agentic-development-template`
 5. Decide during `/onboard` how the 70 % coverage gate treats one-line wiring edits in untested upstream files (exclusion list or small tests).
 
 **Per feature**
+- Features with UI need an approved mockup in `docs/design/` before `/spec-feature`. A UI change that departs from the mockup updates the mockup in the same PR.
 - `/ship-feature` in the order of section 8: spec in `specs/`, plan in `.work/`, tests first, review, PR into `ai-v1`.
 - `docs/build-log.md` records where the kit caught problems, plus the kit's lead-time and token numbers per feature. This connects both portfolio projects.
 
@@ -271,7 +272,7 @@ Built with the Agentic Workflow Kit (`vitoleonardo/agentic-development-template`
 
 | Week | Must features |
 |---|---|
-| 1 | M1 kit setup, M2 seed data, M3 AI bridge |
+| 1 | Mockups approved (done: `docs/design/`), M1 kit setup, M2 seed data, M3 AI bridge |
 | 2 | M4 indexing, M5 Ask, M6 leak tests |
 | 3 | M7 contract extraction, M8 agent, M9 request log |
 | 4 | M10 evals and reports, video, docs and case study; then Should items |
@@ -295,5 +296,5 @@ Positioning: not "a better Docmost", but "what a production-grade AI feature loo
 
 ## Changelog
 
-- **v1.1 (2026-10-27)**: Phase 0 findings folded in (permission filter before generation, enterprise AI Chat, core AI plumbing). Scope split into Must, Should and Later. Local inference on the MacBook is the only Must mode; the four modes become configurations of one OpenAI-compatible adapter. Hosted demo replaced by a video. Deferred security documented. Workflow through the Agentic Workflow Kit with feature specs in `specs/`. New seed company name.
+- **v1.1 (2026-10-27)**: Phase 0 findings folded in (permission filter before generation, enterprise AI Chat, core AI plumbing). Scope split into Must, Should and Later. Local inference on the MacBook is the only Must mode; the four modes become configurations of one OpenAI-compatible adapter. Hosted demo replaced by a video. Deferred security documented. Workflow through the Agentic Workflow Kit with feature specs in `specs/`. New seed company name. Mockups for M5, M7 and M8 in `docs/design/`.
 - **v1 (2026-10-23)**: initial spec.
