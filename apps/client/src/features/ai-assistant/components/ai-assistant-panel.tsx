@@ -11,6 +11,7 @@ import {
 } from "@mantine/core";
 import { IconMessagePlus, IconSparkles } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
+import AskAnswer from "@/features/ai-assistant/components/ask-answer.tsx";
 import AskInput from "@/features/ai-assistant/components/ask-input.tsx";
 import AskScopeSelect from "@/features/ai-assistant/components/ask-scope-select.tsx";
 import { useAskConversation } from "@/features/ai-assistant/hooks/use-ask-conversation.ts";
@@ -97,9 +98,7 @@ export default function AiAssistantPanel() {
               <Paper bg="gray.1" p="xs" radius="md">
                 <Text size="sm">{turn.question}</Text>
               </Paper>
-              <Text size="sm" style={{ whiteSpace: "pre-wrap" }}>
-                {turn.answer}
-              </Text>
+              <AskAnswer turn={turn} />
             </Stack>
           ))
         )}

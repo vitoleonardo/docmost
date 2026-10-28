@@ -1586,5 +1586,9 @@
   "Send": "Send",
   "Stop": "Stop",
   "At most 2,000 characters": "At most 2,000 characters",
-  "New conversation": "New conversation"
+  "New conversation": "New conversation",
+  "I found no matching source in the pages you can access. Rephrase the question or contact the responsible department.": "I found no matching source in the pages you can access. Rephrase the question or contact the responsible department.",
+  "The language model is not answering right now. Try again later.": "The language model is not answering right now. Try again later.",
+  "Page {{page}}": "Page {{page}}",
+  "Stopped": "Stopped"
 }
