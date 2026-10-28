@@ -439,7 +439,7 @@ def test_index_ac76_invalid_settings_are_named_without_their_value(tmp_path: Pat
     assert run.returncode == 1
     assert "AI_WIKI_URL is not set" in run.stderr
     assert "AI_SERVICE_TOKEN is invalid" in run.stderr
-    assert "short-token-value" not in run.stderr
+    assert TOO_SHORT_CREDENTIAL not in run.stderr
 
 
 @pytest.mark.integration
