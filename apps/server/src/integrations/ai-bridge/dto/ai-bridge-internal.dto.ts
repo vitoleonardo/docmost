@@ -66,5 +66,5 @@ export class PageListDto {
   @IsString()
   @IsNotEmpty()
   @MaxLength(MAX_PAGE_LIST_CURSOR_LENGTH)
-  cursor?: string;
+  cursor?: string | null;
 }

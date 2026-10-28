@@ -1277,6 +1277,12 @@ describe('AI bridge page access (e2e)', () => {
           },
         );
 
+        it('INDEX-AC48: a null cursor answers the first part like an absent one', async () => {
+          expect(await readPart({ cursor: null })).toEqual(
+            await readPart({}),
+          );
+        });
+
         it('INDEX-AC48: a bare page id as cursor answers 400 invalid_request', async () => {
           const [listed] = await listedPages();
 

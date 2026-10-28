@@ -21,10 +21,10 @@ UPDATED_AT = datetime(2026, 10, 1, 12, 0, tzinfo=UTC)
 
 
 @contextmanager
-def migrated_index_store(tmp_path: Path) -> Iterator[IndexStore]:
+def migrated_index_store(tmp_path: Path, options: str | None = None) -> Iterator[IndexStore]:
     with fresh_ai_schema(tmp_path):
         migrate()
-        with psycopg.connect(AI_URL, autocommit=True) as conn:
+        with psycopg.connect(AI_URL, autocommit=True, options=options) as conn:
             yield IndexStore(conn)
 
 

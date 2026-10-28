@@ -1,5 +1,6 @@
 from collections.abc import Sequence
 from dataclasses import fields
+from pathlib import Path
 
 import pytest
 
@@ -13,6 +14,7 @@ from tests.index_db import (
     attachment_id,
     index_page,
     make_entry,
+    migrated_index_store,
     page_id,
 )
 
@@ -220,6 +222,23 @@ def test_index_ac20_pages_of_another_model_are_not_returned(
     assert [hit.page_id for hit in hits] == [page_id(1)]
     other_hits = search_index(store, other, "Urlaub", [SPACE_A])
     assert [hit.page_id for hit in other_hits] == [page_id(2)]
+
+
+@pytest.mark.integration
+def test_index_ac20_another_model_with_another_dimension_does_not_break_a_hash_join(
+    tmp_path: Path, embedder: HashingEmbedder
+):
+    other = HashingEmbedder(model_name="other-model", dims=64)
+    with migrated_index_store(tmp_path, options="-c enable_nestloop=off") as store:
+        for number in range(1, 4):
+            index_page(store, embedder, make_entry(number), [f"Urlaub Regel {number}"])
+        for number in range(4, 40):
+            entry = make_entry(number, embedding_model=other.model_name)
+            index_page(store, other, entry, [f"Urlaub Winter {n}" for n in range(5)])
+
+        hits = search_index(store, embedder, "Urlaub Regel", [SPACE_A], limit=50)
+
+    assert sorted(hit.page_id for hit in hits) == [page_id(n) for n in range(1, 4)]
 
 
 @pytest.mark.integration

@@ -27,9 +27,8 @@ export class AiPageListService {
     private readonly environmentService: EnvironmentService,
   ) {}
 
-  async listPages(cursor: string | undefined): Promise<AiPageList> {
-    const afterId =
-      cursor === undefined ? undefined : this.pageIdOfCursor(cursor);
+  async listPages(cursor: string | null | undefined): Promise<AiPageList> {
+    const afterId = cursor == null ? undefined : this.pageIdOfCursor(cursor);
     const { pages, hasNextPage } = await this.aiPageListRepo.listIndexablePages(
       afterId,
       PAGE_LIST_SIZE,

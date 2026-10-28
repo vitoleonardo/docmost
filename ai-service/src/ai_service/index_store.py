@@ -197,19 +197,26 @@ class IndexStore:
         with self._conn.transaction():
             rows = self._conn.execute(
                 """
-                SELECT p.page_id::text, p.title, p.space_id::text, s.heading_path, s.text,
-                    1 - (s.embedding OPERATOR(ai.<=>) query.vector) AS score,
-                    s.attachment_id::text, s.file_name, s.pdf_page
-                FROM ai.page_sections s
-                JOIN ai.indexed_pages p ON p.page_id = s.page_id
-                CROSS JOIN (SELECT %s::ai.vector AS vector) query
-                WHERE p.space_id = ANY(%s::uuid[])
-                  AND p.embedding_model = %s
-                  AND (s.embedding OPERATOR(ai.<=>) query.vector) <> 'NaN'::float8
-                ORDER BY score DESC, p.page_id, s.position
+                WITH active_sections AS MATERIALIZED (
+                    SELECT p.page_id, p.title, p.space_id, s.position, s.heading_path, s.text,
+                        s.embedding, s.attachment_id, s.file_name, s.pdf_page
+                    FROM ai.page_sections s
+                    JOIN ai.indexed_pages p ON p.page_id = s.page_id
+                    WHERE p.space_id = ANY(%s::uuid[])
+                      AND p.embedding_model = %s
+                ),
+                scored AS (
+                    SELECT a.*, a.embedding OPERATOR(ai.<=>) %s::ai.vector AS distance
+                    FROM active_sections a
+                )
+                SELECT page_id::text, title, space_id::text, heading_path, text,
+                    1 - distance AS score, attachment_id::text, file_name, pdf_page
+                FROM scored
+                WHERE distance <> 'NaN'::float8
+                ORDER BY score DESC, scored.page_id, scored.position
                 LIMIT %s
                 """,
-                (vector_literal(query_vector), list(space_ids), embedding_model, limit),
+                (list(space_ids), embedding_model, vector_literal(query_vector), limit),
             ).fetchall()
         return [SearchHit(*row) for row in rows]
 

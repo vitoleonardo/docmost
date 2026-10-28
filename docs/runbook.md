@@ -151,8 +151,7 @@ After a seed rebuild (`pnpm seed` empties schema `ai` and gives the pages new id
   - `STACK_AI_DATABASE_URL`: the AI role's URL of the database the worker indexes
   - `STACK_SERVICE_TOKEN`: the wiki's `AI_SERVICE_TOKEN`
   - `STACK_EMBEDDING_MODEL`: optional, default as the worker
-
-  - `STACK_SEED_PASSWORD`: optional, default the demo password above
+  - `STACK_SEED_PASSWORD`: optional, default `seed-demo-password` (the seed's demo password)
 
   INDEX-AC23 creates a throwaway page as the seed owner in the space of "Bürozeiten und Erreichbarkeit", changes it through `POST /api/pages/update`, prints `INDEX-AC23 freshness: <seconds> s` (limit 60 s) and moves the page to the trash.
 

@@ -67,6 +67,15 @@ describe('AiPageListService', () => {
     );
   });
 
+  it('INDEX-AC48: a null cursor starts at the beginning like an absent one', async () => {
+    await service.listPages(null);
+
+    expect(aiPageListRepo.listIndexablePages).toHaveBeenCalledWith(
+      undefined,
+      500,
+    );
+  });
+
   it('INDEX-AC44: the last part has no cursor', async () => {
     aiPageListRepo.listIndexablePages.mockResolvedValue({
       pages: [page(FIRST_ID)],
