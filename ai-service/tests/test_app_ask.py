@@ -279,7 +279,7 @@ def test_ask_ac71_an_expired_user_token_is_401(
 @pytest.mark.parametrize(
     "token_arguments",
     [
-        {"secret": "another-secret-0123456789abcdef-xyz"},
+        {"secret": BRIDGE_KEY[::-1]},
         {"aud": "someone-else"},
         {"secret": "", "algorithm": "none"},
         {"spaceIds": "not-a-list"},

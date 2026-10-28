@@ -44,7 +44,7 @@ from tests.index_db import (
 )
 from tests.seed_matrix import SEED_USERS, SeedPage, load_seed_pages, member_space_ids
 
-USER_TOKEN = "test-user-token-not-a-real-jwt"
+USER_TOKEN = "test-user"
 OTHER_USER_ID = "0192f000-0000-7000-8000-0000000000b2"
 CONVERSATION_ID = "0192f000-0000-7000-8000-0000000c0001"
 THRESHOLD = 0.45
