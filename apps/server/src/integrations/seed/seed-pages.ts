@@ -242,6 +242,10 @@ export function readSeedPageMarkdown(page: SeedPage): string {
   return readFileSync(join(__dirname, 'content', 'pages', page.file), 'utf8');
 }
 
+export function readSeedPdf(pdf: SeedPdf): Buffer {
+  return readFileSync(join(__dirname, 'content', 'generated', pdf.fileName));
+}
+
 export function readSeedIssues(): SeedIssues {
   return JSON.parse(
     readFileSync(join(__dirname, 'content', 'issues.json'), 'utf8'),

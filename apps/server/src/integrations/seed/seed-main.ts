@@ -5,6 +5,7 @@ import {
 } from '@nestjs/platform-fastify';
 import { SeedModule } from './seed.module';
 import { formatSeedSummary, SeedService } from './seed.service';
+import { SeedContentService } from './seed-content.service';
 import {
   loadSeedEnvironment,
   prepareSeedReset,
@@ -24,8 +25,9 @@ async function rebuildSeed(): Promise<void> {
     try {
       app.setGlobalPrefix('api');
       await app.init();
-      const { counts } = await app.get(SeedService).seedWorkspace();
-      console.log(formatSeedSummary({ ...counts, pages: 0, attachments: 0 }));
+      const workspace = await app.get(SeedService).seedWorkspace();
+      const pageCounts = await app.get(SeedContentService).seedPages(workspace);
+      console.log(formatSeedSummary({ ...workspace.counts, ...pageCounts }));
     } finally {
       await app.close();
     }

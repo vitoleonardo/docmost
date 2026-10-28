@@ -31,10 +31,12 @@ export interface SeedCounts {
   spaces: number;
 }
 
-export interface SeedSummary extends SeedCounts {
+export interface SeedPageCounts {
   pages: number;
   attachments: number;
 }
+
+export type SeedSummary = SeedCounts & SeedPageCounts;
 
 export interface SeedWorkspaceResult {
   workspaceId: string;
@@ -49,11 +51,13 @@ export const formatSeedSummary = (summary: SeedSummary) =>
   `${summary.groups} groups, ${summary.spaces} spaces, ` +
   `${summary.pages} pages, ${summary.attachments} attachments`;
 
-const seedSpaceByName = (name: string): SeedSpace =>
+export const seedSpaceByName = (name: string): SeedSpace =>
   SEED_SPACES.find((space) => space.name === name)!;
 
 const DEFAULT_SPACE = SEED_SPACES[0];
-
+export const SEED_OWNER = SEED_USERS.find(
+  (user) => user.workspaceRole === 'owner',
+)!;
 @Injectable()
 export class SeedService {
   constructor(
@@ -70,11 +74,10 @@ export class SeedService {
 
   async seedWorkspace(): Promise<SeedWorkspaceResult> {
     return executeTx(this.db, async (trx) => {
-      const owner = SEED_USERS.find((user) => user.workspaceRole === 'owner')!;
       const { user, workspace } = await this.signupService.initialSetup(
         {
-          name: owner.name,
-          email: owner.email,
+          name: SEED_OWNER.name,
+          email: SEED_OWNER.email,
           password: SEED_DEMO_PASSWORD,
           workspaceName: SEED_WORKSPACE_NAME,
         },
@@ -82,7 +85,7 @@ export class SeedService {
       );
       const result: SeedWorkspaceResult = {
         workspaceId: workspace.id,
-        userIds: { [owner.key]: user.id } as Record<SeedUserKey, string>,
+        userIds: { [SEED_OWNER.key]: user.id } as Record<SeedUserKey, string>,
         groupIds: {},
         spaceIds: {},
         counts: { workspaces: 1, users: 0, groups: 0, spaces: 0 },
