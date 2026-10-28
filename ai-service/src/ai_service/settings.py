@@ -13,6 +13,17 @@ class Settings(BaseSettings):
     ai_service_port: int = 8100
 
 
+class WorkerSettings(Settings):
+    ai_wiki_url: str
+    ai_embedding_model: str = "jinaai/jina-embeddings-v2-base-de"
+
+
+class MigrationSettings(BaseSettings):
+    model_config = Settings.model_config
+
+    ai_database_url: str
+
+
 class DbSetupSettings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
