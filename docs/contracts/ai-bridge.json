@@ -209,6 +209,43 @@
     {
       "side": "ai-service",
       "method": "POST",
+      "path": "/v1/ask",
+      "auth": ["service", "user"],
+      "request": ["question", "conversationId", "spaceId", "pageId"],
+      "response": [],
+      "responseType": "ndjson",
+      "responseContentType": "application/x-ndjson",
+      "events": {
+        "delta": ["type", "text"],
+        "citations": [
+          "type",
+          "citations[].number",
+          "citations[].pageId",
+          "citations[].headingPath",
+          "citations[].attachmentId",
+          "citations[].fileName",
+          "citations[].pdfPage"
+        ],
+        "no_source": ["type"],
+        "error": ["type", "code"]
+      },
+      "values": {
+        "errorCode": ["model_unavailable"]
+      },
+      "maxQuestionLength": 2000,
+      "status": 200,
+      "errors": [
+        "service_token_missing",
+        "service_token_invalid",
+        "user_token_missing",
+        "user_token_expired",
+        "user_token_invalid",
+        "invalid_request"
+      ]
+    },
+    {
+      "side": "ai-service",
+      "method": "POST",
       "path": "/v1/jobs",
       "auth": ["service"],
       "request": ["name", "data"],

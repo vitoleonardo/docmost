@@ -13,8 +13,11 @@ from pydantic_settings import SettingsConfigDict
 from redis import Redis
 
 from ai_service.app import create_app
+from ai_service.ask import AskPipeline
+from ai_service.conversations import ConversationStore
 from ai_service.index_store import IndexStore
-from ai_service.settings import Settings
+from ai_service.inference import ChatModel
+from ai_service.settings import AskSettings, Settings
 from tests.hashing_embedder import HashingEmbedder
 
 BRIDGE_KEY = "test-bridge-secret-0123456789abcdef"
@@ -38,6 +41,26 @@ def make_settings(**overrides: Any) -> Settings:
         **overrides,
     }
     return IsolatedSettings(**values)
+
+
+class IsolatedAskSettings(AskSettings):
+    model_config = IsolatedSettings.model_config
+
+
+def make_ask_settings(**overrides: Any) -> AskSettings:
+    values = {**make_settings().model_dump(), "ai_wiki_url": "http://wiki.test", **overrides}
+    return IsolatedAskSettings(**values)
+
+
+def idle_ask_pipeline(redis: Redis) -> AskPipeline:
+    return AskPipeline(
+        search=lambda text, space_ids, page_id, limit: [],
+        filter_pages=lambda page_ids, user_token: [],
+        model=ChatModel("http://127.0.0.1:1/v1", "unused"),
+        conversations=ConversationStore(redis),
+        threshold=0.45,
+        inference_mode="local",
+    )
 
 
 @dataclass
@@ -79,6 +102,11 @@ def embedder() -> HashingEmbedder:
 
 
 @pytest.fixture
+def hashing_embedder_loaded(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("ai_service.__main__.load_embedder", lambda model_name: HashingEmbedder())
+
+
+@pytest.fixture
 def settings() -> Settings:
     return make_settings()
 
@@ -90,7 +118,7 @@ def redis_client() -> Redis:
 
 @pytest.fixture
 def client(settings: Settings, redis_client: Redis) -> TestClient:
-    return TestClient(create_app(settings, redis_client))
+    return TestClient(create_app(settings, redis_client, idle_ask_pipeline(redis_client)))
 
 
 @pytest.fixture
