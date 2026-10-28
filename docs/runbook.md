@@ -114,7 +114,7 @@ To switch the assistant off, unset `AI_BRIDGE_SECRET` and restart the wiki serve
 - Server unit, CI: `cd apps/server && node_modules/.bin/jest src/integrations/ai-bridge`
 - Server e2e, local only: `pnpm --filter ./apps/server run test:e2e -- ai-bridge`. It needs the dev Postgres and Redis. Do not run a dev server on the same Redis at the same time: it takes `{ai-queue}` jobs.
 - ai-service fast tests, CI: `cd ai-service && uv run pytest -m "not integration"`
-- ai-service integration, local only: `cd ai-service && uv run pytest -m integration`. It uses Redis db 15 and creates and drops the database `docmost_ai_role_test` and the role `docmost_ai_test`.
+- ai-service integration, local only: `cd ai-service && uv run pytest -m "integration and not stack"`. It uses Redis db 15 and creates and drops the database `docmost_ai_role_test` and the role `docmost_ai_test`.
 - Contract: `docs/contracts/ai-bridge.json`. Both sides test against it: `apps/server/src/integrations/ai-bridge/ai-bridge.contract.spec.ts` and `ai-service/tests/test_contract.py`.
 - CI does not run the e2e and integration suites.
 
@@ -145,8 +145,8 @@ After a seed rebuild (`pnpm seed` empties schema `ai` and gives the pages new id
 ### Index tests
 
 - Fast, CI: `uv run pytest -m "not integration"`.
-- Integration, local: `uv run pytest -m integration`. Needs the dev Postgres and Redis. The tests with the real model (`-m model`) download it on first use.
-- Stack, local: `uv run pytest -m stack tests/test_stack.py`. Runs against a running seeded wiki, worker and the real model; skipped when the variables are missing:
+- Integration, local: `uv run pytest -m "integration and not stack"`. Needs the dev Postgres and Redis. The tests with the real model (`-m model`) download it on first use.
+- Stack, local: `uv run pytest -m stack tests/test_stack.py`. Runs against a running seeded wiki, worker and the real model; fails (does not skip) when the variables are missing:
   - `STACK_WIKI_URL`: for example `http://127.0.0.1:3100`
   - `STACK_AI_DATABASE_URL`: the AI role's URL of the database the worker indexes
   - `STACK_SERVICE_TOKEN`: the wiki's `AI_SERVICE_TOKEN`

@@ -19,6 +19,7 @@ from ai_service.bridge_client import (
     BridgeUnreachable,
     PageNotFound,
 )
+from tests.conftest import SERVICE_CREDENTIAL
 
 CONTRACT_PATH = Path(__file__).resolve().parents[2] / "docs" / "contracts" / "ai-bridge.json"
 ENDPOINTS: dict[str, dict[str, Any]] = {
@@ -26,7 +27,7 @@ ENDPOINTS: dict[str, dict[str, Any]] = {
     for endpoint in json.loads(CONTRACT_PATH.read_text())["endpoints"]
     if endpoint["side"] == "bridge"
 }
-TOKEN = "test-service-token"
+TOKEN = SERVICE_CREDENTIAL
 PAGE_ID = "0192f000-0000-7000-8000-000000000001"
 ATTACHMENT_ID = "0192f000-0000-7000-9000-000000000001"
 UPDATED_AT = "2026-10-01T12:00:00.000Z"

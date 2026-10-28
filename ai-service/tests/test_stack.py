@@ -76,7 +76,7 @@ def list_all_pages(bridge: BridgeClient) -> list[ListedPage]:
 def stack() -> Iterator[Stack]:
     missing = [name for name in STACK_VARIABLES if not os.environ.get(name)]
     if missing:
-        pytest.skip(f"no running stack configured, set {', '.join(missing)}")
+        pytest.fail(f"no running stack configured, set {', '.join(missing)}")
     wiki_url = os.environ["STACK_WIKI_URL"]
     service_token = os.environ["STACK_SERVICE_TOKEN"]
     model = os.environ.get(

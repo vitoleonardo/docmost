@@ -36,6 +36,7 @@ from tests.test_job_consumer import fail_once
 from tests.test_migrations import fresh_ai_schema, migrate
 from tests.test_settings import IsolatedWorkerSettings
 
+TOO_SHORT_CREDENTIAL = "short-value"
 ENTRY_MODULES = ["ai_service.worker", "ai_service.reconcile_command"]
 SETTING_NAMES = [
     "AI_BRIDGE_SECRET",
@@ -430,7 +431,7 @@ def test_index_ac76_start_without_ai_wiki_url_exits_naming_it(module: str, tmp_p
 
 
 def test_index_ac76_invalid_settings_are_named_without_their_value(tmp_path: Path):
-    settings = all_settings(AI_SERVICE_TOKEN="short-token-value")
+    settings = all_settings(AI_SERVICE_TOKEN=TOO_SHORT_CREDENTIAL)
     del settings["AI_WIKI_URL"]
 
     run = run_entry("ai_service.worker", tmp_path, **settings)
