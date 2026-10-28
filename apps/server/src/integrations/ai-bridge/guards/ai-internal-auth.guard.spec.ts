@@ -1,3 +1,4 @@
+import { stub } from '../test-stub';
 import { ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { User } from '@docmost/db/types/entity.types';
@@ -30,11 +31,11 @@ function contextFor(
   route: keyof RoutesUnderTest,
   request: TestRequest,
 ): ExecutionContext {
-  return {
+  return stub<ExecutionContext>({
     getHandler: () => RoutesUnderTest.prototype[route],
     getClass: () => RoutesUnderTest,
     switchToHttp: () => ({ getRequest: () => request }),
-  } as unknown as ExecutionContext; // only the members the guard reads
+  });
 }
 
 describe('AiInternalAuthGuard', () => {
@@ -46,8 +47,8 @@ describe('AiInternalAuthGuard', () => {
   const aiTokenService = { verifyToken: jest.fn() };
   const guard = new AiInternalAuthGuard(
     new Reflector(),
-    environmentService as unknown as EnvironmentService, // stub of the two getters the guard reads
-    aiTokenService as unknown as AiTokenService, // stub of verifyToken only
+    stub<EnvironmentService>(environmentService),
+    stub<AiTokenService>(aiTokenService),
   );
 
   const validHeaders = {

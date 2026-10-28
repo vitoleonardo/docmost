@@ -76,9 +76,11 @@ def decode_user_token(token: str, secret: str) -> dict[str, Any]:
         raise ApiError("user_token_expired", "The user token has expired.") from error
     except jwt.InvalidTokenError as error:
         raise ApiError("user_token_invalid", "The user token is not valid.") from error
-    if claims.get("type") != USER_TOKEN_TYPE or not _is_text(claims.get("workspaceId")):
-        raise ApiError("user_token_invalid", "The user token is not valid.")
-    if not _is_text(claims["sub"]):
+    if (
+        claims.get("type") != USER_TOKEN_TYPE
+        or not _is_text(claims.get("workspaceId"))
+        or not _is_text(claims["sub"])
+    ):
         raise ApiError("user_token_invalid", "The user token is not valid.")
     return claims
 

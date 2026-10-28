@@ -1365,7 +1365,7 @@ describe('AI bridge page access (e2e)', () => {
 
       it('BRIDGE-AC68: page create still answers 200 and the failed forward is logged as a warning without content or tokens', async () => {
         const warn = jest.spyOn(
-          (bridge.aiQueueProcessor as unknown as { logger: Logger }).logger,
+          Reflect.get(bridge.aiQueueProcessor, 'logger') as Logger,
           'warn',
         );
         const headers = await login('GF');

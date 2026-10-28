@@ -1,3 +1,4 @@
+import { stub } from './test-stub';
 import 'reflect-metadata';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -144,7 +145,7 @@ function bodyDtoFields(route: ServedRoute): string[] {
   const dto = paramTypes[args[bodyKey].index];
   const metadatas = getMetadataStorage().getTargetValidationMetadatas(
     dto,
-    undefined as unknown as string,
+    undefined!,
     false,
     false,
   );
@@ -192,24 +193,24 @@ const environmentService = {
 const jwtService = new JwtService();
 const aiTokenService = new AiTokenService(
   jwtService,
-  userRepo as never,
-  aiPageAccessService as unknown as AiPageAccessService,
-  environmentService as unknown as EnvironmentService,
+  stub(userRepo),
+  stub<AiPageAccessService>(aiPageAccessService),
+  stub<EnvironmentService>(environmentService),
 );
 const aiContentService = new AiContentService(
-  pageRepo as never,
-  attachmentRepo as never,
-  storageService as never,
-  searchService as never,
-  aiPageAccessService as unknown as AiPageAccessService,
+  stub(pageRepo),
+  stub(attachmentRepo),
+  stub(storageService),
+  stub(searchService),
+  stub<AiPageAccessService>(aiPageAccessService),
 );
 const internalController = new AiBridgeInternalController(
-  aiPageAccessService as unknown as AiPageAccessService,
+  stub<AiPageAccessService>(aiPageAccessService),
   aiTokenService,
   aiContentService,
 );
 
-const PAGE = {
+const PAGE = stub<Page>({
   id: PAGE_ID,
   title: 'Seite',
   spaceId: SPACE_ID,
@@ -220,9 +221,9 @@ const PAGE = {
     type: 'doc',
     content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Text' }] }],
   },
-} as unknown as Page;
+});
 
-const PDF_ATTACHMENT = {
+const PDF_ATTACHMENT = stub<Attachment>({
   id: 'att-1',
   fileName: 'vertrag.pdf',
   filePath: 'workspace-1/files/att-1/vertrag.pdf',
@@ -230,18 +231,18 @@ const PDF_ATTACHMENT = {
   fileSize: '2048',
   pageId: PAGE_ID,
   deletedAt: null,
-} as unknown as Attachment;
+});
 
 const statusService = (
   configured: boolean,
   sessionAccepted: boolean,
 ): AiStatusService =>
   new AiStatusService(
-    { isAiBridgeConfigured: () => configured } as unknown as EnvironmentService,
-    { issueUserToken: async () => 'user-token' } as unknown as AiTokenService,
-    {
+    stub<EnvironmentService>({ isAiBridgeConfigured: () => configured }),
+    stub<AiTokenService>({ issueUserToken: async () => 'user-token' }),
+    stub<AiServiceClient>({
       checkSession: async () => sessionAccepted,
-    } as unknown as AiServiceClient,
+    }),
   );
 
 const RESPONSE_BODIES: Record<string, () => Promise<unknown>> = {
@@ -408,10 +409,10 @@ describe('served routes', () => {
   });
 
   it('BRIDGE-AC35: the attachment endpoint answers the bytes with the attachment mime type', async () => {
-    const reply = {
+    const reply = stub<FastifyReply>({
       headers: jest.fn().mockReturnThis(),
       send: jest.fn(),
-    } as unknown as FastifyReply;
+    });
 
     await internalController.attachment({ attachmentId: 'att-1' }, reply);
 
@@ -424,7 +425,7 @@ describe('served routes', () => {
 
 describe('AI service calls of the bridge', () => {
   const client = new AiServiceClient(
-    environmentService as unknown as EnvironmentService,
+    stub<EnvironmentService>(environmentService),
   );
   let fetchSpy: jest.SpyInstance;
 
@@ -537,10 +538,10 @@ describe('forwarded jobs', () => {
   };
   const aiServiceClient = { enqueueJob: jest.fn() };
   const processor = new AiQueueProcessor(
-    environmentService as unknown as EnvironmentService,
-    aiServiceClient as unknown as AiServiceClient,
+    stub<EnvironmentService>(environmentService),
+    stub<AiServiceClient>(aiServiceClient),
   );
-  const jobOf = (name: string) => ({ name, data: FULL_DATA }) as unknown as Job;
+  const jobOf = (name: string) => stub<Job>({ name, data: FULL_DATA });
 
   beforeEach(() => {
     environmentService.isAiBridgeConfigured.mockReturnValue(true);

@@ -1,3 +1,4 @@
+import { stub } from '../test-stub';
 import { createServer, IncomingMessage, Server } from 'node:http';
 import { AddressInfo } from 'node:net';
 import { EnvironmentService } from '../../environment/environment.service';
@@ -22,10 +23,10 @@ describe('AiServiceClient', () => {
   let requests: RecordedRequest[];
   let url: string | undefined;
 
-  const environmentService = {
+  const environmentService = stub<EnvironmentService>({
     getAiServiceUrl: () => url,
     getAiServiceToken: () => SERVICE_TOKEN,
-  } as unknown as EnvironmentService;
+  });
   const client = new AiServiceClient(environmentService);
 
   beforeAll(async () => {
@@ -50,7 +51,9 @@ describe('AiServiceClient', () => {
         res.end('{}');
       });
     });
-    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    await new Promise<void>((resolve) =>
+      server.listen(0, '127.0.0.1', resolve),
+    );
     baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   });
 
@@ -129,7 +132,10 @@ describe('AiServiceClient', () => {
       behaviour = 'accepted';
 
       await expect(
-        client.enqueueJob('page-created', { pageIds: ['p1'], workspaceId: 'w1' }),
+        client.enqueueJob('page-created', {
+          pageIds: ['p1'],
+          workspaceId: 'w1',
+        }),
       ).resolves.toBeUndefined();
 
       expect(requests[0].url).toBe('/v1/jobs');

@@ -1,3 +1,4 @@
+import { stub } from '../test-stub';
 import { User } from '@docmost/db/types/entity.types';
 import { EnvironmentService } from '../../environment/environment.service';
 import { AiServiceClient } from './ai-service.client';
@@ -12,9 +13,9 @@ describe('AiStatusService', () => {
   const aiTokenService = { issueUserToken: jest.fn() };
   const aiServiceClient = { checkSession: jest.fn() };
   const service = new AiStatusService(
-    environmentService as unknown as EnvironmentService,
-    aiTokenService as unknown as AiTokenService,
-    aiServiceClient as unknown as AiServiceClient,
+    stub<EnvironmentService>(environmentService),
+    stub<AiTokenService>(aiTokenService),
+    stub<AiServiceClient>(aiServiceClient),
   );
 
   beforeEach(() => {

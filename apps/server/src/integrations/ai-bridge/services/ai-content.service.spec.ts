@@ -1,3 +1,4 @@
+import { stub } from '../test-stub';
 import { Readable } from 'node:stream';
 import { Test } from '@nestjs/testing';
 import { PageRepo } from '@docmost/db/repos/page/page.repo';
@@ -43,7 +44,7 @@ const makePage = (overrides: Partial<Page> = {}) =>
   }) as Page;
 
 const makeAttachment = (overrides: Partial<Attachment> = {}) =>
-  ({
+  stub<Attachment>({
     id: 'att-1',
     fileName: 'vertrag.pdf',
     filePath: 'workspace-1/files/att-1/vertrag.pdf',
@@ -53,7 +54,7 @@ const makeAttachment = (overrides: Partial<Attachment> = {}) =>
     type: 'file',
     deletedAt: null,
     ...overrides,
-  }) as unknown as Attachment;
+  });
 
 const expectBridgeError = async (promise: Promise<unknown>, code: string) => {
   const error = await promise.then(

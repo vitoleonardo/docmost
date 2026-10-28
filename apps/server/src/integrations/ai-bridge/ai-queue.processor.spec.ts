@@ -1,3 +1,4 @@
+import { stub } from './test-stub';
 import { Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
 import { EnvironmentService } from '../environment/environment.service';
@@ -27,14 +28,14 @@ const FULL_DATA = {
 };
 
 const jobOf = (name: string, data: object = FULL_DATA) =>
-  ({ name, data }) as unknown as Job;
+  stub<Job>({ name, data });
 
 describe('AiQueueProcessor', () => {
   const environmentService = { isAiBridgeConfigured: jest.fn() };
   const aiServiceClient = { enqueueJob: jest.fn() };
   const processor = new AiQueueProcessor(
-    environmentService as unknown as EnvironmentService,
-    aiServiceClient as unknown as AiServiceClient,
+    stub<EnvironmentService>(environmentService),
+    stub<AiServiceClient>(aiServiceClient),
   );
   let warn: jest.SpyInstance;
 

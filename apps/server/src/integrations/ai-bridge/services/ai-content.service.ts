@@ -24,14 +24,14 @@ export interface AiPageContent {
   attachments: AiPageAttachment[];
 }
 
-export interface AiPageAttachment {
+interface AiPageAttachment {
   id: string;
   fileName: string;
   mimeType: string;
   fileSize: number;
 }
 
-export interface AiAttachmentFile {
+interface AiAttachmentFile {
   stream: Readable;
   mimeType: string;
 }

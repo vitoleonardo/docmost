@@ -49,7 +49,7 @@ function renderAssistant() {
 }
 
 beforeAll(() => {
-  window.matchMedia ??= ((query: string) => ({
+  vi.stubGlobal("matchMedia", (query: string) => ({
     matches: false,
     media: query,
     onchange: null,
@@ -58,12 +58,15 @@ beforeAll(() => {
     addEventListener() {},
     removeEventListener() {},
     dispatchEvent: () => false,
-  })) as unknown as typeof window.matchMedia;
-  globalThis.ResizeObserver ??= class {
-    observe() {}
-    unobserve() {}
-    disconnect() {}
-  } as unknown as typeof ResizeObserver;
+  }));
+  vi.stubGlobal(
+    "ResizeObserver",
+    class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    },
+  );
 });
 
 beforeEach(() => {
