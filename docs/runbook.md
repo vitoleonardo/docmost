@@ -117,3 +117,46 @@ To switch the assistant off, unset `AI_BRIDGE_SECRET` and restart the wiki serve
 - ai-service integration, local only: `cd ai-service && uv run pytest -m integration`. It uses Redis db 15 and creates and drops the database `docmost_ai_role_test` and the role `docmost_ai_test`.
 - Contract: `docs/contracts/ai-bridge.json`. Both sides test against it: `apps/server/src/integrations/ai-bridge/ai-bridge.contract.spec.ts` and `ai-service/tests/test_contract.py`.
 - CI does not run the e2e and integration suites.
+
+## Indexing
+
+The worker keeps a searchable copy of all pages and PDF attachments in the schema `ai` (spec `specs/indexing.md`). Commands run from `ai-service/`.
+
+### Variables
+
+In addition to the ai-service variables above:
+- `AI_WIKI_URL`: address of the wiki, for example `http://127.0.0.1:3000`. Required by the worker and the reconcile command; without it they exit with `AI_WIKI_URL is not set`.
+- `AI_EMBEDDING_MODEL`: default `jinaai/jina-embeddings-v2-base-de`. A new model is a configuration change followed by the reconcile.
+
+### Set up, once
+
+1. Re-run `python -m ai_service.db_setup` (section "Database role, once") on every existing database. It now also installs pgvector in schema `ai` and sets the role's search path.
+2. `uv run alembic upgrade head` creates the index tables. Safe to rerun. The worker exits with this command in its message when the tables are missing.
+3. `uv run python -m ai_service.worker` starts the worker. The first start downloads the embedding model (0.64 GB, needs network) to `ai-service/.cache/fastembed`. After that it works offline.
+
+The worker reconciles at start, logs `Reconcile finished: <n> indexed, <m> removed, <k> rescoped`, then processes the jobs the wiki forwards and reconciles again every 10 minutes. Its log holds ids and reasons, never titles, page text or tokens.
+
+### Reconcile by hand
+
+`uv run python -m ai_service.reconcile_command` fixes every difference between wiki and index and exits 0. It waits while the worker is reconciling. Exit 1 with `Wiki bridge unreachable at <AI_WIKI_URL>` when the wiki does not answer.
+
+After a seed rebuild (`pnpm seed` empties schema `ai` and gives the pages new ids): run `uv run alembic upgrade head`, then the reconcile command (or restart the worker).
+
+### Index tests
+
+- Fast, CI: `uv run pytest -m "not integration"`.
+- Integration, local: `uv run pytest -m integration`. Needs the dev Postgres and Redis. The tests with the real model (`-m model`) download it on first use.
+- Stack, local: `uv run pytest -m stack tests/test_stack.py`. Runs against a running seeded wiki, worker and the real model; skipped when the variables are missing:
+  - `STACK_WIKI_URL`: for example `http://127.0.0.1:3100`
+  - `STACK_AI_DATABASE_URL`: the AI role's URL of the database the worker indexes
+  - `STACK_SERVICE_TOKEN`: the wiki's `AI_SERVICE_TOKEN`
+  - `STACK_EMBEDDING_MODEL`: optional, default as the worker
+
+  INDEX-AC23 changes a page through `POST /api/pages/update` as the seed owner and prints `INDEX-AC23 freshness: <seconds> s` (limit 60 s). Each run appends one section to the page "Bürozeiten und Erreichbarkeit".
+
+Stack on a separate database, so `docmost` stays untouched (fake values; ports 3100 and 8101 instead of 3000 and 8100; Redis db 5):
+1. Create the database `docmost_index_stack` on the dev Postgres. Run `DATABASE_URL=<its URL> pnpm --filter ./apps/server run migration:latest`.
+2. `db_setup` with `AI_DB_ADMIN_URL` and `AI_DATABASE_URL` for that database, then `uv run alembic upgrade head`.
+3. Build the server (`pnpm --filter ./apps/server run build`). From a scratch directory shaped `<dir>/apps/server` (the local storage is then `<dir>/data/storage` and no environment file is read) run `node <repo>/apps/server/dist/integrations/seed/seed-main.js` with `DATABASE_URL`, `STORAGE_DRIVER=local`, `APP_SECRET`, `REDIS_URL=redis://127.0.0.1:6380/5`.
+4. Start the wiki from the same directory with `node <repo>/apps/server/dist/main` and `PORT=3100`, `APP_URL`, `AI_BRIDGE_SECRET`, `AI_SERVICE_TOKEN`, `AI_SERVICE_URL=http://127.0.0.1:8101` plus the variables of step 3. Start `python -m ai_service` (`AI_SERVICE_PORT=8101`) and `python -m ai_service.worker` (`AI_WIKI_URL=http://127.0.0.1:3100`) with the same secrets, `REDIS_URL` and the AI role's `AI_DATABASE_URL`. Wait for `Reconcile finished`, then run the stack tests.
+5. Stop the three processes, drop the database and the AI role, flush Redis db 5. Do not run another wiki server on the same Redis: it takes the `{ai-queue}` jobs.
