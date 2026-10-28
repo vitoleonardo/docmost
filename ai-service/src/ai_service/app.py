@@ -1,0 +1,76 @@
+from collections.abc import Callable, Coroutine
+from typing import Annotated, Any
+
+from fastapi import Depends, FastAPI, Request, Response
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from fastapi.routing import APIRoute
+from pydantic import BaseModel, Field
+from redis import Redis
+
+from ai_service.auth import (
+    ERROR_STATUS,
+    ApiError,
+    UserSession,
+    require_service_token,
+    require_user_session,
+)
+from ai_service.jobs import enqueue_job
+from ai_service.settings import Settings
+
+
+class JobRequest(BaseModel):
+    name: str = Field(min_length=1)
+    data: dict[str, Any]
+
+
+class SessionResponse(BaseModel):
+    userId: str
+    workspaceId: str
+
+
+class JobResponse(BaseModel):
+    id: str
+
+
+class ServiceTokenFirstRoute(APIRoute):
+    def get_route_handler(self) -> Callable[[Request], Coroutine[Any, Any, Response]]:
+        handle = super().get_route_handler()
+
+        async def handle_after_token_check(request: Request) -> Response:
+            require_service_token(
+                request.app.state.settings, request.headers.get("x-service-token")
+            )
+            return await handle(request)
+
+        return handle_after_token_check
+
+
+def create_app(settings: Settings, redis: Redis) -> FastAPI:
+    app = FastAPI(docs_url=None, redoc_url=None)
+    app.state.settings = settings
+    app.router.route_class = ServiceTokenFirstRoute
+
+    @app.exception_handler(ApiError)
+    def api_error(_: Request, error: ApiError) -> JSONResponse:
+        return JSONResponse(
+            status_code=error.status_code,
+            content={"code": error.code, "message": error.message},
+        )
+
+    @app.exception_handler(RequestValidationError)
+    def invalid_request(_: Request, __: RequestValidationError) -> JSONResponse:
+        return JSONResponse(
+            status_code=ERROR_STATUS["invalid_request"],
+            content={"code": "invalid_request", "message": "The request body is not valid."},
+        )
+
+    @app.post("/v1/session")
+    def session(user: Annotated[UserSession, Depends(require_user_session)]) -> SessionResponse:
+        return SessionResponse(userId=user.user_id, workspaceId=user.workspace_id)
+
+    @app.post("/v1/jobs", status_code=202)
+    def jobs(body: JobRequest) -> JobResponse:
+        return JobResponse(id=enqueue_job(redis, body.name, body.data))
+
+    return app

@@ -163,7 +163,9 @@ export default function GlobalAppShell({
                   ? t("AI Chat")
                   : asideTab === "details"
                     ? t("Details")
-                    : undefined
+                    : asideTab === "ai-assistant"
+                      ? t("Assistant")
+                      : undefined
           }
         >
           <Aside />

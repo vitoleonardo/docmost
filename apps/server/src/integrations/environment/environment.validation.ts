@@ -46,6 +46,25 @@ export class EnvironmentVariables {
   APP_SECRET: string;
 
   @IsOptional()
+  @MinLength(32, {
+    message: 'AI_BRIDGE_SECRET must be at least 32 characters long',
+  })
+  AI_BRIDGE_SECRET: string;
+
+  @IsOptional()
+  @MinLength(32, {
+    message: 'AI_SERVICE_TOKEN must be at least 32 characters long',
+  })
+  AI_SERVICE_TOKEN: string;
+
+  @IsOptional()
+  @IsUrl(
+    { protocols: ['http', 'https'], require_tld: false },
+    { message: 'AI_SERVICE_URL must be a valid http or https URL' },
+  )
+  AI_SERVICE_URL: string;
+
+  @IsOptional()
   @IsIn(['smtp', 'postmark'])
   MAIL_DRIVER: string;
 
