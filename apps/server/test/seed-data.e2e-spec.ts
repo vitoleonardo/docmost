@@ -1,5 +1,12 @@
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import {
+  chmod,
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  writeFile,
+} from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -96,6 +103,10 @@ const RESTRICTED_EDIT: Record<string, SeedUserKey[]> = {
 
 const SEARCH_WORDS = ['Zweiströmeland', 'Kalenderfuchs', 'Pegelhase'];
 
+const REPO_ROOT = join(__dirname, '..', '..', '..');
+const SEED_ENTRY_SCRIPT =
+  /dist[\\/]integrations[\\/]seed[\\/]seed-main(\.js)?$/;
+
 const SEED_SOURCE_DIR = join(__dirname, '..', 'src', 'integrations', 'seed');
 const SEED_ENTRY = join(
   __dirname,
@@ -126,6 +137,15 @@ net.Socket.prototype.connect = function (...args) {
   }
   return connect.apply(this, args);
 };
+`;
+
+const ARGV_LOGGER = `
+const fs = require('node:fs');
+const script = process.argv[1] || '';
+fs.appendFileSync(process.env.SEED_ARGV_LOG, JSON.stringify(process.argv.slice(1)) + '\\n');
+if (/@nestjs[\\\\/]cli[\\\\/]/.test(script) || /seed-main(\\.js)?$/.test(script)) {
+  process.exit(0);
+}
 `;
 
 interface ProseMirrorNode {
@@ -160,8 +180,13 @@ const readCanaries = (): SeedCanary[] =>
     ),
   ) as SeedCanary[];
 
-const isForbidden = (error: unknown) =>
-  error instanceof Error && error.name === 'ForbiddenException';
+const ACCESS_DENIED_ERRORS = new Set([
+  'ForbiddenException',
+  'NotFoundException',
+]);
+
+const isAccessDenied = (error: unknown) =>
+  error instanceof Error && ACCESS_DENIED_ERRORS.has(error.name);
 
 function newestSeedSourceTime(dir: string): number {
   return readdirSync(dir, { withFileTypes: true }).reduce((newest, entry) => {
@@ -182,10 +207,14 @@ function connect(url: string) {
   });
 }
 
-async function recreateDatabase(admin: Kysely<DB>, name: string) {
+async function removeDatabase(admin: Kysely<DB>, name: string) {
   await sql`drop database if exists ${sql.id(name)} with (force)`.execute(
     admin,
   );
+}
+
+async function recreateDatabase(admin: Kysely<DB>, name: string) {
+  await removeDatabase(admin, name);
   await sql`create database ${sql.id(name)}`.execute(admin);
 }
 
@@ -391,7 +420,7 @@ async function usersAllowedTo(
       }
       allowed.push(key);
     } catch (error) {
-      if (!isForbidden(error)) throw error;
+      if (!isAccessDenied(error)) throw error;
     }
   }
   return allowed;
@@ -494,9 +523,7 @@ describe('seed preflight and reset (e2e)', () => {
 
   afterAll(async () => {
     await db?.destroy();
-    await sql`drop database if exists ${sql.id(TEST_DATABASE)} with (force)`.execute(
-      admin,
-    );
+    await removeDatabase(admin, TEST_DATABASE);
     await admin?.destroy();
   });
 
@@ -519,9 +546,7 @@ describe('seed preflight and reset (e2e)', () => {
         }),
       ).rejects.toThrow(new Error(MIGRATION_MESSAGE));
     } finally {
-      await sql`drop database if exists ${sql.id(NO_MIGRATIONS_DATABASE)} with (force)`.execute(
-        admin,
-      );
+      await removeDatabase(admin, NO_MIGRATIONS_DATABASE);
     }
   });
 
@@ -551,13 +576,19 @@ describe('seed preflight and reset (e2e)', () => {
     }
   });
 
-  it('SEED-AC28: the reset keeps the migration record and empties public and ai', async () => {
+  it('SEED-AC28: the reset keeps the migration records in public and ai and empties both schemas', async () => {
     await insertWorkspace(db, 'Before reset');
     await sql`create schema if not exists ai`.execute(db);
     await sql`create table if not exists ai.chunks (id serial primary key, body text)`.execute(
       db,
     );
     await sql`insert into ai.chunks (body) values ('stale')`.execute(db);
+    await sql`create table if not exists ai.alembic_version (version_num varchar(32) primary key)`.execute(
+      db,
+    );
+    await sql`insert into ai.alembic_version (version_num) values ('0001_initial') on conflict do nothing`.execute(
+      db,
+    );
 
     const { release } = await prepareSeedReset(localOptions(storageRoot));
     await release();
@@ -568,6 +599,7 @@ describe('seed preflight and reset (e2e)', () => {
     expect(await countRows(db, 'kysely_migration')).toBe(migrations.length);
     expect(await countRows(db, 'workspaces')).toBe(0);
     expect(await countRows(db, 'ai.chunks')).toBe(0);
+    expect(await countRows(db, 'ai.alembic_version')).toBe(1);
   });
 
   it('SEED-AC28: the reset removes only the stored folders of existing workspaces', async () => {
@@ -585,6 +617,36 @@ describe('seed preflight and reset (e2e)', () => {
     expect(existsSync(join(storageRoot, workspaceId))).toBe(false);
     expect(existsSync(siblingFile)).toBe(true);
     expect(existsSync(storageRoot)).toBe(true);
+  });
+
+  it('SEED-AC28: a failed storage delete leaves the database and the workspace ids for the next run', async () => {
+    const workspaceId = await insertWorkspace(db, 'Undeletable files');
+    const lockedFolder = join(storageRoot, workspaceId, 'files');
+    await mkdir(lockedFolder, { recursive: true });
+    await writeFile(join(lockedFolder, 'a.txt'), 'x');
+    await chmod(lockedFolder, 0o500);
+    try {
+      await expect(prepareSeedReset(localOptions(storageRoot))).rejects.toThrow(
+        /^Reset failed: /,
+      );
+      const remaining = await db
+        .selectFrom('workspaces')
+        .select('id')
+        .where('id', '=', workspaceId)
+        .execute();
+      expect(remaining).toEqual([{ id: workspaceId }]);
+
+      await chmod(lockedFolder, 0o700);
+      const { release } = await prepareSeedReset(localOptions(storageRoot));
+      await release();
+      expect(existsSync(join(storageRoot, workspaceId))).toBe(false);
+      expect(await countRows(db, 'workspaces')).toBe(0);
+    } finally {
+      await chmod(lockedFolder, 0o700).catch((error: unknown) => {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+      });
+      await db.deleteFrom('workspaces').execute();
+    }
   });
 
   it('SEED-AC34: the lock is held until release and free afterwards', async () => {
@@ -826,6 +888,30 @@ describe('seed preflight and reset (e2e)', () => {
       );
     });
 
+    it.each(readCanaries().map((entry) => [entry.title, entry]))(
+      'SEED-AC13: the users denied "%s" by PageAccessService are the deniedUsers of canaries.json',
+      async (_title, entry) => {
+        const page = await db
+          .selectFrom('pages')
+          .innerJoin('spaces', 'spaces.id', 'pages.spaceId')
+          .select('spaces.name as spaceName')
+          .where('pages.title', '=', entry.title)
+          .executeTakeFirstOrThrow();
+        expect(page.spaceName).toBe(entry.space);
+        const allowed = await usersAllowedTo(
+          db,
+          seedApp,
+          result,
+          'view',
+          entry.title,
+        );
+        const denied = SEED_USERS.map((user) => user.key).filter(
+          (key) => !allowed.includes(key),
+        );
+        expect(denied.sort()).toEqual([...entry.deniedUsers].sort());
+      },
+    );
+
     it('SEED-AC26: the summary line names 30 pages and 9 attachments', () => {
       expect(pageCounts).toEqual({
         pages: SEED_PAGES.length,
@@ -1043,9 +1129,41 @@ describe('seed preflight and reset (e2e)', () => {
 
   describe('seed rebuild command', () => {
     let workDir: string;
+    let commandDir: string;
     let networkLog: string;
-    let childEnv: NodeJS.ProcessEnv;
+    let baseEnv: NodeJS.ProcessEnv;
     let run: ReturnType<typeof spawnSync>;
+
+    const runSeedCommand = (
+      args: string[],
+      env: NodeJS.ProcessEnv,
+      cwd = commandDir,
+      command = process.execPath,
+    ) =>
+      spawnSync(command, args, {
+        cwd,
+        env: { ...baseEnv, ...env },
+        encoding: 'utf8',
+        timeout: 180_000,
+      });
+
+    const lastLine = (output: string | Buffer) =>
+      String(output).trimEnd().split('\n').pop() ?? '';
+
+    const expectRefusal = async (
+      args: string[],
+      env: NodeJS.ProcessEnv,
+      message: string | RegExp,
+    ) => {
+      const pagesBefore = await countRows(db, 'pages');
+      const refused = runSeedCommand([SEED_ENTRY, ...args], env);
+      expect(refused.status).toBe(1);
+      expect(lastLine(refused.stderr)).toEqual(
+        typeof message === 'string' ? message : expect.stringMatching(message),
+      );
+      expect(lastLine(refused.stdout)).not.toMatch(/^Seeded:/);
+      expect(await countRows(db, 'pages')).toBe(pagesBefore);
+    };
 
     beforeAll(async () => {
       if (
@@ -1057,29 +1175,25 @@ describe('seed preflight and reset (e2e)', () => {
         );
       }
       workDir = await mkdtemp(join(tmpdir(), 'seed-command-'));
-      const cwd = join(workDir, 'apps', 'server');
-      await mkdir(cwd, { recursive: true });
+      commandDir = join(workDir, 'apps', 'server');
+      await mkdir(commandDir, { recursive: true });
       networkLog = join(workDir, 'network.log');
       await writeFile(networkLog, '');
       const guard = join(workDir, 'network-guard.cjs');
       await writeFile(guard, NETWORK_GUARD);
 
-      childEnv = Object.fromEntries(
+      baseEnv = Object.fromEntries(
         Object.entries(loadSeedEnvironment()).filter(
           ([key]) => !AI_ENVIRONMENT.test(key) && key !== 'NODE_ENV',
         ),
       );
-      Object.assign(childEnv, {
+      Object.assign(baseEnv, {
         DATABASE_URL: TEST_DATABASE_URL,
         STORAGE_DRIVER: 'local',
+      });
+      run = runSeedCommand([SEED_ENTRY], {
         NODE_OPTIONS: `--require ${guard}`,
         SEED_NETWORK_LOG: networkLog,
-      });
-      run = spawnSync(process.execPath, [SEED_ENTRY], {
-        cwd,
-        env: childEnv,
-        encoding: 'utf8',
-        timeout: 180_000,
       });
     }, 240_000);
 
@@ -1092,8 +1206,7 @@ describe('seed preflight and reset (e2e)', () => {
         status: 0,
         stderr: expect.any(String),
       });
-      const lines = String(run.stdout).trimEnd().split('\n');
-      expect(lines[lines.length - 1]).toBe(SEED_SUMMARY_LINE);
+      expect(lastLine(run.stdout)).toBe(SEED_SUMMARY_LINE);
       expect(await countRows(db, 'pages')).toBe(30);
       const files = await db
         .selectFrom('attachments')
@@ -1109,9 +1222,6 @@ describe('seed preflight and reset (e2e)', () => {
 
     it('SEED-AC35: the rebuild runs without AI settings and connects only to loopback hosts', async () => {
       expect(run.status).toBe(0);
-      expect(
-        Object.keys(childEnv).filter((key) => AI_ENVIRONMENT.test(key)),
-      ).toEqual([]);
       const connections = (await readFile(networkLog, 'utf8'))
         .split('\n')
         .filter(Boolean);
@@ -1120,5 +1230,88 @@ describe('seed preflight and reset (e2e)', () => {
         connections.filter((line) => !line.startsWith('loopback')),
       ).toEqual([]);
     });
+
+    it('SEED-AC29: the command refuses the non-local host 0.0.0.0 without the flag and changes no data', async () => {
+      await expectRefusal(
+        [],
+        { DATABASE_URL: NON_LOCAL_TEST_DATABASE_URL },
+        'Refusing to reset non-local database 0.0.0.0',
+      );
+    }, 60_000);
+
+    it('SEED-AC30: the command refuses non-local storage without the flag and changes no data', async () => {
+      await expectRefusal(
+        [],
+        { STORAGE_DRIVER: 's3' },
+        'Refusing to reset non-local storage',
+      );
+    }, 60_000);
+
+    it('SEED-AC30: the command refuses non-local storage with the flag, because its files cannot be removed', async () => {
+      await expectRefusal(
+        ['--confirm-non-local'],
+        { STORAGE_DRIVER: 's3' },
+        'Remove the stored files manually, then rerun',
+      );
+    }, 60_000);
+
+    it('SEED-AC32: the command names the host of an unreachable database', async () => {
+      await expectRefusal(
+        [],
+        { DATABASE_URL: 'postgresql://docmost:docmost@localhost:1/docmost' },
+        /^Cannot reach database at localhost: .+/,
+      );
+    }, 60_000);
+
+    it('SEED-AC33: the command refuses a database without migrations', async () => {
+      await recreateDatabase(admin, NO_MIGRATIONS_DATABASE);
+      try {
+        await expectRefusal(
+          [],
+          { DATABASE_URL: `${SERVER}/${NO_MIGRATIONS_DATABASE}` },
+          MIGRATION_MESSAGE,
+        );
+      } finally {
+        await removeDatabase(admin, NO_MIGRATIONS_DATABASE);
+      }
+    }, 60_000);
+
+    it('SEED-AC31: the command seeds the non-local host 0.0.0.0 with --confirm-non-local', async () => {
+      const confirmed = runSeedCommand([SEED_ENTRY, '--confirm-non-local'], {
+        DATABASE_URL: NON_LOCAL_TEST_DATABASE_URL,
+      });
+      expect({
+        status: confirmed.status,
+        summary: lastLine(confirmed.stdout),
+      }).toEqual({ status: 0, summary: SEED_SUMMARY_LINE });
+      await expectSeededCounts(db);
+    }, 240_000);
+
+    it('SEED-AC31: pnpm seed passes --confirm-non-local through to the rebuild entry', async () => {
+      const argvLog = join(workDir, 'argv.log');
+      await writeFile(argvLog, '');
+      const logger = join(workDir, 'argv-logger.cjs');
+      await writeFile(logger, ARGV_LOGGER);
+
+      const chain = runSeedCommand(
+        ['seed', '--confirm-non-local'],
+        {
+          DATABASE_URL: NON_LOCAL_TEST_DATABASE_URL,
+          NODE_OPTIONS: `--require ${logger}`,
+          SEED_ARGV_LOG: argvLog,
+        },
+        REPO_ROOT,
+        'pnpm',
+      );
+
+      expect(chain.status).toBe(0);
+      const entryRuns = (await readFile(argvLog, 'utf8'))
+        .split('\n')
+        .filter(Boolean)
+        .map((line) => JSON.parse(line) as string[])
+        .filter(([script]) => SEED_ENTRY_SCRIPT.test(script));
+      expect(entryRuns).toHaveLength(1);
+      expect(entryRuns[0].slice(1)).toEqual(['--confirm-non-local']);
+    }, 120_000);
   });
 });

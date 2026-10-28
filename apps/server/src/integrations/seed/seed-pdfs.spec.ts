@@ -148,7 +148,7 @@ describe('seed PDFs', () => {
     expect(JSON.stringify(output.groundTruth)).not.toMatch(CANARY_ANY);
   });
 
-  it('SEED-AC13: the canary list has the 8 page canaries with the denied users of their pages', () => {
+  it('SEED-AC13 (list): canaries.json matches the generator: 8 page canaries with the denied users from the definition', () => {
     expect(output.canaries).toHaveLength(8);
     expect(new Set(output.canaries.map((c) => c.canary)).size).toBe(8);
     for (const entry of output.canaries) {

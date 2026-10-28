@@ -88,7 +88,7 @@ describe('seed pages', () => {
     expect(withHeadings.length).toBeGreaterThanOrEqual(10);
   });
 
-  it('SEED-AC10: bodies start with a paragraph and have no H1', () => {
+  it('SEED-AC17: bodies start with a paragraph and have no H1', () => {
     for (const page of SEED_PAGES) {
       const body = bodyOf(page);
       expect(body.trimStart().startsWith('#')).toBe(false);
@@ -103,9 +103,7 @@ describe('seed pages', () => {
     for (const page of SEED_PAGES) {
       const matches = bodyOf(page).match(CANARY) ?? [];
       expect(matches.length).toBe(withCanary.includes(page) ? 1 : 0);
-      expect(bodyOf(page).match(/CANARY/g) ?? []).toHaveLength(
-        matches.length,
-      );
+      expect(bodyOf(page).match(/CANARY/g) ?? []).toHaveLength(matches.length);
     }
   });
 
@@ -157,7 +155,7 @@ describe('seed pages', () => {
     }
   });
 
-  it('SEED-AC8: manifest restricted pages equal the definition and no other page sits below one', () => {
+  it('SEED-AC6: manifest restricted pages equal the definition and no other page sits below one', () => {
     for (const restricted of SEED_RESTRICTED_PAGES) {
       const page = findPage(restricted.space, restricted.title);
       expect(page).toBeDefined();
@@ -170,7 +168,7 @@ describe('seed pages', () => {
     expect(childTitles).toEqual(['Baustelle Nordhafen Zugangscodes']);
   });
 
-  it('SEED-AC8: parents exist in the same space and files exist', () => {
+  it('SEED-AC6: parents exist in the same space and files exist', () => {
     for (const page of SEED_PAGES) {
       if (page.parentTitle) {
         const parent = findPage(page.space, page.parentTitle);

@@ -6,6 +6,9 @@ import {
   readSeedPreflightOptions,
 } from './seed-preflight';
 
+const NON_LOCAL_STORAGE_MESSAGE =
+  'Remove the stored files manually, then rerun';
+
 const urlFor = (host: string) =>
   `postgresql://seed:test-password@${host}:5432/docmost`;
 
@@ -81,14 +84,37 @@ describe('seed preflight locality', () => {
     },
   );
 
-  it('SEED-AC31: the confirmation flag lets a non-local database and storage pass', () => {
+  it('SEED-AC31: the confirmation flag lets a non-local database pass', () => {
     expect(() =>
       assertLocalTargets({
         databaseUrl: urlFor('db.internal'),
-        storageDriver: 's3',
+        storageDriver: 'local',
         confirmNonLocal: true,
       }),
     ).not.toThrow();
+  });
+
+  it.each(['s3', 'azure'])(
+    'SEED-AC30: a confirmed run with the storage driver %s fails because its files cannot be removed',
+    (storageDriver) => {
+      expect(() =>
+        assertLocalTargets({
+          databaseUrl: urlFor('db.internal'),
+          storageDriver,
+          confirmNonLocal: true,
+        }),
+      ).toThrow(new Error(NON_LOCAL_STORAGE_MESSAGE));
+    },
+  );
+
+  it('SEED-AC30: a confirmed run with non-local storage fails before connecting', async () => {
+    await expect(
+      prepareSeedReset({
+        databaseUrl: urlFor('localhost'),
+        storageDriver: 's3',
+        confirmNonLocal: true,
+      }),
+    ).rejects.toThrow(new Error(NON_LOCAL_STORAGE_MESSAGE));
   });
 
   it('SEED-AC31: reads the confirmation flag and the environment', () => {
@@ -111,4 +137,41 @@ describe('seed preflight locality', () => {
       expect.objectContaining({ confirmNonLocal: false }),
     );
   });
+});
+
+describe('seed preflight database URL', () => {
+  it.each([undefined, ''])(
+    'SEED-AC29: a DATABASE_URL of %p fails with "DATABASE_URL is not set"',
+    (databaseUrl) => {
+      expect(() =>
+        readSeedPreflightOptions(['node', 'seed-main'], {
+          DATABASE_URL: databaseUrl,
+        }),
+      ).toThrow(new Error('DATABASE_URL is not set'));
+    },
+  );
+
+  it('SEED-AC29: a DATABASE_URL without a host fails with "DATABASE_URL has no host"', () => {
+    expect(() =>
+      readSeedPreflightOptions(['node', 'seed-main'], {
+        DATABASE_URL: 'postgresql:///docmost',
+      }),
+    ).toThrow(new Error('DATABASE_URL has no host'));
+  });
+
+  it.each([
+    ['', 'DATABASE_URL is not set'],
+    ['postgresql:///docmost', 'DATABASE_URL has no host'],
+  ])(
+    'SEED-AC31: the confirmation flag does not skip the check of DATABASE_URL %p',
+    async (databaseUrl, message) => {
+      await expect(
+        prepareSeedReset({
+          databaseUrl,
+          storageDriver: 'local',
+          confirmNonLocal: true,
+        }),
+      ).rejects.toThrow(new Error(message));
+    },
+  );
 });

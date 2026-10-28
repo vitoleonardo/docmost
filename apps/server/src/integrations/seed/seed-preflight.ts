@@ -13,10 +13,11 @@ export const CONFIRM_NON_LOCAL_FLAG = '--confirm-non-local';
 export const SEED_RESET_LOCK_KEY = 4207311802;
 
 const LOCAL_DATABASE_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
-const KEPT_PUBLIC_TABLES = new Set([
+const MIGRATION_RECORD_TABLES = [
   'kysely_migration',
   'kysely_migration_lock',
-]);
+  'alembic_version',
+];
 const MIGRATION_FOLDER = path.join(
   __dirname,
   '..',
@@ -38,8 +39,12 @@ export interface SeedReset {
 
 const stripBrackets = (host: string) => host.replace(/^\[(.*)\]$/, '$1');
 
-const databaseHost = (databaseUrl: string) =>
-  stripBrackets(new URL(databaseUrl).hostname);
+function databaseHost(databaseUrl: string | undefined): string {
+  if (!databaseUrl) throw new Error('DATABASE_URL is not set');
+  const host = stripBrackets(new URL(databaseUrl).hostname);
+  if (!host) throw new Error('DATABASE_URL has no host');
+  return host;
+}
 
 export const isLocalDatabaseHost = (host: string) =>
   LOCAL_DATABASE_HOSTS.has(stripBrackets(host));
@@ -51,6 +56,7 @@ export function readSeedPreflightOptions(
   argv: string[],
   env: NodeJS.ProcessEnv,
 ): SeedPreflightOptions {
+  databaseHost(env.DATABASE_URL);
   return {
     databaseUrl: env.DATABASE_URL,
     storageDriver: env.STORAGE_DRIVER,
@@ -64,8 +70,13 @@ export function loadSeedEnvironment(): NodeJS.ProcessEnv {
 }
 
 export function assertLocalTargets(options: SeedPreflightOptions): void {
-  if (options.confirmNonLocal) return;
   const host = databaseHost(options.databaseUrl);
+  if (options.confirmNonLocal) {
+    if (!isLocalStorageDriver(options.storageDriver)) {
+      throw new Error('Remove the stored files manually, then rerun');
+    }
+    return;
+  }
   if (!isLocalDatabaseHost(host)) {
     throw new Error(`Refusing to reset non-local database ${host}`);
   }
@@ -138,14 +149,13 @@ async function releaseLock(db: Kysely<DB>) {
 }
 
 async function truncateData(db: Kysely<DB>) {
-  const { rows } = await sql<{ schema: string; name: string }>`
+  const { rows: tables } = await sql<{ schema: string; name: string }>`
     select table_schema as schema, table_name as name
     from information_schema.tables
-    where table_type = 'BASE TABLE' and table_schema in ('public', 'ai')
+    where table_type = 'BASE TABLE'
+      and table_schema in ('public', 'ai')
+      and table_name not in (${sql.join(MIGRATION_RECORD_TABLES)})
   `.execute(db);
-  const tables = rows.filter(
-    (table) => table.schema !== 'public' || !KEPT_PUBLIC_TABLES.has(table.name),
-  );
   if (tables.length === 0) return;
   await sql`truncate ${sql.join(
     tables.map((table) => sql.id(table.schema, table.name)),
@@ -177,12 +187,11 @@ async function removeWorkspaceStorage(
 
 async function resetData(db: Kysely<DB>, options: SeedPreflightOptions) {
   const workspaces = await db.selectFrom('workspaces').select('id').execute();
-  await truncateData(db);
-  if (!isLocalStorageDriver(options.storageDriver)) return;
   await removeWorkspaceStorage(
     options.storageRoot ?? LOCAL_STORAGE_PATH,
     workspaces.map((workspace) => workspace.id),
   );
+  await truncateData(db);
 }
 
 export async function prepareSeedReset(
