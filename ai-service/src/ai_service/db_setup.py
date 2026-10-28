@@ -37,6 +37,8 @@ def set_up_role(admin: psycopg.Connection, role: str, password: str) -> str:
         sql.SQL("CREATE SCHEMA IF NOT EXISTS {} AUTHORIZATION {}").format(schema, role_id)
     )
     admin.execute(sql.SQL("ALTER SCHEMA {} OWNER TO {}").format(schema, role_id))
+    admin.execute(sql.SQL("CREATE EXTENSION IF NOT EXISTS vector SCHEMA {}").format(schema))
+    admin.execute(sql.SQL("ALTER ROLE {} SET search_path = {}").format(role_id, schema))
     admin.execute(
         sql.SQL("REVOKE ALL ON ALL TABLES IN SCHEMA {} FROM {}").format(wiki_schema, role_id)
     )

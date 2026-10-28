@@ -77,6 +77,28 @@
     {
       "side": "bridge",
       "method": "POST",
+      "path": "/api/ai-bridge/internal/pages",
+      "auth": ["service"],
+      "request": ["cursor"],
+      "response": [
+        "pages[].id",
+        "pages[].spaceId",
+        "pages[].updatedAt",
+        "nextCursor"
+      ],
+      "maxPageSize": 500,
+      "status": 200,
+      "errors": [
+        "assistant_disabled",
+        "service_token_missing",
+        "service_token_invalid",
+        "user_id_not_allowed",
+        "invalid_request"
+      ]
+    },
+    {
+      "side": "bridge",
+      "method": "POST",
       "path": "/api/ai-bridge/internal/page-content",
       "auth": ["service"],
       "request": ["pageId"],

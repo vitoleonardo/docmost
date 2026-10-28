@@ -3,6 +3,7 @@ import { Readable } from 'node:stream';
 import { Test } from '@nestjs/testing';
 import { PageRepo } from '@docmost/db/repos/page/page.repo';
 import { AttachmentRepo } from '@docmost/db/repos/attachment/attachment.repo';
+import { SpaceRepo } from '@docmost/db/repos/space/space.repo';
 import { Attachment, Page, User } from '@docmost/db/types/entity.types';
 import { SearchService } from '../../../core/search/search.service';
 import { StorageService } from '../../storage/storage.service';
@@ -68,6 +69,7 @@ const expectBridgeError = async (promise: Promise<unknown>, code: string) => {
 describe('AiContentService', () => {
   let service: AiContentService;
   const pageRepo = { findById: jest.fn() };
+  const spaceRepo = { findById: jest.fn() };
   const attachmentRepo = {
     findById: jest.fn(),
     findPageAttachments: jest.fn(),
@@ -82,6 +84,7 @@ describe('AiContentService', () => {
 
   beforeEach(async () => {
     jest.resetAllMocks();
+    spaceRepo.findById.mockResolvedValue({ id: 'space-a', deletedAt: null });
     attachmentRepo.findPageAttachments.mockResolvedValue({
       items: [],
       meta: { hasNextPage: false, nextCursor: null },
@@ -90,6 +93,7 @@ describe('AiContentService', () => {
       providers: [
         AiContentService,
         { provide: PageRepo, useValue: pageRepo },
+        { provide: SpaceRepo, useValue: spaceRepo },
         { provide: AttachmentRepo, useValue: attachmentRepo },
         { provide: StorageService, useValue: storageService },
         { provide: SearchService, useValue: searchService },
@@ -196,6 +200,26 @@ describe('AiContentService', () => {
         'page_not_found',
       );
     });
+
+    it.each([
+      ['marked as deleted', { id: 'space-a', deletedAt: new Date() }],
+      ['missing', undefined],
+    ])(
+      'INDEX-AC47: a page whose space is %s answers page_not_found',
+      async (_, space) => {
+        pageRepo.findById.mockResolvedValue(makePage());
+        spaceRepo.findById.mockResolvedValue(space);
+
+        await expectBridgeError(
+          service.getPageContent('page-1'),
+          'page_not_found',
+        );
+        expect(spaceRepo.findById).toHaveBeenCalledWith(
+          'space-a',
+          WORKSPACE_ID,
+        );
+      },
+    );
   });
 
   describe('getAttachmentFile', () => {

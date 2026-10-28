@@ -1,9 +1,21 @@
 #!/bin/sh
 set -u
 
+cd "$(git rev-parse --show-toplevel)" || exit 2
+run_dir=.work/ship-run
+mkdir -p "$run_dir"
+if [ -z "${SHIP_MILESTONES_PINNED:-}" ]; then
+  cp scripts/ship-milestones.sh "$run_dir/ship-milestones.sh" || exit 2
+  SHIP_MILESTONES_PINNED=1 exec sh "$run_dir/ship-milestones.sh" "$@"
+fi
+
 milestones="m3:ai-bridge m4:indexing m5:ask m6:leak-tests m7:extraction m8:agent m9:request-log m10:evals"
 first_base=m2-seed-data
-run_dir=.work/ship-run
+foundation_branch=m2-seed-data
+max_session_seconds=$((4 * 3600))
+max_idle_seconds=$((20 * 60))
+max_identical_calls=6
+max_turns=500
 from=m3
 dry_run=0
 
@@ -19,9 +31,6 @@ case " $milestones " in
   *" $from:"*) ;;
   *) echo "ship-milestones: unknown milestone $from" >&2; exit 2 ;;
 esac
-
-cd "$(git rev-parse --show-toplevel)" || exit 2
-mkdir -p "$run_dir"
 
 log() {
   line="$(date '+%d.%m.%Y %H:%M') $*"
@@ -62,13 +71,118 @@ has_questions() {
   [ -f ".work/$1.md" ] && grep -q '^## Questions for the user' ".work/$1.md"
 }
 
+loop_or_limit() {
+  node -e '
+    const [file, maxTurns, maxIdentical] = process.argv.slice(1);
+    const lastCall = new Map();
+    let turns = 0;
+    for (const line of require("fs").readFileSync(file, "utf8").split("\n")) {
+      if (!line.startsWith("{")) continue;
+      let message;
+      try { message = JSON.parse(line); } catch { continue; }
+      if (message.type !== "assistant") continue;
+      const agent = message.parent_tool_use_id ?? "main";
+      if (agent === "main") turns++;
+      for (const block of message.message?.content ?? []) {
+        if (block.type !== "tool_use") continue;
+        const call = block.name + " " + JSON.stringify(block.input);
+        const previous = lastCall.get(agent);
+        const count = previous?.call === call ? previous.count + 1 : 1;
+        lastCall.set(agent, { call, count });
+        if (count >= +maxIdentical) {
+          console.log("the same tool call " + count + " times in a row: " + call.slice(0, 120));
+          process.exit(0);
+        }
+      }
+    }
+    if (turns > +maxTurns) console.log("more than " + maxTurns + " turns");
+  ' "$1" "$max_turns" "$max_identical_calls"
+}
+
+session_metrics() {
+  node -e '
+    let result;
+    for (const line of require("fs").readFileSync(process.argv[1], "utf8").split("\n")) {
+      if (!line.includes("\"type\":\"result\"")) continue;
+      try { result = JSON.parse(line); } catch { continue; }
+    }
+    const usage = result?.usage ?? {};
+    const value = (number) => number ?? "-";
+    console.log([value(result?.num_turns), value(result?.total_cost_usd), value(usage.input_tokens),
+      value(usage.output_tokens), value(usage.cache_read_input_tokens), value(usage.cache_creation_input_tokens)].join("\t"));
+  ' "$1"
+}
+
+usage_limit_reset() {
+  node -e '
+    let rejectedUntil = "";
+    for (const line of require("fs").readFileSync(process.argv[1], "utf8").split("\n")) {
+      if (!line.includes("\"rate_limit_event\"")) continue;
+      let event;
+      try { event = JSON.parse(line); } catch { continue; }
+      const info = event.rate_limit_info ?? {};
+      rejectedUntil = info.status === "rejected" ? String(info.resetsAt ?? "") : "";
+    }
+    console.log(rejectedUntil);
+  ' "$1"
+}
+
+wait_for_usage_reset() {
+  until_epoch=$1
+  log "WAIT $milestone: usage limit reached; resuming after $(date -r "$until_epoch" '+%d.%m.%Y %H:%M')"
+  notify "$milestone waits for the usage limit to reset"
+  remaining=$((until_epoch + 120 - $(date +%s)))
+  [ "$remaining" -gt 0 ] && sleep "$remaining"
+}
+
+record_session() {
+  outcome=$1 file=$2 seconds=$3
+  sessions=$run_dir/sessions.tsv
+  [ -f "$sessions" ] ||
+    printf 'date\tmilestone\tattempt\toutcome\tminutes\tturns\tcost_usd\tinput\toutput\tcache_read\tcache_write\n' >"$sessions"
+  printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$(date '+%d.%m.%Y %H:%M')" "$milestone" "$attempt" "$outcome" \
+    "$((seconds / 60))" "$(session_metrics "$file")" >>"$sessions"
+}
+
+record_stop() {
+  state=.work/$1.md
+  stop="- headless session $attempt | budget | watchdog: $2 | stopped the session | $3"
+  [ -f "$state" ] || { printf '## Stops\n%s\n' "$stop" >"$state"; return; }
+  grep -q '^## Stops[[:space:]]*$' "$state" || printf '\n## Stops\n' >>"$state"
+  awk -v stop="$stop" '{ print } /^## Stops[ \t]*$/ { print stop }' "$state" >"$state.tmp" && mv "$state.tmp" "$state"
+}
+
+watch_session() {
+  pid=$1 file=$2 started=$(date +%s)
+  limit_reason=
+  while kill -0 "$pid" 2>/dev/null; do
+    sleep 60
+    now=$(date +%s)
+    reason=
+    [ $((now - started)) -gt "$max_session_seconds" ] && reason="ran longer than $((max_session_seconds / 3600)) h"
+    [ -z "$reason" ] && [ $((now - $(stat -f %m "$file"))) -gt "$max_idle_seconds" ] &&
+      reason="no output for $((max_idle_seconds / 60)) min"
+    [ -z "$reason" ] && reason=$(loop_or_limit "$file")
+    if [ -n "$reason" ]; then
+      log "LIMIT $milestone session $attempt stopped: $reason"
+      limit_reason=$reason
+      kill "$pid" 2>/dev/null
+      wait "$pid" 2>/dev/null
+      return 1
+    fi
+  done
+  wait "$pid"
+}
+
 run_session() {
   milestone=$1 slug=$2 base=$3 branch=$4 attempt=$5
+  file=$run_dir/$milestone.$attempt.jsonl
   KIT_APPROVAL=autonomous claude -p "/ship-feature $slug ($milestone in docs/spec.md sections 8 and 9)" \
     --dangerously-skip-permissions \
     --append-system-prompt "$(headless_rules "$base" "$branch")" \
     --output-format stream-json --verbose \
-    >"$run_dir/$milestone.$attempt.jsonl" 2>"$run_dir/$milestone.$attempt.err"
+    >"$file" 2>"$run_dir/$milestone.$attempt.err" &
+  watch_session $! "$file"
 }
 
 base=$first_base
@@ -79,6 +193,12 @@ for entry in $milestones; do
   branch=$milestone-$slug
   [ "$milestone" = "$from" ] && started=1
   if [ $started -eq 0 ]; then
+    base=$branch
+    continue
+  fi
+
+  if [ $dry_run -eq 0 ] && shipped "$branch"; then
+    log "SKIP $milestone already has $(pr_url "$branch")"
     base=$branch
     continue
   fi
@@ -94,13 +214,42 @@ for entry in $milestones; do
     git checkout --quiet "$branch" || halt "$milestone: cannot check out $branch"
   else
     git checkout --quiet -b "$branch" "$base" || halt "$milestone: cannot create $branch off $base"
+    git merge --quiet --no-edit "$foundation_branch" || { git merge --abort; halt "$milestone: merging $foundation_branch into $branch conflicts"; }
   fi
 
   log "START $milestone on $branch (base $base)"
-  for attempt in 1 2; do
+  sessions_counted=0
+  while [ "$sessions_counted" -lt 2 ]; do
+    attempt=$((sessions_counted + 1))
+    [ -e "$run_dir/$milestone.$attempt.jsonl" ] && attempt=$attempt.$(date +%s)
+    session_started=$(date +%s)
     run_session "$milestone" "$slug" "$base" "$branch" "$attempt" || log "$milestone: session $attempt exited with $?"
-    shipped "$branch" && break
-    has_questions "$branch" && halt "$milestone: questions in .work/$branch.md"
+    session_seconds=$(($(date +%s) - session_started))
+    file=$run_dir/$milestone.$attempt.jsonl
+    if shipped "$branch"; then
+      record_session shipped "$file" "$session_seconds"
+      break
+    fi
+    if has_questions "$branch"; then
+      record_session questions "$file" "$session_seconds"
+      halt "$milestone: questions in .work/$branch.md"
+    fi
+    reset=$(usage_limit_reset "$file")
+    if [ -n "$reset" ]; then
+      record_session "usage limit" "$file" "$session_seconds"
+      wait_for_usage_reset "$reset"
+      continue
+    fi
+    sessions_counted=$((sessions_counted + 1))
+    if [ -n "$limit_reason" ]; then
+      record_session "limit: $limit_reason" "$file" "$session_seconds"
+      case $sessions_counted in
+        1) record_stop "$branch" "$limit_reason" "resumed by the orchestrator" ;;
+        *) record_stop "$branch" "$limit_reason" "chain halted" ;;
+      esac
+    else
+      record_session "ended without a PR" "$file" "$session_seconds"
+    fi
   done
   shipped "$branch" || halt "$milestone: no in-review PR after 2 sessions; see $run_dir/$milestone.*.jsonl"
 
