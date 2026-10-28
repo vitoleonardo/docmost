@@ -15,6 +15,8 @@ import Aside from "@/components/layouts/global/aside.tsx";
 import { asideStateAtom } from "@/components/layouts/global/hooks/atoms/sidebar-atom.ts";
 import AiAssistantPanel from "./ai-assistant-panel.tsx";
 import AiAssistantTrigger from "./ai-assistant-trigger.tsx";
+import { currentUserAtom } from "@/features/user/atoms/current-user-atom.ts";
+import type { ICurrentUser } from "@/features/user/types/user.types.ts";
 import api from "@/lib/api-client";
 import PageHeaderMenu from "@/features/page/components/header/page-header-menu.tsx";
 import type { AiAssistantStatus } from "@/features/ai-assistant/types/ai-assistant.types.ts";
@@ -524,5 +526,99 @@ describe("ai assistant panel: ask", () => {
     await waitFor(() => expect(screen.queryByText(UNAVAILABLE_TEXT)).toBeNull());
     expect((await questionInput()).disabled).toBe(false);
     expect(await screen.findByText("Frag das Wiki")).toBeTruthy();
+  });
+});
+
+function renderPageMenuWithAside() {
+  const store = createStore();
+  store.set(currentUserAtom, {
+    user: { settings: { preferences: {} } },
+  } as ICurrentUser);
+  render(
+    <MantineProvider>
+      <QueryClientProvider client={new QueryClient()}>
+        <Provider store={store}>
+          <MemoryRouter>
+            <PageHeaderMenu />
+            <Aside />
+          </MemoryRouter>
+        </Provider>
+      </QueryClientProvider>
+    </MantineProvider>,
+  );
+  return store;
+}
+
+async function openPageMenu() {
+  fireEvent.click(await screen.findByRole("button", { name: "Seitenaktionen" }));
+}
+
+describe("ai assistant: ask about this page", () => {
+  beforeEach(() => {
+    fetchMock.mockReset();
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  it("ASK-AC5: the menu item opens the panel scoped to this page and keeps the conversation", async () => {
+    mockWiki("available");
+    const stream = controlledStream();
+    fetchMock.mockResolvedValue(stream.response);
+    const store = renderPageMenuWithAside();
+    fireEvent.click(await screen.findByRole("button", { name: "Assistent" }));
+    type(await questionInput(), "Frage eins");
+    fireEvent.click(screen.getByRole("button", { name: "Senden" }));
+    stream.push({ type: "delta", text: "Antwort eins" });
+    await screen.findByText("Antwort eins");
+    fireEvent.click(screen.getByRole("button", { name: "Assistent" }));
+    expect(store.get(asideStateAtom).isAsideOpen).toBe(false);
+
+    await openPageMenu();
+    fireEvent.click(
+      await screen.findByRole("menuitem", { name: "Zu dieser Seite fragen" }),
+    );
+
+    expect(store.get(asideStateAtom)).toEqual({
+      tab: "ai-assistant",
+      isAsideOpen: true,
+    });
+    expect(
+      ((await screen.findByRole("combobox", { name: "Bereich" })) as HTMLInputElement)
+        .value,
+    ).toBe("Diese Seite");
+    expect(screen.getByText("Frage eins")).toBeTruthy();
+    expect(screen.getByText("Antwort eins")).toBeTruthy();
+  });
+
+  it("ASK-AC5: the menu item does not close a panel that is already open", async () => {
+    mockWiki("available");
+    const store = renderPageMenuWithAside();
+    fireEvent.click(await screen.findByRole("button", { name: "Assistent" }));
+    await openPageMenu();
+    fireEvent.click(
+      await screen.findByRole("menuitem", { name: "Zu dieser Seite fragen" }),
+    );
+    expect(store.get(asideStateAtom).isAsideOpen).toBe(true);
+    expect(store.get(asideStateAtom).tab).toBe("ai-assistant");
+  });
+
+  it("ASK-AC6: the page menu has no ask item while the assistant is disabled", async () => {
+    mockWiki("disabled");
+    renderPageMenuWithAside();
+    await waitFor(() => expect(statusMock).toHaveBeenCalled());
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    await openPageMenu();
+    await screen.findByRole("menuitem", { name: "Link kopieren" });
+    expect(
+      screen.queryByRole("menuitem", { name: "Zu dieser Seite fragen" }),
+    ).toBeNull();
+  });
+
+  it("ASK-AC6: the page menu shows the ask item while the assistant is unavailable", async () => {
+    mockWiki("unavailable");
+    renderPageMenuWithAside();
+    await openPageMenu();
+    expect(
+      await screen.findByRole("menuitem", { name: "Zu dieser Seite fragen" }),
+    ).toBeTruthy();
   });
 });

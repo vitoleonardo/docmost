@@ -1590,5 +1590,6 @@
   "I found no matching source in the pages you can access. Rephrase the question or contact the responsible department.": "Dazu habe ich in den Seiten, auf die du Zugriff hast, keine passende Quelle gefunden. Formuliere die Frage anders oder wende dich an die zuständige Abteilung.",
   "The language model is not answering right now. Try again later.": "Das Sprachmodell antwortet gerade nicht. Versuche es später noch einmal.",
   "Page {{page}}": "Seite {{page}}",
-  "Stopped": "Abgebrochen"
+  "Stopped": "Abgebrochen",
+  "Ask about this page": "Zu dieser Seite fragen"
 }

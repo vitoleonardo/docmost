@@ -1590,5 +1590,6 @@
   "I found no matching source in the pages you can access. Rephrase the question or contact the responsible department.": "I found no matching source in the pages you can access. Rephrase the question or contact the responsible department.",
   "The language model is not answering right now. Try again later.": "The language model is not answering right now. Try again later.",
   "Page {{page}}": "Page {{page}}",
-  "Stopped": "Stopped"
+  "Stopped": "Stopped",
+  "Ask about this page": "Ask about this page"
 }
