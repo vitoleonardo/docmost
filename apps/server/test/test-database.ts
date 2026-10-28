@@ -1,6 +1,8 @@
 import { CamelCasePlugin, Kysely, sql } from 'kysely';
 import { PostgresJSDialect } from 'kysely-postgres-js';
 import * as postgres from 'postgres';
+import type { Type, ValidationPipeOptions } from '@nestjs/common';
+import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { DB } from '@docmost/db/types/db';
 import { createSeedMigrator } from '../src/integrations/seed/seed-preflight';
 
@@ -41,6 +43,40 @@ export async function loadAppModulesFor<T>(
     loaded = await load();
   });
   return loaded!;
+}
+
+export async function bootSeedHttpApp(
+  storageRoot: string,
+  pipeOptions: ValidationPipeOptions,
+): Promise<NestFastifyApplication> {
+  const { Test } = await import('@nestjs/testing');
+  const { ValidationPipe } = await import('@nestjs/common');
+  const { FastifyAdapter } = await import('@nestjs/platform-fastify');
+  const { default: fastifyCookie } = await import('@fastify/cookie');
+  const { SeedModule } = await import('../src/integrations/seed/seed.module');
+  const { STORAGE_DRIVER_TOKEN } =
+    await import('../src/integrations/storage/constants/storage.constants');
+  const { LocalDriver } =
+    await import('../src/integrations/storage/drivers/local.driver');
+
+  const moduleRef = await Test.createTestingModule({ imports: [SeedModule] })
+    .overrideProvider(STORAGE_DRIVER_TOKEN)
+    .useValue(new LocalDriver({ storagePath: storageRoot }))
+    .compile();
+  const app = moduleRef.createNestApplication<NestFastifyApplication>(
+    new FastifyAdapter(),
+    { logger: ['error'] },
+  );
+  app.setGlobalPrefix('api');
+  await app.register(fastifyCookie);
+  app.useGlobalPipes(new ValidationPipe(pipeOptions));
+  await app.init();
+  await app.getHttpAdapter().getInstance().ready();
+  return app;
+}
+
+export function providerOf(app: NestFastifyApplication) {
+  return <T>(type: Type<T>): T => app.get(type, { strict: false });
 }
 
 export async function recreateDatabase(admin: Kysely<DB>, name: string) {

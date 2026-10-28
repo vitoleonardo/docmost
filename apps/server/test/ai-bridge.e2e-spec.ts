@@ -1,14 +1,18 @@
+import { randomUUID } from 'node:crypto';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Kysely } from 'kysely';
-import type { INestApplication } from '@nestjs/common';
 import { DB } from '@docmost/db/types/db';
 import type { User } from '@docmost/db/types/entity.types';
 import type { PageRepo } from '@docmost/db/repos/page/page.repo';
 import type { SpaceMemberRepo } from '@docmost/db/repos/space/space-member.repo';
 import type { UserRepo } from '@docmost/db/repos/user/user.repo';
+import { JwtService } from '@nestjs/jwt';
+import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import type { AiPageAccessService } from '../src/integrations/ai-bridge/services/ai-page-access.service';
+import type { AiTokenService } from '../src/integrations/ai-bridge/services/ai-token.service';
+import type { EnvironmentService } from '../src/integrations/environment/environment.service';
 import type { SeedWorkspaceResult } from '../src/integrations/seed/seed.service';
 import { prepareSeedReset } from '../src/integrations/seed/seed-preflight';
 import {
@@ -17,13 +21,16 @@ import {
   SEED_RESTRICTED_PAGES,
   SEED_SPACE_MEMBERSHIPS,
   SEED_SPACES,
+  SEED_DEMO_PASSWORD,
   SEED_USERS,
   SeedUserKey,
 } from '../src/integrations/seed/seed-definition';
 import { SEED_PAGES } from '../src/integrations/seed/seed-pages';
 import {
+  bootSeedHttpApp,
   createMigratedTestDatabase,
   loadAppModulesFor,
+  providerOf,
   removeDatabase,
   TEST_POSTGRES_SERVER,
 } from './test-database';
@@ -31,11 +38,17 @@ import {
 const TEST_DATABASE = 'docmost_ai_bridge_test';
 const TEST_DATABASE_URL = `${TEST_POSTGRES_SERVER}/${TEST_DATABASE}`;
 
+const TEST_AI_BRIDGE_SECRET = 'test-ai-bridge-secret-0123456789abcdef';
+const TEST_AI_SERVICE_TOKEN = 'test-ai-service-token-0123456789abcdef';
+const TEST_AI_SERVICE_URL = 'http://127.0.0.1:9';
+
 const USER_KEYS = SEED_USERS.map((user) => user.key);
 
 interface BridgeApp {
-  app: INestApplication;
+  app: NestFastifyApplication;
   aiPageAccessService: AiPageAccessService;
+  aiTokenService: AiTokenService;
+  environmentService: EnvironmentService;
   pageRepo: PageRepo;
   spaceMemberRepo: SpaceMemberRepo;
   userRepo: UserRepo;
@@ -43,47 +56,42 @@ interface BridgeApp {
 }
 
 function bootSeededBridge(storageRoot: string): Promise<BridgeApp> {
+  process.env.AI_BRIDGE_SECRET = TEST_AI_BRIDGE_SECRET;
+  process.env.AI_SERVICE_TOKEN = TEST_AI_SERVICE_TOKEN;
+  process.env.AI_SERVICE_URL = TEST_AI_SERVICE_URL;
   return loadAppModulesFor(TEST_DATABASE_URL, async (): Promise<BridgeApp> => {
-    const { Test } = await import('@nestjs/testing');
-    const { FastifyAdapter } = await import('@nestjs/platform-fastify');
-    const { SeedModule } = await import('../src/integrations/seed/seed.module');
     const { SeedService } =
       await import('../src/integrations/seed/seed.service');
     const { SeedContentService } =
       await import('../src/integrations/seed/seed-content.service');
     const { AiPageAccessService } =
       await import('../src/integrations/ai-bridge/services/ai-page-access.service');
+    const { AiTokenService } =
+      await import('../src/integrations/ai-bridge/services/ai-token.service');
+    const { EnvironmentService } =
+      await import('../src/integrations/environment/environment.service');
     const { PageRepo } = await import('@docmost/db/repos/page/page.repo');
     const { SpaceMemberRepo } =
       await import('@docmost/db/repos/space/space-member.repo');
     const { UserRepo } = await import('@docmost/db/repos/user/user.repo');
-    const { STORAGE_DRIVER_TOKEN } =
-      await import('../src/integrations/storage/constants/storage.constants');
-    const { LocalDriver } =
-      await import('../src/integrations/storage/drivers/local.driver');
-
-    const moduleRef = await Test.createTestingModule({
-      imports: [SeedModule],
-      providers: [AiPageAccessService],
-    })
-      .overrideProvider(STORAGE_DRIVER_TOKEN)
-      .useValue(new LocalDriver({ storagePath: storageRoot }))
-      .compile();
-    const app = moduleRef.createNestApplication(new FastifyAdapter(), {
-      logger: ['error'],
+    const app = await bootSeedHttpApp(storageRoot, {
+      whitelist: true,
+      stopAtFirstError: true,
+      transform: true,
     });
-    app.setGlobalPrefix('api');
-    await app.init();
+    const provider = providerOf(app);
 
     const seed = await app.get(SeedService).seedWorkspace();
     await app.get(SeedContentService).seedPages(seed);
     return {
       app,
       seed,
-      aiPageAccessService: app.get(AiPageAccessService),
-      pageRepo: app.get(PageRepo, { strict: false }),
-      spaceMemberRepo: app.get(SpaceMemberRepo, { strict: false }),
-      userRepo: app.get(UserRepo, { strict: false }),
+      aiPageAccessService: provider(AiPageAccessService),
+      aiTokenService: provider(AiTokenService),
+      environmentService: provider(EnvironmentService),
+      pageRepo: provider(PageRepo),
+      spaceMemberRepo: provider(SpaceMemberRepo),
+      userRepo: provider(UserRepo),
     };
   });
 }
@@ -317,5 +325,371 @@ describe('AI bridge page access (e2e)', () => {
     expect(
       await bridge.aiPageAccessService.findViewablePage(users.PL, id),
     ).toBeNull();
+  });
+  describe('internal HTTP API', () => {
+    const clientAddress = `198.51.100.${Math.floor(Math.random() * 254) + 1}`;
+    const jwt = new JwtService();
+
+    const post = (
+      path: string,
+      payload: object,
+      headers: Record<string, string> = {},
+    ) =>
+      bridge.app.inject({
+        method: 'POST',
+        url: `/api/ai-bridge/internal/${path}`,
+        remoteAddress: clientAddress,
+        headers,
+        payload,
+      });
+
+    const asUser = (userToken: string) => ({
+      'x-service-token': TEST_AI_SERVICE_TOKEN,
+      'x-user-token': userToken,
+    });
+
+    const userToken = (key: SeedUserKey) =>
+      bridge.aiTokenService.issueUserToken(users[key]);
+
+    const filterAs = async (token: string, pageIds: unknown[]) =>
+      post('filter-pages', { pageIds }, asUser(token));
+
+    const expectError = (
+      response: { statusCode: number; json: () => unknown },
+      status: number,
+      code: string,
+    ) => {
+      expect({ status: response.statusCode, body: response.json() }).toEqual({
+        status,
+        body: { code, message: expect.any(String) },
+      });
+    };
+
+    it('BRIDGE-AC13: filter-pages returns the viewable ids in first-occurrence order, without envelope', async () => {
+      const restricted = await pageId('Umstrukturierung 2027');
+      const serverRoom = await pageId('Wartung Serverraum');
+      const welcome = await pageId('Willkommen bei Ostmooimooi');
+      const unknown = randomUUID();
+
+      const response = await filterAs(await userToken('PL'), [
+        restricted,
+        serverRoom,
+        unknown,
+        welcome,
+        serverRoom,
+      ]);
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({ pageIds: [serverRoom, welcome] });
+    });
+
+    it('BRIDGE-AC13: filter-pages matches uppercase ids and returns them lowercase', async () => {
+      const welcome = await pageId('Willkommen bei Ostmooimooi');
+
+      const response = await filterAs(await userToken('PL'), [
+        welcome.toUpperCase(),
+      ]);
+
+      expect(response.json()).toEqual({ pageIds: [welcome] });
+    });
+
+    it('BRIDGE-AC28: filter-pages with a task token answers as with the user token', async () => {
+      const pageIds = await Promise.all(
+        [
+          ...UNRESTRICTED_PAGE_PER_SPACE.map((page) => page.title),
+          ...SEED_RESTRICTED_PAGES.map((page) => page.title),
+        ].map(pageId),
+      );
+      for (const key of USER_KEYS) {
+        const token = await userToken(key);
+        const exchanged = await post(
+          'task-token',
+          { runId: `run-${key}` },
+          asUser(token),
+        );
+        const { taskToken } = exchanged.json() as { taskToken: string };
+
+        const withUser = (await filterAs(token, pageIds)).json();
+        const withTask = await filterAs(taskToken, pageIds);
+
+        expect(withTask.statusCode).toBe(200);
+        expect({ user: key, body: withTask.json() }).toEqual({
+          user: key,
+          body: withUser,
+        });
+      }
+    });
+
+    it('BRIDGE-AC27: task-token returns a task token for the user and run, expiring within 15 min', async () => {
+      const before = Math.floor(Date.now() / 1000);
+
+      const response = await post(
+        'task-token',
+        { runId: 'run-ac27' },
+        asUser(await userToken('WS')),
+      );
+
+      expect(response.statusCode).toBe(200);
+      const body = response.json() as { taskToken: string; expiresAt: string };
+      expect(Object.keys(body).sort()).toEqual(['expiresAt', 'taskToken']);
+      const claims = jwt.verify(body.taskToken, {
+        secret: TEST_AI_BRIDGE_SECRET,
+        audience: 'ai-service',
+      });
+      expect(claims).toEqual(
+        expect.objectContaining({
+          sub: users.WS.id,
+          workspaceId: users.WS.workspaceId,
+          runId: 'run-ac27',
+          type: 'task',
+        }),
+      );
+      expect(claims.exp - claims.iat).toBeLessThanOrEqual(900);
+      expect(claims.iat).toBeGreaterThanOrEqual(before);
+      expect(new Date(body.expiresAt).getTime()).toBe(claims.exp * 1000);
+    });
+
+    it('BRIDGE-AC45: every internal endpoint answers 503 assistant_disabled while the assistant is switched off', async () => {
+      const token = await userToken('GF');
+      const configured = jest
+        .spyOn(bridge.environmentService, 'isAiBridgeConfigured')
+        .mockReturnValue(false);
+      try {
+        expectError(await filterAs(token, []), 503, 'assistant_disabled');
+        expectError(
+          await post('task-token', { runId: 'run-1' }, asUser(token)),
+          503,
+          'assistant_disabled',
+        );
+      } finally {
+        configured.mockRestore();
+      }
+    });
+
+    it('BRIDGE-AC46: a request without a service token answers 401 service_token_missing', async () => {
+      const token = await userToken('GF');
+
+      expectError(
+        await post('filter-pages', { pageIds: [] }, { 'x-user-token': token }),
+        401,
+        'service_token_missing',
+      );
+      expectError(
+        await post('task-token', { runId: 'run-1' }),
+        401,
+        'service_token_missing',
+      );
+    });
+
+    it('BRIDGE-AC47: a request with a wrong service token answers 401 service_token_invalid', async () => {
+      const token = await userToken('GF');
+
+      expectError(
+        await post(
+          'filter-pages',
+          { pageIds: [] },
+          {
+            'x-service-token': TEST_AI_SERVICE_TOKEN.replace(/.$/, 'X'),
+            'x-user-token': token,
+          },
+        ),
+        401,
+        'service_token_invalid',
+      );
+    });
+
+    it('BRIDGE-AC48: a user id in the body without a user token answers 401 user_token_missing', async () => {
+      const serviceOnly = { 'x-service-token': TEST_AI_SERVICE_TOKEN };
+
+      expectError(
+        await post(
+          'filter-pages',
+          { userId: users.GF.id, pageIds: [] },
+          serviceOnly,
+        ),
+        401,
+        'user_token_missing',
+      );
+      expectError(
+        await post(
+          'task-token',
+          { userId: users.GF.id, runId: 'run-1' },
+          serviceOnly,
+        ),
+        401,
+        'user_token_missing',
+      );
+    });
+
+    it('BRIDGE-AC49: a valid user token next to a user id answers 400 user_id_not_allowed', async () => {
+      const token = await userToken('PL');
+
+      expectError(
+        await post(
+          'filter-pages',
+          { userId: users.GF.id, pageIds: [] },
+          asUser(token),
+        ),
+        400,
+        'user_id_not_allowed',
+      );
+      expectError(
+        await post(
+          'task-token',
+          { userId: users.GF.id, runId: 'run-1' },
+          asUser(token),
+        ),
+        400,
+        'user_id_not_allowed',
+      );
+    });
+
+    it('BRIDGE-AC50: an expired user token or task token answers 401 user_token_expired', async () => {
+      const past = Math.floor(Date.now() / 1000) - 3600;
+      const sign = (type: 'user' | 'task') =>
+        jwt.signAsync(
+          {
+            sub: users.GF.id,
+            workspaceId: users.GF.workspaceId,
+            type,
+            runId: type === 'task' ? 'run-1' : undefined,
+            iat: past,
+            exp: past + 60,
+          },
+          { secret: TEST_AI_BRIDGE_SECRET, audience: 'ai-service' },
+        );
+
+      expectError(
+        await filterAs(await sign('user'), []),
+        401,
+        'user_token_expired',
+      );
+      expectError(
+        await filterAs(await sign('task'), []),
+        401,
+        'user_token_expired',
+      );
+      expectError(
+        await post(
+          'task-token',
+          { runId: 'run-1' },
+          asUser(await sign('user')),
+        ),
+        401,
+        'user_token_expired',
+      );
+    });
+
+    it('BRIDGE-AC51: a wiki login token answers 401 user_token_invalid', async () => {
+      const login = await bridge.app.inject({
+        method: 'POST',
+        url: '/api/auth/login',
+        remoteAddress: clientAddress,
+        payload: { email: users.GF.email, password: SEED_DEMO_PASSWORD },
+      });
+      const loginToken = /authToken=([^;]+)/.exec(
+        String(login.headers['set-cookie']),
+      )?.[1];
+      expect(loginToken).toBeTruthy();
+
+      expectError(await filterAs(loginToken!, []), 401, 'user_token_invalid');
+    });
+
+    it('BRIDGE-AC51: a malformed token answers 401 user_token_invalid', async () => {
+      expectError(await filterAs('not-a-token', []), 401, 'user_token_invalid');
+    });
+
+    it('BRIDGE-AC52: tokens of a user deactivated after issuing answer 401 user_token_invalid', async () => {
+      const token = await userToken('VT');
+      const exchanged = await post(
+        'task-token',
+        { runId: 'run-ac52' },
+        asUser(token),
+      );
+      const { taskToken } = exchanged.json() as { taskToken: string };
+
+      await bridge.userRepo.updateUser(
+        { deactivatedAt: new Date() },
+        users.VT.id,
+        users.VT.workspaceId,
+      );
+      try {
+        expectError(await filterAs(token, []), 401, 'user_token_invalid');
+        expectError(await filterAs(taskToken, []), 401, 'user_token_invalid');
+      } finally {
+        await bridge.userRepo.updateUser(
+          { deactivatedAt: null },
+          users.VT.id,
+          users.VT.workspaceId,
+        );
+      }
+      expect((await filterAs(token, [])).statusCode).toBe(200);
+    });
+
+    it('BRIDGE-AC53: exchanging a task token for another task token answers 401 user_token_invalid', async () => {
+      const exchanged = await post(
+        'task-token',
+        { runId: 'run-ac53' },
+        asUser(await userToken('GF')),
+      );
+      const { taskToken } = exchanged.json() as { taskToken: string };
+
+      expectError(
+        await post('task-token', { runId: 'run-ac53b' }, asUser(taskToken)),
+        401,
+        'user_token_invalid',
+      );
+    });
+
+    it('BRIDGE-AC58: a malformed page id answers 400 invalid_request', async () => {
+      const token = await userToken('GF');
+      const welcome = await pageId('Willkommen bei Ostmooimooi');
+
+      expectError(
+        await filterAs(token, [welcome, 'not-a-uuid']),
+        400,
+        'invalid_request',
+      );
+      expectError(await filterAs(token, [42]), 400, 'invalid_request');
+      expectError(
+        await post('filter-pages', {}, asUser(token)),
+        400,
+        'invalid_request',
+      );
+    });
+
+    it('BRIDGE-AC58: task-token without a run id answers 400 invalid_request', async () => {
+      const token = await userToken('GF');
+
+      expectError(
+        await post('task-token', { runId: '' }, asUser(token)),
+        400,
+        'invalid_request',
+      );
+      expectError(
+        await post('task-token', { runId: 'r'.repeat(201) }, asUser(token)),
+        400,
+        'invalid_request',
+      );
+    });
+
+    it('BRIDGE-AC59: exactly 500 ids answer 200', async () => {
+      const ids = Array.from({ length: 500 }, () => randomUUID());
+
+      const response = await filterAs(await userToken('GF'), ids);
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({ pageIds: [] });
+    });
+
+    it('BRIDGE-AC60: 501 ids answer 400 too_many_page_ids', async () => {
+      const ids = Array.from({ length: 501 }, () => randomUUID());
+
+      expectError(
+        await filterAs(await userToken('GF'), ids),
+        400,
+        'too_many_page_ids',
+      );
+    });
   });
 });

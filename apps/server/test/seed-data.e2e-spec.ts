@@ -13,7 +13,6 @@ import { join } from 'node:path';
 import { Kysely, sql } from 'kysely';
 import { randomInt } from 'node:crypto';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
-import type { Type } from '@nestjs/common';
 import { DB } from '@docmost/db/types/db';
 import type { SpaceMemberRepo } from '@docmost/db/repos/space/space-member.repo';
 import type { PageRepo } from '@docmost/db/repos/page/page.repo';
@@ -48,9 +47,11 @@ import {
 } from '../src/integrations/seed/seed-pages';
 import type { SeedCanary } from '../src/integrations/seed/seed-pdfs';
 import {
+  bootSeedHttpApp,
   connect,
   createMigratedTestDatabase,
   loadAppModulesFor,
+  providerOf,
   recreateDatabase,
   removeDatabase,
   TEST_POSTGRES_SERVER as SERVER,
@@ -237,13 +238,8 @@ async function bootSeedApp(
   storageRoot: string,
 ): Promise<SeedApp> {
   return loadAppModulesFor(databaseUrl, async (): Promise<SeedApp> => {
-    const { Test } = await import('@nestjs/testing');
-    const { ValidationPipe } = await import('@nestjs/common');
-    const { FastifyAdapter } = await import('@nestjs/platform-fastify');
-    const { default: fastifyCookie } = await import('@fastify/cookie');
     const { Document } = await import('@hocuspocus/server');
     const { TiptapTransformer } = await import('@hocuspocus/transformer');
-    const { SeedModule } = await import('../src/integrations/seed/seed.module');
     const { SeedService, formatSeedSummary } =
       await import('../src/integrations/seed/seed.service');
     const { SeedContentService } =
@@ -257,27 +253,12 @@ async function bootSeedApp(
     const { SearchService } = await import('../src/core/search/search.service');
     const { PersistenceExtension } =
       await import('../src/collaboration/extensions/persistence.extension');
-    const { STORAGE_DRIVER_TOKEN } =
-      await import('../src/integrations/storage/constants/storage.constants');
-    const { LocalDriver } =
-      await import('../src/integrations/storage/drivers/local.driver');
 
-    const moduleRef = await Test.createTestingModule({ imports: [SeedModule] })
-      .overrideProvider(STORAGE_DRIVER_TOKEN)
-      .useValue(new LocalDriver({ storagePath: storageRoot }))
-      .compile();
-    const app = moduleRef.createNestApplication<NestFastifyApplication>(
-      new FastifyAdapter(),
-      { logger: ['error'] },
-    );
-    app.setGlobalPrefix('api');
-    await app.register(fastifyCookie);
-    app.useGlobalPipes(
-      new ValidationPipe({ whitelist: true, stopAtFirstError: true }),
-    );
-    await app.init();
-    await app.getHttpAdapter().getInstance().ready();
-    const provider = <T>(type: Type<T>): T => app.get(type, { strict: false });
+    const app = await bootSeedHttpApp(storageRoot, {
+      whitelist: true,
+      stopAtFirstError: true,
+    });
+    const provider = providerOf(app);
     const persistence = provider(PersistenceExtension);
     return {
       app,
