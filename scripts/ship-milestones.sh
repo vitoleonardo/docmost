@@ -11,7 +11,7 @@ fi
 
 milestones="m3:ai-bridge m4:indexing m5:ask m6:leak-tests m7:extraction m8:agent m9:request-log m10:evals"
 first_base=m2-seed-data
-kit_branch=ai-v1
+foundation_branch=m2-seed-data
 max_session_seconds=$((4 * 3600))
 max_idle_seconds=$((20 * 60))
 max_identical_calls=6
@@ -192,7 +192,7 @@ for entry in $milestones; do
     git checkout --quiet "$branch" || halt "$milestone: cannot check out $branch"
   else
     git checkout --quiet -b "$branch" "$base" || halt "$milestone: cannot create $branch off $base"
-    git merge --quiet --no-edit "$kit_branch" || { git merge --abort; halt "$milestone: merging $kit_branch into $branch conflicts"; }
+    git merge --quiet --no-edit "$foundation_branch" || { git merge --abort; halt "$milestone: merging $foundation_branch into $branch conflicts"; }
   fi
 
   log "START $milestone on $branch (base $base)"
