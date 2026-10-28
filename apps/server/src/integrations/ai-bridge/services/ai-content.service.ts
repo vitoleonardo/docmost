@@ -95,10 +95,16 @@ export class AiContentService {
     try {
       return await this.storageService.readStream(filePath);
     } catch (error) {
-      if (!(await this.storageService.exists(filePath))) {
-        throw attachmentNotFound();
+      const reason = describeError(error);
+      let exists: boolean;
+      try {
+        exists = await this.storageService.exists(filePath);
+      } catch (existsError) {
+        throw new Error(
+          `Reading the stored file of attachment ${attachmentId} failed: ${reason}; checking that it exists failed: ${describeError(existsError)}`,
+        );
       }
-      const reason = error instanceof Error ? error.message : String(error);
+      if (!exists) throw attachmentNotFound();
       throw new Error(
         `Reading the stored file of attachment ${attachmentId} failed: ${reason}`,
       );
@@ -135,6 +141,7 @@ export class AiContentService {
     }
 
     const results: AiSearchResults['results'] = [];
+    const collectedIds = new Set<string>();
     for (
       let window = 0;
       window < MAX_SEARCH_WINDOWS && results.length < MAX_SEARCH_RESULTS;
@@ -157,7 +164,8 @@ export class AiContentService {
         ),
       );
       for (const item of inSpace) {
-        if (!viewableIds.has(item.id)) continue;
+        if (!viewableIds.has(item.id) || collectedIds.has(item.id)) continue;
+        collectedIds.add(item.id);
         results.push({ id: item.id, title: item.title, spaceId });
       }
     }
@@ -194,6 +202,10 @@ export class AiContentService {
 
 function toMarkdown(page: Page): string {
   return page.content ? jsonToMarkdown(page.content) : '';
+}
+
+function describeError(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 function pageNotFound(): AiBridgeError {

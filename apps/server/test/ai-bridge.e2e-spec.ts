@@ -356,7 +356,7 @@ describe('AI bridge page access (e2e)', () => {
     });
 
     it('BRIDGE-AC14: a forged spaceIds claim grants nothing', async () => {
-      const id = await pageId('Umstrukturierung 2027');
+      const id = await pageId('Strategie 2027 bis 2030');
       const forged = await jwt.signAsync(
         {
           sub: users.WS.id,

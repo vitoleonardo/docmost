@@ -236,6 +236,17 @@ describe('AiContentService', () => {
       );
     });
 
+    it('BRIDGE-AC67: a failing existence check keeps both causes in the error', async () => {
+      attachmentRepo.findById.mockResolvedValue(makeAttachment());
+      pageRepo.findById.mockResolvedValue(makePage());
+      storageService.readStream.mockRejectedValue(new Error('disk offline'));
+      storageService.exists.mockRejectedValue(new Error('bucket unreachable'));
+
+      await expect(service.getAttachmentFile('att-1')).rejects.toThrow(
+        /att-1.*disk offline.*bucket unreachable/,
+      );
+    });
+
     it.each([
       ['a missing attachment', undefined, makePage()],
       [
@@ -312,7 +323,7 @@ describe('AiContentService', () => {
       space: { id: spaceId },
     });
 
-    it('BRIDGE-AC25: searches the given space as the user with limit 20 and maps id, title, space', async () => {
+    it('BRIDGE-AC25: searches the given space as the user in windows of 100 and maps id, title, space', async () => {
       searchService.searchPage.mockResolvedValueOnce({
         items: [
           { ...row('p1', 'Eins'), highlight: 'x', rank: 1 },
@@ -337,6 +348,20 @@ describe('AiContentService', () => {
           { id: 'p2', title: 'Zwei', spaceId: 'space-a' },
         ],
       });
+    });
+
+    it('BRIDGE-AC25: a page returned by two windows appears once', async () => {
+      searchService.searchPage.mockImplementation(async (params) =>
+        params.offset === 0
+          ? { items: [row('p1', 'Eins'), row('p2', 'Zwei')] }
+          : params.offset === 100
+            ? { items: [row('p2', 'Zwei'), row('p3', 'Drei')] }
+            : { items: [] },
+      );
+
+      const result = await service.searchSpace(USER, 'space-a', 'Plan');
+
+      expect(result.results.map((hit) => hit.id)).toEqual(['p1', 'p2', 'p3']);
     });
 
     it('BRIDGE-AC25: returns at most 20 results', async () => {

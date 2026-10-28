@@ -214,7 +214,7 @@ describe("ai assistant", () => {
     expect(await screen.findByText(UNAVAILABLE_TEXT)).toBeTruthy();
   });
 
-  it("BRIDGE-AC2: the trigger sits right before the comments button in the page header", async () => {
+  it("BRIDGE-AC5: the trigger sits right before the comments button", async () => {
     statusMock.mockResolvedValue({ data: { status: "available" } });
     const client = new QueryClient();
     render(
