@@ -51,6 +51,8 @@ import {
 const TEST_DATABASE = 'docmost_ai_bridge_test';
 const TEST_DATABASE_URL = `${TEST_POSTGRES_SERVER}/${TEST_DATABASE}`;
 
+const TEST_REDIS_URL = 'redis://127.0.0.1:6380/14';
+
 const TEST_AI_BRIDGE_KEY = 'test-ai-bridge-secret-0123456789abcdef';
 const TEST_AI_SERVICE_CREDENTIAL = 'test-ai-service-token-0123456789abcdef';
 const TEST_AI_SERVICE_URL = 'http://127.0.0.1:9';
@@ -70,6 +72,7 @@ interface BridgeApp {
 }
 
 function bootSeededBridge(storageRoot: string): Promise<BridgeApp> {
+  process.env.REDIS_URL = TEST_REDIS_URL;
   process.env.AI_BRIDGE_SECRET = TEST_AI_BRIDGE_KEY;
   process.env.AI_SERVICE_TOKEN = TEST_AI_SERVICE_CREDENTIAL;
   process.env.AI_SERVICE_URL = TEST_AI_SERVICE_URL;
@@ -441,9 +444,9 @@ describe('AI bridge page access (e2e)', () => {
       );
       try {
         expect((await filterAs(vtToken, [id])).json()).toEqual({ pageIds: [] });
-        expect(
-          (await filterAs(await userToken('GF'), [id])).json(),
-        ).toEqual({ pageIds: [id] });
+        expect((await filterAs(await userToken('GF'), [id])).json()).toEqual({
+          pageIds: [id],
+        });
       } finally {
         await bridge.spaceMemberRepo.insertSpaceMember(member);
       }
@@ -1325,9 +1328,7 @@ describe('AI bridge page access (e2e)', () => {
         );
 
         it('INDEX-AC48: a null cursor answers the first part like an absent one', async () => {
-          expect(await readPart({ cursor: null })).toEqual(
-            await readPart({}),
-          );
+          expect(await readPart({ cursor: null })).toEqual(await readPart({}));
         });
 
         it('INDEX-AC48: a bare page id as cursor answers 400 invalid_request', async () => {
@@ -1649,7 +1650,9 @@ describe('AI bridge page access (e2e)', () => {
         ),
       );
       expect(forwarded.method).toBe('POST');
-      expect(forwarded.headers['x-service-token']).toBe(TEST_AI_SERVICE_CREDENTIAL);
+      expect(forwarded.headers['x-service-token']).toBe(
+        TEST_AI_SERVICE_CREDENTIAL,
+      );
       expect(JSON.parse(forwarded.body)).toEqual({
         name: 'page-created',
         data: { pageIds: [id], workspaceId: bridge.seed.workspaceId },
@@ -2124,8 +2127,10 @@ describe('AI bridge page access (e2e)', () => {
         const id = await createPage(headers, 'Offline AC68');
 
         const call = await waitFor(() =>
-          warn.mock.calls.find((args) =>
-            String(args[0]).startsWith('Forwarding page-created'),
+          warn.mock.calls.find(
+            (args) =>
+              String(args[0]).startsWith('Forwarding page-created') &&
+              String(args[0]).includes(`(pageIds: ${id})`),
           ),
         );
         const message = String(call[0]);
