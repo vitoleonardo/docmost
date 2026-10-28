@@ -71,13 +71,7 @@ export function loadSeedEnvironment(): NodeJS.ProcessEnv {
 
 export function assertLocalTargets(options: SeedPreflightOptions): void {
   const host = databaseHost(options.databaseUrl);
-  if (options.confirmNonLocal) {
-    if (!isLocalStorageDriver(options.storageDriver)) {
-      throw new Error('Remove the stored files manually, then rerun');
-    }
-    return;
-  }
-  if (!isLocalDatabaseHost(host)) {
+  if (!options.confirmNonLocal && !isLocalDatabaseHost(host)) {
     throw new Error(`Refusing to reset non-local database ${host}`);
   }
   if (!isLocalStorageDriver(options.storageDriver)) {

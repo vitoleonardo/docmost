@@ -28,7 +28,7 @@ It refuses, without changing anything, when:
 - migrations are pending: `Apply the migrations first`;
 - another rebuild holds the lock: `Another rebuild is running`.
 
-`pnpm seed --confirm-non-local` overrides the first two checks. Never use it against a database that holds real data.
+`pnpm seed --confirm-non-local` overrides the database check only; non-local storage is always refused, because the S3 and Azure drivers cannot delete a folder. Never use it against a database that holds real data.
 
 ### Seed logins
 

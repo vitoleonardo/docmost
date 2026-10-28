@@ -1247,11 +1247,11 @@ describe('seed preflight and reset (e2e)', () => {
       );
     }, 60_000);
 
-    it('SEED-AC30: the command refuses non-local storage with the flag, because its files cannot be removed', async () => {
+    it('SEED-AC36: the command refuses non-local storage with the flag, because its files cannot be removed', async () => {
       await expectRefusal(
         ['--confirm-non-local'],
         { STORAGE_DRIVER: 's3' },
-        'Remove the stored files manually, then rerun',
+        'Refusing to reset non-local storage',
       );
     }, 60_000);
 

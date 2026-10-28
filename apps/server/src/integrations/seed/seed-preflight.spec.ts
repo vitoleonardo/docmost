@@ -6,8 +6,7 @@ import {
   readSeedPreflightOptions,
 } from './seed-preflight';
 
-const NON_LOCAL_STORAGE_MESSAGE =
-  'Remove the stored files manually, then rerun';
+const NON_LOCAL_STORAGE_MESSAGE = 'Refusing to reset non-local storage';
 
 const urlFor = (host: string) =>
   `postgresql://seed:test-password@${host}:5432/docmost`;
@@ -95,7 +94,7 @@ describe('seed preflight locality', () => {
   });
 
   it.each(['s3', 'azure'])(
-    'SEED-AC30: a confirmed run with the storage driver %s fails because its files cannot be removed',
+    'SEED-AC36: a confirmed run with the storage driver %s fails because its files cannot be removed',
     (storageDriver) => {
       expect(() =>
         assertLocalTargets({
@@ -107,7 +106,7 @@ describe('seed preflight locality', () => {
     },
   );
 
-  it('SEED-AC30: a confirmed run with non-local storage fails before connecting', async () => {
+  it('SEED-AC36: a confirmed run with non-local storage fails before connecting', async () => {
     await expect(
       prepareSeedReset({
         databaseUrl: urlFor('localhost'),

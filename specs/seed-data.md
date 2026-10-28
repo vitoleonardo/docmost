@@ -9,7 +9,7 @@ A developer, CI and the demo video need one fictional German company in the wiki
 1. The developer starts the database, Redis and file storage, applies the migrations and stops the app server.
 2. The developer runs the rebuild command. It removes all wiki data and stored files, keeps the schema and the record of applied migrations, creates the seed data and prints one summary line.
 3. The developer logs in as any seed user with that user's email and the demo password documented in the runbook, and sees the spaces and pages the matrices below grant.
-4. If the database or file storage is not local, the command stops before changing anything and says why, unless the developer confirms explicitly.
+4. If the database is not local, the command stops before changing anything and says why, unless the developer confirms explicitly. If the file storage is not local, it always stops before changing anything.
 5. CI runs the same command on its fresh local service database before the tests.
 
 ### Company
@@ -98,6 +98,7 @@ The seed data comes with three lists that later features read. Each refers to pa
 - **SEED-AC33**: Given a database without the migrations applied, when the rebuild command runs, then it exits with a non-zero status and prints "Apply the migrations first".
 - **SEED-AC34**: Given a rebuild that is running, when a second rebuild starts, then the second exits with a non-zero status, prints "Another rebuild is running" and changes no data.
 - **SEED-AC35**: Given no AI service, no model runtime and no internet access, when the rebuild command runs against an empty local database, then it exits with status 0.
+- **SEED-AC36**: Given file storage that is not the local disk and explicit confirmation, when the rebuild command runs, then it exits with a non-zero status, prints "Refusing to reset non-local storage" and changes no data.
 
 ## Out of scope
 - Any AI data: index, embeddings, extraction results. Later features build those from the seed.
@@ -120,3 +121,4 @@ The seed data comes with three lists that later features read. Each refers to pa
 - 28.10.2026: canaries go into restricted pages and all Geschäftsführung pages, because those are the pages most users cannot view and M6 checks answers for them.
 - 28.10.2026: a restricted page granted through a group with a restricted child page, because M3's filter must cover group grants and inheritance, and the other grants go only to space admins.
 - 28.10.2026: pages are identified by unique titles, because database ids change on every rebuild and the lists and golden set must stay valid.
+- 28.10.2026: non-local file storage is refused even with confirmation (SEED-AC36), because the S3 and Azure drivers cannot delete a folder, so a confirmed run would wipe the database and leave the old files behind.
