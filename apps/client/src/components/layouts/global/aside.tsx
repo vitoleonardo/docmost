@@ -26,6 +26,10 @@ const PageDetailsAside = lazy(() =>
   ),
 );
 
+const AiAssistantPanel = lazy(
+  () => import("@/features/ai-assistant/components/ai-assistant-panel.tsx"),
+);
+
 export default function Aside() {
   const [{ tab, isAsideOpen }, setAsideState] = useAtom(asideStateAtom);
   const { t } = useTranslation();
@@ -56,6 +60,10 @@ export default function Aside() {
     case "details":
       component = <PageDetailsAside />;
       title = "Details";
+      break;
+    case "ai-assistant":
+      component = <AiAssistantPanel />;
+      title = "Assistant";
       break;
     default:
       component = null;

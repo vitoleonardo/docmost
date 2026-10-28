@@ -46,6 +46,7 @@ import {
 import { formattedDate } from "@/lib/time.ts";
 import { PageEditModeToggle } from "@/features/user/components/page-state-pref.tsx";
 import MovePageModal from "@/features/page/components/move-page-modal.tsx";
+import AiAssistantTrigger from "@/features/ai-assistant/components/ai-assistant-trigger.tsx";
 import PageAttachmentsModal from "@/features/attachments/components/page-attachments-modal.tsx";
 import PresentationModal from "@/features/editor/components/presentation/presentation-modal.tsx";
 import { useTimeAgo } from "@/hooks/use-time-ago.tsx";
@@ -117,6 +118,8 @@ export default function PageHeaderMenu({ readOnly }: PageHeaderMenuProps) {
       {!readOnly && !page?.isBase && <PageEditModeToggle size="xs" />}
 
       <PageShareModal readOnly={readOnly} />
+
+      <AiAssistantTrigger />
 
       <Tooltip label={t("Comments")} openDelay={250} withArrow>
         <ActionIcon
