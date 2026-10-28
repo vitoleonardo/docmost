@@ -11,6 +11,29 @@ block() {
   exit 2
 }
 
+lockfiles="package-lock.json pnpm-lock.yaml yarn.lock bun.lock poetry.lock uv.lock Cargo.lock go.sum Gemfile.lock composer.lock"
+config_files=".github/* .gitlab-ci.yml Dockerfile* docker-compose* compose.yaml compose.yml migrations/* infra/* terraform/*"
+
+permission() {
+  printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"%s","permissionDecisionReason":"%s"}}\n' \
+    "$1" "$(printf '%s' "$2" | json_escape)"
+  exit 0
+}
+
+decide_gates() {
+  single=$1
+  shift
+  [ $# -gt 0 ] || exit 0
+  level=$(.claude/bin/gate level 2>/dev/null) || level=strict
+  for g in "$@"; do
+    decision=ask
+    [ "$g" = commit-main ] || decision=$(.claude/bin/gate "$g" 2>/dev/null) || decision=ask
+    [ "$decision" = auto ] || permission ask "approval gate ${g%-main} (KIT_APPROVAL=$level, .claude/bin/gate). Ask the user."
+  done
+  [ "$single" = 1 ] || exit 0
+  permission allow "approval gate $* is auto (KIT_APPROVAL=$level). Log the decision under Decisions to review in .work/<branch>.md."
+}
+
 tool=$(json_string tool_name)
 agent=$(json_string agent_type)
 default_test_patterns="*.test.* *.spec.* *_test.* test_*.* __tests__/* test/* tests/* e2e/* spec/*"
@@ -70,6 +93,13 @@ case $tool in
         [ $? -eq 1 ] && block "$(printf '%s\n' "$out" | head -n 1)"
       fi
     fi
+    rel=$(relative_path "$path")
+    rel=${rel#./}
+    if matches_any "$rel" "$lockfiles"; then
+      decide_gates 1 deps
+    elif matches_any "$rel" "$config_files"; then
+      decide_gates 1 config
+    fi
     exit 0
     ;;
   Bash) ;;
@@ -77,6 +107,16 @@ case $tool in
 esac
 
 cmd=$(json_string command)
+runs_one_command() {
+  printf '%s' "$cmd" | awk -v RS='\001' '{
+    s = $0
+    gsub(/"\$\(cat <<'"'"'EOF'"'"'[[:space:]]([^E]|E[^O]|EO[^F])*[[:space:]]EOF[[:space:]]*\)"/, "", s)
+    gsub(/'"'"'[^'"'"']*'"'"'/, "", s)
+    gsub(/"[^"$`\\]*"/, "", s)
+    exit s ~ /[;&|<>$`]/
+  }'
+}
+
 # Quotes are removed so commands hidden in sh -c '...' are checked too.
 flat=$(printf '%s' "$cmd" | tr "\"'\`" '   ')
 
@@ -109,6 +149,15 @@ if [ -n "$protected" ]; then
       if (sub_ == "grep" || (sub_ == "stash" && rest ~ /^ show/)) exit 0
       exit 1
     }'; then
+    if runs_one_command && printf '%s' "$cmd" | grep -Eq '^[[:space:]]*git[[:space:]]+(diff|show|log)([[:space:]]|$)'; then
+      case " $cmd " in
+        *" -- "*) rewritten="$cmd$missing" ;;
+        *) rewritten="$cmd -- .$missing" ;;
+      esac
+      printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow","permissionDecisionReason":"%s","updatedInput":{"command":"%s"}}}\n' \
+        "$(printf 'Added the exclude pathspec for KIT_PROTECTED_PATHS:%s' "$missing" | json_escape)" "$(printf '%s' "$rewritten" | json_escape)"
+      exit 0
+    fi
     block "git would print protected files. Add the pathspec -- .$missing to the command."
   fi
 fi
@@ -168,4 +217,23 @@ done
 IFS=$old_ifs
 set +f
 
-exit 0
+uses() {
+  printf '%s' "$flat" | grep -Eiq "$1"
+}
+command_gates=""
+uses "${git}push([[:space:]]|$)" && command_gates="$command_gates push"
+uses "(^|[^[:alnum:]_-])gh[[:space:]]+pr[[:space:]]+create([[:space:]]|$)" && command_gates="$command_gates push"
+uses "\.claude/bin/evidence[[:space:]]+push([[:space:]]|$)" && command_gates="$command_gates push"
+if uses "${git}commit([[:space:]]|$)"; then
+  case $(git branch --show-current 2>/dev/null) in
+    main | master) command_gates="$command_gates commit-main" ;;
+    *) command_gates="$command_gates commit" ;;
+  esac
+fi
+uses "(^|[^[:alnum:]_-])(npm[[:space:]]+(install|i|ci|uninstall|update)|pnpm[[:space:]]+(install|i|add|remove|update|up)|yarn[[:space:]]+(add|remove|install)|bun[[:space:]]+(add|install)|pip3?[[:space:]]+install|uv[[:space:]]+(add|pip)|poetry[[:space:]]+add|cargo[[:space:]]+add|go[[:space:]]+get|bundle[[:space:]]+add|composer[[:space:]]+require|dotnet[[:space:]]+add)([[:space:]]|$)" &&
+  command_gates="$command_gates deps"
+
+single=1
+runs_one_command || single=0
+# shellcheck disable=SC2086
+decide_gates "$single" $command_gates

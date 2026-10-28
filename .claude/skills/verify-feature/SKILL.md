@@ -2,7 +2,6 @@
 name: verify-feature
 description: Prove a reviewed branch before its PR - hard gates, an edge-case matrix with a passing test per case, seeded and mocked data runs, screenshots on the branch and the base checked against the criteria - and push the evidence pack for CI. Runs after the last review round with no high findings.
 argument-hint: [base branch, default main]
-disable-model-invocation: true
 ---
 
 # Verify a feature
@@ -56,7 +55,7 @@ Then dispatch the `reviewer` (Agent tool, description `review screenshots`, `mod
 
 1. `.claude/bin/evidence json`. It refuses a dirty tree.
 2. Show the user the gate table, the matrix summary, the data runs, the screenshots and the reviewer's verdict. Keep it short (`.claude/rules/output.md`).
-3. Ask before pushing. Then `.claude/bin/evidence push` (or `--pr <number>` once the PR exists). It pushes the pack to the `kit-evidence` branch under `<pr-N|branch>/<head sha>/` and leaves the current branch alone. CI's `evidence` job fails for a head commit without a pack.
+3. Run `.claude/bin/gate push`: with `ask`, ask before pushing; with `auto`, log it under Decisions to review. Then `.claude/bin/evidence push` (or `--pr <number>` once the PR exists). It pushes the pack to the `kit-evidence` branch under `<pr-N|branch>/<head sha>/` and leaves the current branch alone. CI's `evidence` job fails for a head commit without a pack.
 
 ## Rounds
 

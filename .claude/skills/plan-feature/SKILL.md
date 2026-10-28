@@ -1,8 +1,7 @@
 ---
 name: plan-feature
-description: Turn an approved spec into a short implementation plan (tasks, files, tests, risks, which criterion each task covers) and wait for approval before any code is written.
+description: Turn an approved spec into a short implementation plan (tasks, files, tests, risks, which criterion each task covers), approved before any code is written. Use when the user asks to plan a feature.
 argument-hint: <feature name or spec path>
-disable-model-invocation: true
 ---
 
 # Plan a feature
@@ -31,7 +30,7 @@ Write it to `.work/<branch>.md`, using the current branch or, if you are on `mai
 - States and errors: <loading, empty, failure; what the user sees in each>
 - Decisions: <choice, the alternatives considered, and why>
 - Reused: <existing modules and patterns this builds on, with path:line>
-- Approved dependencies: <none, or the new packages the user approved, comma-separated; verify fails on any other>
+- Approved dependencies: <none, or the new packages that were approved (by the user, or logged when `.claude/bin/gate deps` is auto), comma-separated; verify fails on any other>
 
 ## Tasks
 | # | Task | Files | Criteria | Test cases | Depends on | Tier |
@@ -54,6 +53,9 @@ Write it to `.work/<branch>.md`, using the current branch or, if you are on `mai
 ## Stops
 - <step> | <class> | <trigger> | <what was tried> | <resolution>
 
+## Decisions to review
+- <gate> | <what was decided> | <why>
+
 ## Notes
 - <Per finished task, one or two lines that later tasks need: deviations from the plan, open issues, new helpers or interfaces with path:line.>
 ```
@@ -74,4 +76,7 @@ Rules for the plan:
 
 Summarise: the design decisions, the tasks, the files touched, the risks, the human-only steps, and an estimate of the changed lines. If the estimate is over 400 lines, propose how to split it into several PRs.
 
-Then stop and wait. When the user approves, set the feature's status in `specs/README.md` to `planned`.
+Then run `.claude/bin/gate plan`, and `.claude/bin/gate split` when the estimate is over 400 lines.
+
+- `ask`: stop and wait. When the user approves, set the feature's status in `specs/README.md` to `planned`.
+- `auto`: choose the split yourself (one PR per independently reviewable part), set the status to `planned`, and log the plan approval and the split under Decisions to review.

@@ -1,0 +1,50 @@
+#!/bin/sh
+set -u
+
+gates="spec plan deps split config commit push"
+name=${1:-}
+case " $gates level " in
+  *" $name "*) ;;
+  *)
+    echo "usage: .claude/bin/gate <$(printf '%s' "$gates" | tr ' ' '|')>   prints ask or auto" >&2
+    echo "       .claude/bin/gate level   prints strict, standard or autonomous" >&2
+    exit 2
+    ;;
+esac
+
+root=$(CDPATH='' cd -- "$(dirname -- "$0")/../.." && pwd) || exit 2
+gate_variable=KIT_GATE_$(printf '%s' "$name" | tr a-z A-Z)
+gate_value() {
+  eval "printf '%s' \"\${$gate_variable:-}\""
+}
+
+env_level=${KIT_APPROVAL:-}
+env_gate=$(gate_value)
+if [ -f "$root/.claude/kit.conf" ]; then
+  # shellcheck source=/dev/null
+  . "$root/.claude/kit.conf"
+fi
+conf_gate=$(gate_value)
+
+level=${env_level:-${KIT_APPROVAL:-strict}}
+case $level in
+  strict | standard | autonomous) ;;
+  *) echo "gate: KIT_APPROVAL='$level' is not strict, standard or autonomous; using strict." >&2; level=strict ;;
+esac
+
+if [ "$name" = level ]; then
+  printf '%s\n' "$level"
+  exit 0
+fi
+
+override=${env_gate:-$conf_gate}
+case $override in
+  ask | auto) printf '%s\n' "$override"; exit 0 ;;
+  '') ;;
+  *) echo "gate: $gate_variable='$override' is not ask or auto; using KIT_APPROVAL=$level." >&2 ;;
+esac
+
+case $level:$name in
+  strict:* | standard:spec | standard:plan) echo ask ;;
+  *) echo auto ;;
+esac

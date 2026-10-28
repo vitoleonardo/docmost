@@ -8,5 +8,5 @@
 - Read environment variables in one config module that validates them at startup. Nowhere else reads the environment directly.
 - Do not change a public contract (exported signatures used elsewhere, HTTP routes, response shapes, database schema, event names) unless the spec asks for it. When it does, list every caller in the plan.
 - When a change spans a frontend and a backend, write the contract (route, method, request, response, errors, required role) into the plan before either side is built. Both sides use one shared type or schema for it.
-- Keep diffs small and focused: one concern per change. If a change grows past 400 changed lines (excluding lockfiles and generated files), stop and propose how to split it.
+- Keep diffs small and focused: one concern per change. If a change grows past 400 changed lines (excluding lockfiles and generated files), split it: with `.claude/bin/gate split` at `ask`, stop and propose the split; at `auto`, split it and log the split under Decisions to review.
 - Do not refactor code the task does not touch. Note the opportunity in the PR description instead.

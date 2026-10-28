@@ -15,8 +15,8 @@ Rules in `.claude/rules/` load automatically. Stack rules from the adapter load 
 
 Every feature goes through the same steps. Each step leaves a file behind, so a new session can pick up without the chat history.
 
-1. **Spec** (`/spec-feature`): `specs/<feature>.md` holds the user flow and what "done" means as numbered acceptance criteria (`<FEATURE>-AC<n>`). One feature, one spec; extend it instead of creating a second one. `.claude/bin/spec-lint` must pass, then a human approves it.
-2. **Plan** (`/plan-feature`): the technical design (data, contract, permissions, decisions), then tasks with files, tests and the criteria each covers. A human approves it before any code is written.
+1. **Spec** (`/spec-feature`): `specs/<feature>.md` holds the user flow and what "done" means as numbered acceptance criteria (`<FEATURE>-AC<n>`). One feature, one spec; extend it instead of creating a second one. `.claude/bin/spec-lint` must pass, then it is approved (gate spec).
+2. **Plan** (`/plan-feature`): the technical design (data, contract, permissions, decisions), then tasks with files, tests and the criteria each covers. It is approved (gate plan) before any code is written.
 3. **Build**: implement against the plan. Every criterion gets a test that failed before the code made it pass. Progress and evidence go to `.work/<branch>.md`.
 4. **Simplify**: a fresh subagent removes duplication, dead code and needless abstraction in the changed code, without changing behaviour.
 5. **Review** (`/review-diff`): an independent reviewer that did not write the code checks the diff against the spec and these rules.
@@ -24,7 +24,7 @@ Every feature goes through the same steps. Each step leaves a file behind, so a 
 7. **PR** (`/pr-description`): what, why, the evidence table, and how to review it in five minutes.
 8. **Acceptance**: the user checks the result and marks the feature `done`. Claude never sets `done`.
 
-`/ship-feature` runs steps 1 to 7 with the approval gates. Small fixes can skip the spec but not the test.
+`/ship-feature` runs steps 1 to 7 with the approval gates. `KIT_APPROVAL` (`strict`, `standard`, `autonomous`; in the environment or `.claude/kit.conf`) decides which gates ask; `.claude/bin/gate <name>` answers `ask` or `auto`. Every decision made at an `auto` gate gets one line under `## Decisions to review` in `.work/<branch>.md` (`- <gate> | <decision> | <why>`), and the PR description repeats them. Small fixes can skip the spec but not the test.
 
 Where things live:
 
@@ -36,7 +36,7 @@ Where things live:
 ## Working agreements
 
 - When a session starts on existing work, read `specs/README.md` and the matching `.work/<branch>.md` before doing anything else.
-- Ask before deciding anything the code and the spec cannot answer. Do not fill gaps silently.
+- Ask before deciding anything the code and the spec cannot answer. Where the step's gate is `auto`, decide and log it under Decisions to review instead. Never fill gaps silently.
 - Report faithfully: a skipped test, an unmet criterion, a red build or a check you did not run is stated plainly. "Build passed" is not "verified".
 - Never edit the rules, hooks or settings in `.claude/` to make a check pass. Propose the change and wait for approval.
 - Stop and ask when the same fix has failed twice. Explain what you tried and what you think is wrong.
