@@ -29,7 +29,10 @@ dev = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-markers = ["integration: needs the Redis and Postgres from docker-compose.dev.yml"]
+markers = [
+    "integration: needs the Redis and Postgres from docker-compose.dev.yml",
+    "model: loads the real embedding model (downloads it on first use); always also integration",
+]
 
 [tool.ruff]
 line-length = 100

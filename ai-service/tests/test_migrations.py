@@ -1,6 +1,7 @@
 import os
 import subprocess
 from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import LiteralString
 
@@ -31,8 +32,8 @@ INDEX_ROWS: LiteralString = """
 """
 
 
-@pytest.fixture
-def ai_schema(tmp_path: Path) -> Iterator[None]:
+@contextmanager
+def fresh_ai_schema(tmp_path: Path) -> Iterator[None]:
     with psycopg.connect(f"{POSTGRES_SERVER}/postgres", autocommit=True) as server:
         drop_test_database_and_role(server)
         server.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(TEST_DATABASE)))
@@ -42,6 +43,12 @@ def ai_schema(tmp_path: Path) -> Iterator[None]:
             yield
         finally:
             drop_test_database_and_role(server)
+
+
+@pytest.fixture
+def ai_schema(tmp_path: Path) -> Iterator[None]:
+    with fresh_ai_schema(tmp_path):
+        yield
 
 
 def run_migrations() -> SetupRun:
