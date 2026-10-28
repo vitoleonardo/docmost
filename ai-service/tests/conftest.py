@@ -17,6 +17,7 @@ SERVICE_TOKEN = "test-service-token-0123456789abcdef"
 USER_ID = "0192f000-0000-7000-8000-000000000001"
 WORKSPACE_ID = "0192f000-0000-7000-8000-000000000002"
 TEST_REDIS_URL = "redis://127.0.0.1:6380/15"
+TEST_DATABASE_URL = "postgresql://docmost_ai:test-ai-password@127.0.0.1:5433/docmost"
 
 
 class IsolatedSettings(Settings):
@@ -28,6 +29,7 @@ def make_settings(**overrides: Any) -> Settings:
         "ai_bridge_secret": BRIDGE_SECRET,
         "ai_service_token": SERVICE_TOKEN,
         "redis_url": TEST_REDIS_URL,
+        "ai_database_url": TEST_DATABASE_URL,
         **overrides,
     }
     return IsolatedSettings(**values)

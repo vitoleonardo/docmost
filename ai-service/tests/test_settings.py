@@ -7,10 +7,16 @@ import ai_service.__main__ as entry
 from tests.conftest import (
     BRIDGE_SECRET,
     SERVICE_TOKEN,
+    TEST_DATABASE_URL,
     TEST_REDIS_URL,
     IsolatedSettings,
     make_settings,
 )
+
+
+@pytest.fixture
+def skip_database_check(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(entry, "check_database_role", lambda database_url: None)
 
 
 def test_bridge_ac75_default_host_is_loopback():
@@ -19,6 +25,7 @@ def test_bridge_ac75_default_host_is_loopback():
     assert settings.ai_service_port == 8100
 
 
+@pytest.mark.usefixtures("skip_database_check")
 def test_bridge_ac75_main_passes_settings_host_to_uvicorn(monkeypatch: pytest.MonkeyPatch):
     calls: list[tuple[tuple[Any, ...], dict[str, Any]]] = []
     monkeypatch.setattr(entry, "load_settings", lambda: make_settings(ai_service_port=9100))
@@ -29,6 +36,7 @@ def test_bridge_ac75_main_passes_settings_host_to_uvicorn(monkeypatch: pytest.Mo
     assert calls[0][1]["port"] == 9100
 
 
+@pytest.mark.usefixtures("skip_database_check")
 def test_bridge_ac75_configured_host_is_used(monkeypatch: pytest.MonkeyPatch):
     calls: list[dict[str, Any]] = []
     monkeypatch.setattr(entry, "load_settings", lambda: make_settings(ai_service_host="10.0.0.5"))
@@ -47,7 +55,9 @@ def test_bridge_ac75_values_come_from_environment(monkeypatch: pytest.MonkeyPatc
     monkeypatch.setenv("AI_BRIDGE_SECRET", BRIDGE_SECRET)
     monkeypatch.setenv("AI_SERVICE_TOKEN", SERVICE_TOKEN)
     monkeypatch.setenv("REDIS_URL", TEST_REDIS_URL)
+    monkeypatch.setenv("AI_DATABASE_URL", TEST_DATABASE_URL)
     monkeypatch.setenv("AI_SERVICE_PORT", "9200")
     settings = IsolatedSettings()  # pyright: ignore[reportCallIssue]
     assert settings.redis_url == TEST_REDIS_URL
     assert settings.ai_service_port == 9200
+    assert settings.ai_database_url == TEST_DATABASE_URL
