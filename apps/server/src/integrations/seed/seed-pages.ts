@@ -239,11 +239,11 @@ export function findDuplicateTitles(pages: SeedPage[]): string[] {
 }
 
 export function readSeedPageMarkdown(page: SeedPage): string {
-  return readFileSync(join(__dirname, 'data', 'pages', page.file), 'utf8');
+  return readFileSync(join(__dirname, 'content', 'pages', page.file), 'utf8');
 }
 
 export function readSeedIssues(): SeedIssues {
   return JSON.parse(
-    readFileSync(join(__dirname, 'data', 'issues.json'), 'utf8'),
+    readFileSync(join(__dirname, 'content', 'issues.json'), 'utf8'),
   ) as SeedIssues;
 }
