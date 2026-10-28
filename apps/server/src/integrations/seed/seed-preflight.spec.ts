@@ -174,3 +174,28 @@ describe('seed preflight database URL', () => {
     },
   );
 });
+
+describe('seed preflight unreachable database', () => {
+  const unreachableUrl = 'postgresql://seed:test-password@localhost:1/docmost';
+
+  it('SEED-AC32: rejects with a message naming the database host', async () => {
+    await expect(
+      prepareSeedReset({
+        databaseUrl: unreachableUrl,
+        storageDriver: 'local',
+        confirmNonLocal: false,
+      }),
+    ).rejects.toThrow(/^Cannot reach database at localhost: /);
+  }, 30000);
+
+  it('SEED-AC32: does not print the database password', async () => {
+    const error = await prepareSeedReset({
+      databaseUrl: unreachableUrl,
+      storageDriver: 'local',
+      confirmNonLocal: false,
+    }).catch((caught: Error) => caught);
+
+    expect(error).toBeInstanceOf(Error);
+    expect((error as Error).message).not.toContain('test-password');
+  }, 30000);
+});
