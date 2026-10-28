@@ -18,7 +18,7 @@ Before running it:
 - Apply the migrations (step 3 above). The rebuild refuses otherwise.
 
 What it does:
-- Removes every row in schema `public` except the migration record, every row in schema `ai`, and the stored files of the existing workspace.
+- Removes every row in the schemas `public` and `ai` except the migration records (`kysely_migration`, `kysely_migration_lock`, `alembic_version`), and the stored files of the existing workspace.
 - Seeds 1 workspace, 4 users, 2 groups, 6 spaces, 30 pages and 9 PDF attachments.
 - Ends with `Seeded: 1 workspace, 4 users, 2 groups, 6 spaces, 30 pages, 9 attachments`.
 

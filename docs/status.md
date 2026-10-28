@@ -36,7 +36,7 @@ Done: fork runs locally, Ollama installed natively, kit installed and onboarded 
 
 1. ee lock: the sandbox stays off (spec v1.3). The guard blocks `head packages/ee/LICENSE`, but an indirect path passes it. CI's "ee imports" step (`scripts/check-ee-imports.sh`) fails a PR that adds an import from the ee code; it has not run on GitHub yet.
 2. Make the quality-gates workflow a required check on GitHub (human).
-3. M2 on branch `m2-seed-data`: spec `specs/seed-data.md` approved; 7 tasks built (`.work/m2-seed-data.md`), review round 1 fixes in progress, then verify and PR.
+3. M2 on branch `m2-seed-data`: spec `specs/seed-data.md` approved; 7 tasks built (`.work/m2-seed-data.md`), review rounds 1 and 2 done, in review as a PR into `ai-v1`. Open: your re-approval of the SEED-AC36 amendment.
 
 ## Local state that is not in the repo
 
