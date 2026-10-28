@@ -48,8 +48,7 @@ export type AskTurnStatus =
   | "done"
   | "no_source"
   | "stopped"
-  | "error"
-  | "unavailable";
+  | "error";
 
 export interface IAskTurn {
   id: string;
@@ -63,4 +62,5 @@ export interface IAskConversation {
   conversationId: string;
   scope: AskScope;
   turns: IAskTurn[];
+  unavailable: boolean;
 }

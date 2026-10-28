@@ -14,6 +14,7 @@ const emptyConversation = (scope: AskScope): IAskConversation => ({
   conversationId: crypto.randomUUID(),
   scope,
   turns: [],
+  unavailable: false,
 });
 
 const askConversationAtom = atom<IAskConversation>(emptyConversation({ kind: "all" }));
@@ -30,7 +31,7 @@ function requestBodyOf(conversation: IAskConversation, question: string): IAskRe
 export function useAskConversation() {
   const store = useStore();
   const conversation = useAtomValue(askConversationAtom);
-  const { turns, scope } = conversation;
+  const { turns, scope, unavailable: isUnavailable } = conversation;
   const isPending = turns.at(-1)?.status === "streaming";
 
   const updateTurn = useCallback(
@@ -84,7 +85,12 @@ export function useAskConversation() {
         if (controller.signal.aborted) return;
         const unavailable =
           error instanceof AskRequestError && error.code === "assistant_unavailable";
-        finishWith(unavailable ? "unavailable" : "error");
+        if (!unavailable) return finishWith("error");
+        store.set(askConversationAtom, (latest) => ({
+          ...latest,
+          turns: latest.turns.filter((turn) => turn.id !== turnId),
+          unavailable: true,
+        }));
       } finally {
         if (store.get(runningAskAtom) === controller) store.set(runningAskAtom, null);
       }
@@ -118,5 +124,19 @@ export function useAskConversation() {
     [store],
   );
 
-  return { turns, scope, setScope, send, stop, newConversation, isPending };
+  const clearUnavailable = useCallback(() => {
+    store.set(askConversationAtom, (current) => ({ ...current, unavailable: false }));
+  }, [store]);
+
+  return {
+    turns,
+    scope,
+    setScope,
+    send,
+    stop,
+    newConversation,
+    isPending,
+    isUnavailable,
+    clearUnavailable,
+  };
 }

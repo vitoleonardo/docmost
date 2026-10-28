@@ -130,7 +130,7 @@ describe("useAskConversation", () => {
     expect(result.current.turns[0]).toMatchObject({ status: "error", answer: "Teil" });
   });
 
-  it("ASK-AC66: assistant_unavailable marks the turn unavailable", async () => {
+  it("ASK-AC66: assistant_unavailable drops the turn and raises the unavailable flag", async () => {
     askMock.mockRejectedValue(new AskRequestError("assistant_unavailable"));
     const { result } = setup();
 
@@ -138,8 +138,31 @@ describe("useAskConversation", () => {
       await result.current.send("Frage?");
     });
 
-    expect(result.current.turns[0].status).toBe("unavailable");
+    expect(result.current.turns).toEqual([]);
+    expect(result.current.isUnavailable).toBe(true);
     expect(result.current.isPending).toBe(false);
+  });
+
+  it("ASK-AC66: assistant_unavailable keeps earlier turns, and clearUnavailable lowers the flag", async () => {
+    askMock.mockImplementationOnce(async (_body, onEvent) => {
+      onEvent({ type: "delta", text: "Antwort" });
+      onEvent({ type: "no_source" });
+    });
+    askMock.mockRejectedValueOnce(new AskRequestError("assistant_unavailable"));
+    const { result } = setup();
+
+    await act(async () => {
+      await result.current.send("Eins?");
+    });
+    await act(async () => {
+      await result.current.send("Zwei?");
+    });
+
+    expect(result.current.turns.map((turn) => turn.question)).toEqual(["Eins?"]);
+    expect(result.current.isUnavailable).toBe(true);
+
+    act(() => result.current.clearUnavailable());
+    expect(result.current.isUnavailable).toBe(false);
   });
 
   it("ASK-AC66: other request errors mark the turn error", async () => {
