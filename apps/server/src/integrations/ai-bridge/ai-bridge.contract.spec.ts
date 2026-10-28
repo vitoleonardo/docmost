@@ -212,7 +212,10 @@ const internalController = new AiBridgeInternalController(
   stub<AiPageAccessService>(aiPageAccessService),
   aiTokenService,
   aiContentService,
-  new AiPageListService(stub(aiPageListRepo)),
+  new AiPageListService(
+    stub(aiPageListRepo),
+    stub<EnvironmentService>(environmentService),
+  ),
 );
 
 const PAGE = stub<Page>({

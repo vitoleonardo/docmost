@@ -11,6 +11,7 @@ import {
 
 const MAX_FILTER_PAGE_IDS = 500;
 const MAX_SEARCH_QUERY_LENGTH = 200;
+const MAX_PAGE_LIST_CURSOR_LENGTH = 200;
 
 const lowercaseString = ({ value }: { value: unknown }) =>
   typeof value === 'string' ? value.toLowerCase() : value;
@@ -62,7 +63,8 @@ export class SearchToolDto {
 
 export class PageListDto {
   @IsOptional()
-  @IsUUID()
-  @Transform(lowercaseString)
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(MAX_PAGE_LIST_CURSOR_LENGTH)
   cursor?: string;
 }

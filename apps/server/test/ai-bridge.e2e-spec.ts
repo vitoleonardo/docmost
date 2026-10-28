@@ -1216,7 +1216,9 @@ describe('AI bridge page access (e2e)', () => {
           await withExtraPages(501 - seeded, async () => {
             const first = await readPart({});
             expect(first.pages).toHaveLength(500);
-            expect(first.nextCursor).toBe(first.pages[499].id);
+            expect(
+              first.nextCursor?.startsWith(`${first.pages[499].id}.`),
+            ).toBe(true);
 
             const second = await readPart({ cursor: first.nextCursor });
             expect(second).toEqual({
@@ -1227,15 +1229,6 @@ describe('AI bridge page access (e2e)', () => {
               await indexablePages(),
             );
           });
-        });
-
-        it('INDEX-AC44: a cursor given in upper case resumes after the same page', async () => {
-          const all = await listedPages();
-          const cursor = all[0].id;
-
-          const resumed = await readPart({ cursor: cursor.toUpperCase() });
-
-          expect(resumed.pages).toEqual(all.slice(1));
         });
 
         it('INDEX-AC45: each update time equals the one page-content returns', async () => {
@@ -1283,6 +1276,40 @@ describe('AI bridge page access (e2e)', () => {
             expectError(await pageList({ cursor }), 400, 'invalid_request');
           },
         );
+
+        it('INDEX-AC48: a bare page id as cursor answers 400 invalid_request', async () => {
+          const [listed] = await listedPages();
+
+          expectError(
+            await pageList({ cursor: listed.id }),
+            400,
+            'invalid_request',
+          );
+        });
+
+        it('INDEX-AC48: a returned cursor with a tampered signature answers 400 invalid_request', async () => {
+          const seeded = (await indexablePages()).length;
+
+          await withExtraPages(501 - seeded, async () => {
+            const { nextCursor, pages } = await readPart({});
+            const cursor = nextCursor ?? '';
+            const tampered =
+              cursor.slice(0, -1) + (cursor.endsWith('A') ? 'B' : 'A');
+            const signature = cursor.split('.')[1];
+
+            expectError(
+              await pageList({ cursor: tampered }),
+              400,
+              'invalid_request',
+            );
+            expectError(
+              await pageList({ cursor: `${pages[0].id}.${signature}` }),
+              400,
+              'invalid_request',
+            );
+            expect((await pageList({ cursor })).statusCode).toBe(200);
+          });
+        });
 
         it('INDEX-AC49: the page list answers 503 assistant_disabled while the assistant is switched off', async () => {
           const configured = jest
