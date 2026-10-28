@@ -11,6 +11,7 @@ fi
 
 milestones="m3:ai-bridge m4:indexing m5:ask m6:leak-tests m7:extraction m8:agent m9:request-log m10:evals"
 first_base=m2-seed-data
+kit_branch=ai-v1
 max_session_seconds=$((4 * 3600))
 max_idle_seconds=$((20 * 60))
 max_identical_calls=6
@@ -98,8 +99,40 @@ loop_or_limit() {
   ' "$1" "$max_turns" "$max_identical_calls"
 }
 
+session_metrics() {
+  node -e '
+    let result;
+    for (const line of require("fs").readFileSync(process.argv[1], "utf8").split("\n")) {
+      if (!line.includes("\"type\":\"result\"")) continue;
+      try { result = JSON.parse(line); } catch { continue; }
+    }
+    const usage = result?.usage ?? {};
+    const value = (number) => number ?? "-";
+    console.log([value(result?.num_turns), value(result?.total_cost_usd), value(usage.input_tokens),
+      value(usage.output_tokens), value(usage.cache_read_input_tokens), value(usage.cache_creation_input_tokens)].join("\t"));
+  ' "$1"
+}
+
+record_session() {
+  outcome=$1 file=$2 seconds=$3
+  sessions=$run_dir/sessions.tsv
+  [ -f "$sessions" ] ||
+    printf 'date\tmilestone\tattempt\toutcome\tminutes\tturns\tcost_usd\tinput\toutput\tcache_read\tcache_write\n' >"$sessions"
+  printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$(date '+%d.%m.%Y %H:%M')" "$milestone" "$attempt" "$outcome" \
+    "$((seconds / 60))" "$(session_metrics "$file")" >>"$sessions"
+}
+
+record_stop() {
+  state=.work/$1.md
+  stop="- headless session $attempt | budget | watchdog: $2 | stopped the session | $3"
+  [ -f "$state" ] || { printf '## Stops\n%s\n' "$stop" >"$state"; return; }
+  grep -q '^## Stops[[:space:]]*$' "$state" || printf '\n## Stops\n' >>"$state"
+  awk -v stop="$stop" '{ print } /^## Stops[ \t]*$/ { print stop }' "$state" >"$state.tmp" && mv "$state.tmp" "$state"
+}
+
 watch_session() {
   pid=$1 file=$2 started=$(date +%s)
+  limit_reason=
   while kill -0 "$pid" 2>/dev/null; do
     sleep 60
     now=$(date +%s)
@@ -110,6 +143,7 @@ watch_session() {
     [ -z "$reason" ] && reason=$(loop_or_limit "$file")
     if [ -n "$reason" ]; then
       log "LIMIT $milestone session $attempt stopped: $reason"
+      limit_reason=$reason
       kill "$pid" 2>/dev/null
       wait "$pid" 2>/dev/null
       return 1
@@ -158,14 +192,33 @@ for entry in $milestones; do
     git checkout --quiet "$branch" || halt "$milestone: cannot check out $branch"
   else
     git checkout --quiet -b "$branch" "$base" || halt "$milestone: cannot create $branch off $base"
+    git merge --quiet --no-edit "$kit_branch" || { git merge --abort; halt "$milestone: merging $kit_branch into $branch conflicts"; }
   fi
 
   log "START $milestone on $branch (base $base)"
   for attempt in 1 2; do
     [ -e "$run_dir/$milestone.$attempt.jsonl" ] && attempt=$attempt.$(date +%s)
+    session_started=$(date +%s)
     run_session "$milestone" "$slug" "$base" "$branch" "$attempt" || log "$milestone: session $attempt exited with $?"
-    shipped "$branch" && break
-    has_questions "$branch" && halt "$milestone: questions in .work/$branch.md"
+    session_seconds=$(($(date +%s) - session_started))
+    file=$run_dir/$milestone.$attempt.jsonl
+    if shipped "$branch"; then
+      record_session shipped "$file" "$session_seconds"
+      break
+    fi
+    if has_questions "$branch"; then
+      record_session questions "$file" "$session_seconds"
+      halt "$milestone: questions in .work/$branch.md"
+    fi
+    if [ -n "$limit_reason" ]; then
+      record_session "limit: $limit_reason" "$file" "$session_seconds"
+      case $attempt in
+        1*) record_stop "$branch" "$limit_reason" "resumed by the orchestrator" ;;
+        *) record_stop "$branch" "$limit_reason" "chain halted" ;;
+      esac
+    else
+      record_session "ended without a PR" "$file" "$session_seconds"
+    fi
   done
   shipped "$branch" || halt "$milestone: no in-review PR after 2 sessions; see $run_dir/$milestone.*.jsonl"
 
