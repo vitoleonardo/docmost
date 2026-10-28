@@ -13,6 +13,8 @@ import { AiPageAccessService } from './ai-page-access.service';
 const PDF_MIME_TYPE = 'application/pdf';
 const ATTACHMENT_PAGE_SIZE = 100;
 const MAX_SEARCH_RESULTS = 20;
+const SEARCH_WINDOW_SIZE = 100;
+const MAX_SEARCH_WINDOWS = 5;
 
 export interface AiPageContent {
   id: string;
@@ -81,9 +83,26 @@ export class AiContentService {
     if (!page || page.deletedAt) throw attachmentNotFound();
 
     return {
-      stream: await this.storageService.readStream(attachment.filePath),
+      stream: await this.openStoredFile(attachment.id, attachment.filePath),
       mimeType: attachment.mimeType,
     };
+  }
+
+  private async openStoredFile(
+    attachmentId: string,
+    filePath: string,
+  ): Promise<Readable> {
+    try {
+      return await this.storageService.readStream(filePath);
+    } catch (error) {
+      if (!(await this.storageService.exists(filePath))) {
+        throw attachmentNotFound();
+      }
+      const reason = error instanceof Error ? error.message : String(error);
+      throw new Error(
+        `Reading the stored file of attachment ${attachmentId} failed: ${reason}`,
+      );
+    }
   }
 
   async readPage(user: User, pageId: string): Promise<AiReadPageResult> {
@@ -115,17 +134,34 @@ export class AiContentService {
       throw new AiBridgeError('space_not_found', 'Space not found');
     }
 
-    const { items } = await this.searchService.searchPage(
-      { query: trimmedQuery, spaceId, limit: MAX_SEARCH_RESULTS },
-      { userId: user.id, workspaceId: user.workspaceId },
-    );
-    return {
-      results: items.slice(0, MAX_SEARCH_RESULTS).map((item) => ({
-        id: item.id,
-        title: item.title,
-        spaceId,
-      })),
-    };
+    const results: AiSearchResults['results'] = [];
+    for (
+      let window = 0;
+      window < MAX_SEARCH_WINDOWS && results.length < MAX_SEARCH_RESULTS;
+      window++
+    ) {
+      const { items } = await this.searchService.searchPage(
+        {
+          query: trimmedQuery,
+          spaceId,
+          limit: SEARCH_WINDOW_SIZE,
+          offset: window * SEARCH_WINDOW_SIZE,
+        },
+        { userId: user.id, workspaceId: user.workspaceId },
+      );
+      const inSpace = items.filter((item) => item.space?.id === spaceId);
+      const viewableIds = new Set(
+        await this.aiPageAccessService.filterViewablePageIds(
+          user,
+          inSpace.map((item) => item.id),
+        ),
+      );
+      for (const item of inSpace) {
+        if (!viewableIds.has(item.id)) continue;
+        results.push({ id: item.id, title: item.title, spaceId });
+      }
+    }
+    return { results: results.slice(0, MAX_SEARCH_RESULTS) };
   }
 
   private async listPdfAttachments(

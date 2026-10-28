@@ -143,3 +143,35 @@ def test_bridge_ac3_valid_user_token_opens_session(
     response = session(client, service_headers, make_token())
     assert response.status_code == 200
     assert response.json() == {"userId": USER_ID, "workspaceId": WORKSPACE_ID}
+
+
+@pytest.mark.parametrize("path", ROUTES)
+@pytest.mark.parametrize("content", [b"{not json", b"", b'{"name": 3}'])
+def test_bridge_ac71_missing_token_wins_over_malformed_body(
+    client: TestClient, path: str, content: bytes
+):
+    response = client.post(path, content=content, headers={"Content-Type": "application/json"})
+    assert response.status_code == 401
+    assert response.json()["code"] == "service_token_missing"
+
+
+def test_bridge_ac72_wrong_token_wins_over_malformed_body(client: TestClient):
+    response = client.post(
+        "/v1/jobs",
+        content=b"{not json",
+        headers={"Content-Type": "application/json", "X-Service-Token": "wrong"},
+    )
+    assert response.status_code == 401
+    assert response.json()["code"] == "service_token_invalid"
+
+
+def test_bridge_ac71_valid_token_with_malformed_body_is_invalid_request(
+    client: TestClient, service_headers: dict[str, str]
+):
+    response = client.post(
+        "/v1/jobs",
+        content=b"{not json",
+        headers={"Content-Type": "application/json", **service_headers},
+    )
+    assert response.status_code == 400
+    assert response.json()["code"] == "invalid_request"

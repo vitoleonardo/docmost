@@ -237,48 +237,6 @@ describe('AI bridge page access (e2e)', () => {
     }
   });
 
-  it('BRIDGE-AC14: a page moved into Geschäftsführung is dropped for WS and kept for GF', async () => {
-    const id = await pageId('Willkommen bei Ostmooimooi');
-    expect(await usersWhoSee(id)).toContain('WS');
-
-    await bridge.pageRepo.updatePage(
-      { spaceId: spaceId('Geschäftsführung') },
-      id,
-    );
-    try {
-      expect(await usersWhoSee(id)).toEqual(['GF']);
-    } finally {
-      await bridge.pageRepo.updatePage({ spaceId: spaceId('Allgemein') }, id);
-    }
-  });
-
-  it('BRIDGE-AC16: a member removed from Vertrieb no longer gets its pages', async () => {
-    const id = await pageId('Vertriebsprozess Anlagenbau');
-    const vertriebId = spaceId('Vertrieb');
-    expect(await usersWhoSee(id)).toEqual(['GF', 'VT']);
-
-    const member = await bridge.spaceMemberRepo.getSpaceMemberByTypeId(
-      vertriebId,
-      { userId: users.VT.id },
-    );
-    await bridge.spaceMemberRepo.removeSpaceMemberById(
-      member.id,
-      vertriebId,
-      {},
-    );
-    try {
-      expect(await usersWhoSee(id)).toEqual(['GF']);
-      expect(
-        await bridge.aiPageAccessService.readableSpaceIds(
-          users.VT.id,
-          users.VT.workspaceId,
-        ),
-      ).not.toContain(vertriebId);
-    } finally {
-      await bridge.spaceMemberRepo.insertSpaceMember(member);
-    }
-  });
-
   it('BRIDGE-AC15: a page in the trash is dropped for every member of its space', async () => {
     const id = await pageId('Preisliste Standardkomponenten');
     expect(await usersWhoSee(id)).toEqual(['GF', 'VT']);
@@ -376,6 +334,73 @@ describe('AI bridge page access (e2e)', () => {
         body: { code, message: expect.any(String) },
       });
     };
+
+    it('BRIDGE-AC14: a page moved into Geschäftsführung is dropped for WS and kept for GF', async () => {
+      const id = await pageId('Willkommen bei Ostmooimooi');
+      const wsToken = await userToken('WS');
+      const gfToken = await userToken('GF');
+      expect((await filterAs(wsToken, [id])).json()).toEqual({ pageIds: [id] });
+
+      await bridge.pageRepo.updatePage(
+        { spaceId: spaceId('Geschäftsführung') },
+        id,
+      );
+      try {
+        expect((await filterAs(wsToken, [id])).json()).toEqual({ pageIds: [] });
+        expect((await filterAs(gfToken, [id])).json()).toEqual({
+          pageIds: [id],
+        });
+      } finally {
+        await bridge.pageRepo.updatePage({ spaceId: spaceId('Allgemein') }, id);
+      }
+    });
+
+    it('BRIDGE-AC14: a forged spaceIds claim grants nothing', async () => {
+      const id = await pageId('Umstrukturierung 2027');
+      const forged = await jwt.signAsync(
+        {
+          sub: users.WS.id,
+          workspaceId: users.WS.workspaceId,
+          spaceIds: [spaceId('Geschäftsführung')],
+          type: 'user',
+        },
+        {
+          secret: TEST_AI_BRIDGE_SECRET,
+          audience: 'ai-service',
+          expiresIn: 60,
+        },
+      );
+
+      const response = await filterAs(forged, [id]);
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({ pageIds: [] });
+    });
+
+    it('BRIDGE-AC16: a member removed from Vertrieb no longer gets its pages', async () => {
+      const id = await pageId('Vertriebsprozess Anlagenbau');
+      const vertriebId = spaceId('Vertrieb');
+      const vtToken = await userToken('VT');
+      expect((await filterAs(vtToken, [id])).json()).toEqual({ pageIds: [id] });
+
+      const member = await bridge.spaceMemberRepo.getSpaceMemberByTypeId(
+        vertriebId,
+        { userId: users.VT.id },
+      );
+      await bridge.spaceMemberRepo.removeSpaceMemberById(
+        member.id,
+        vertriebId,
+        {},
+      );
+      try {
+        expect((await filterAs(vtToken, [id])).json()).toEqual({ pageIds: [] });
+        expect(
+          (await filterAs(await userToken('GF'), [id])).json(),
+        ).toEqual({ pageIds: [id] });
+      } finally {
+        await bridge.spaceMemberRepo.insertSpaceMember(member);
+      }
+    });
 
     it('BRIDGE-AC13: filter-pages returns the viewable ids in first-occurrence order, without envelope', async () => {
       const restricted = await pageId('Umstrukturierung 2027');
@@ -906,8 +931,18 @@ describe('AI bridge page access (e2e)', () => {
           };
           expect(results.map((entry) => entry.title)).toContain(title);
           expect(results.length).toBeLessThanOrEqual(20);
+          const storedSpaceIds = await db
+            .selectFrom('pages')
+            .select('spaceId')
+            .where(
+              'id',
+              'in',
+              results.map((entry) => entry.id),
+            )
+            .execute();
+          expect(storedSpaceIds).toHaveLength(results.length);
           expect(
-            results.every((entry) => entry.spaceId === spaceId(space)),
+            storedSpaceIds.every((row) => row.spaceId === spaceId(space)),
           ).toBe(true);
           expect(results[0]).toEqual({
             id: await pageId(title),

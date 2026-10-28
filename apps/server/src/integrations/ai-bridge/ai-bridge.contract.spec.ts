@@ -276,7 +276,15 @@ beforeEach(() => {
   });
   storageService.readStream.mockResolvedValue('file-stream');
   searchService.searchPage.mockResolvedValue({
-    items: [{ id: PAGE_ID, title: 'Seite', highlight: 'x', rank: 1 }],
+    items: [
+      {
+        id: PAGE_ID,
+        title: 'Seite',
+        highlight: 'x',
+        rank: 1,
+        space: { id: SPACE_ID },
+      },
+    ],
   });
 });
 

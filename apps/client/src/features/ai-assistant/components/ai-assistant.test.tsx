@@ -8,26 +8,56 @@ import deDE from "../../../../public/locales/de-DE/translation.json";
 import Aside from "@/components/layouts/global/aside.tsx";
 import { asideStateAtom } from "@/components/layouts/global/hooks/atoms/sidebar-atom.ts";
 import AiAssistantTrigger from "./ai-assistant-trigger.tsx";
-import { getAiAssistantStatus } from "@/features/ai-assistant/services/ai-assistant-service.ts";
+import api from "@/lib/api-client";
+import PageHeaderMenu from "@/features/page/components/header/page-header-menu.tsx";
 import type { AiAssistantStatus } from "@/features/ai-assistant/types/ai-assistant.types.ts";
 
-vi.mock("react-i18next", () => ({
+vi.mock("react-i18next", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("react-i18next")>()),
   useTranslation: () => ({
     t: (key: string) => (deDE as Record<string, string>)[key] ?? key,
   }),
 }));
 
-vi.mock("@/features/ai-assistant/services/ai-assistant-service.ts", () => ({
-  getAiAssistantStatus: vi.fn(),
+vi.mock("@/lib/api-client", () => ({
+  default: { post: vi.fn() },
 }));
 
-const statusMock = vi.mocked(getAiAssistantStatus);
+vi.mock("@/features/page/queries/page-query.ts", async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import("@/features/page/queries/page-query.ts")
+  >()),
+  usePageQuery: () => ({
+    data: {
+      id: "page-1",
+      slugId: "slug-1",
+      title: "Seite",
+      spaceId: "space-1",
+      createdAt: "2026-09-01T08:30:00.000Z",
+      updatedAt: "2026-10-01T08:30:00.000Z",
+      lastUpdatedBy: { name: "Test User" },
+    },
+  }),
+}));
+
+vi.mock("@/main.tsx", async () => ({
+  queryClient: new (await import("@tanstack/react-query")).QueryClient(),
+}));
+
+vi.mock("@/ee/page-permission", () => ({ PageShareModal: () => null }));
+
+vi.mock("@/ee/page-verification", () => ({
+  PageVerificationMenuItem: () => null,
+  PageVerificationModal: () => null,
+}));
+
+const statusMock = vi.mocked(api.post);
 
 const UNAVAILABLE_TEXT =
   "Der Assistent ist gerade nicht erreichbar. Das Wiki funktioniert normal weiter.";
 
 function answerWith(status: AiAssistantStatus) {
-  statusMock.mockResolvedValueOnce({ status });
+  statusMock.mockResolvedValueOnce({ data: { status } });
 }
 
 function renderAssistant() {
@@ -89,13 +119,16 @@ describe("ai assistant", () => {
   });
 
   it("BRIDGE-AC5: the trigger opens the assistant in the aside and shows the empty state", async () => {
-    statusMock.mockResolvedValue({ status: "available" });
+    statusMock.mockResolvedValue({ data: { status: "available" } });
     const store = renderAssistant();
     fireEvent.click(await screen.findByRole("button", { name: "Assistent" }));
     expect(store.get(asideStateAtom)).toEqual({
       tab: "ai-assistant",
       isAsideOpen: true,
     });
+    expect(
+      (await screen.findByRole("heading", { level: 2 })).textContent,
+    ).toBe("Assistent");
     expect(await screen.findByText("Frag das Wiki")).toBeTruthy();
     expect(
       screen.getByText(
@@ -105,7 +138,7 @@ describe("ai assistant", () => {
   });
 
   it("BRIDGE-AC6: an unavailable assistant shows the notice and a retry button", async () => {
-    statusMock.mockResolvedValue({ status: "unavailable" });
+    statusMock.mockResolvedValue({ data: { status: "unavailable" } });
     const store = renderAssistant();
     fireEvent.click(await screen.findByRole("button", { name: "Assistent" }));
     expect(store.get(asideStateAtom).tab).toBe("ai-assistant");
@@ -139,7 +172,7 @@ describe("ai assistant", () => {
   });
 
   it("BRIDGE-AC42: retry while still down shows the notice again, one request per click", async () => {
-    statusMock.mockResolvedValue({ status: "unavailable" });
+    statusMock.mockResolvedValue({ data: { status: "unavailable" } });
     renderAssistant();
     fireEvent.click(await screen.findByRole("button", { name: "Assistent" }));
     const retry = await screen.findByRole("button", {
@@ -168,7 +201,8 @@ describe("ai assistant", () => {
     const retry = await screen.findByRole("button", {
       name: "Erneut versuchen",
     });
-    let finish: (value: { status: AiAssistantStatus }) => void = () => {};
+    let finish: (value: { data: { status: AiAssistantStatus } }) => void =
+      () => {};
     statusMock.mockReturnValueOnce(
       new Promise((resolve) => (finish = resolve)),
     );
@@ -176,7 +210,26 @@ describe("ai assistant", () => {
     fireEvent.click(retry);
     fireEvent.click(retry);
     expect(statusMock).toHaveBeenCalledTimes(2);
-    finish({ status: "unavailable" });
+    finish({ data: { status: "unavailable" } });
     expect(await screen.findByText(UNAVAILABLE_TEXT)).toBeTruthy();
+  });
+
+  it("BRIDGE-AC2: the trigger sits right before the comments button in the page header", async () => {
+    statusMock.mockResolvedValue({ data: { status: "available" } });
+    const client = new QueryClient();
+    render(
+      <MantineProvider>
+        <QueryClientProvider client={client}>
+          <Provider store={createStore()}>
+            <MemoryRouter>
+              <PageHeaderMenu />
+            </MemoryRouter>
+          </Provider>
+        </QueryClientProvider>
+      </MantineProvider>,
+    );
+    const trigger = await screen.findByRole("button", { name: "Assistent" });
+    const comments = screen.getByRole("button", { name: "Kommentare" });
+    expect(trigger.nextElementSibling).toBe(comments);
   });
 });

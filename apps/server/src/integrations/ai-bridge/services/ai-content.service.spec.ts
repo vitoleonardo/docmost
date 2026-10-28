@@ -72,11 +72,12 @@ describe('AiContentService', () => {
     findById: jest.fn(),
     findPageAttachments: jest.fn(),
   };
-  const storageService = { readStream: jest.fn() };
+  const storageService = { readStream: jest.fn(), exists: jest.fn() };
   const searchService = { searchPage: jest.fn() };
   const aiPageAccessService = {
     findViewablePage: jest.fn(),
     readableSpaceIds: jest.fn(),
+    filterViewablePageIds: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -212,6 +213,29 @@ describe('AiContentService', () => {
       expect(result).toEqual({ stream, mimeType: 'application/pdf' });
     });
 
+    it('BRIDGE-AC67: a stored file missing from storage answers attachment_not_found', async () => {
+      attachmentRepo.findById.mockResolvedValue(makeAttachment());
+      pageRepo.findById.mockResolvedValue(makePage());
+      storageService.readStream.mockRejectedValue(new Error('File not found'));
+      storageService.exists.mockResolvedValue(false);
+
+      await expectBridgeError(
+        service.getAttachmentFile('att-1'),
+        'attachment_not_found',
+      );
+    });
+
+    it('BRIDGE-AC67: a storage error for a file that exists is rethrown with context', async () => {
+      attachmentRepo.findById.mockResolvedValue(makeAttachment());
+      pageRepo.findById.mockResolvedValue(makePage());
+      storageService.readStream.mockRejectedValue(new Error('disk offline'));
+      storageService.exists.mockResolvedValue(true);
+
+      await expect(service.getAttachmentFile('att-1')).rejects.toThrow(
+        /att-1.*disk offline/,
+      );
+    });
+
     it.each([
       ['a missing attachment', undefined, makePage()],
       [
@@ -276,13 +300,23 @@ describe('AiContentService', () => {
   describe('searchSpace', () => {
     beforeEach(() => {
       aiPageAccessService.readableSpaceIds.mockResolvedValue(['space-a']);
+      aiPageAccessService.filterViewablePageIds.mockImplementation(
+        async (_user: User, ids: string[]) => ids,
+      );
+      searchService.searchPage.mockResolvedValue({ items: [] });
+    });
+
+    const row = (id: string, title: string, spaceId = 'space-a') => ({
+      id,
+      title,
+      space: { id: spaceId },
     });
 
     it('BRIDGE-AC25: searches the given space as the user with limit 20 and maps id, title, space', async () => {
-      searchService.searchPage.mockResolvedValue({
+      searchService.searchPage.mockResolvedValueOnce({
         items: [
-          { id: 'p1', title: 'Eins', highlight: 'x', rank: 1 },
-          { id: 'p2', title: 'Zwei', highlight: 'y', rank: 0.5 },
+          { ...row('p1', 'Eins'), highlight: 'x', rank: 1 },
+          { ...row('p2', 'Zwei'), highlight: 'y', rank: 0.5 },
         ],
       });
 
@@ -292,7 +326,8 @@ describe('AiContentService', () => {
         expect.objectContaining({
           query: 'Preis',
           spaceId: 'space-a',
-          limit: 20,
+          limit: 100,
+          offset: 0,
         }),
         { userId: 'user-1', workspaceId: WORKSPACE_ID },
       );
@@ -305,16 +340,68 @@ describe('AiContentService', () => {
     });
 
     it('BRIDGE-AC25: returns at most 20 results', async () => {
-      searchService.searchPage.mockResolvedValue({
-        items: Array.from({ length: 25 }, (_, index) => ({
-          id: `p${index}`,
-          title: `Seite ${index}`,
-        })),
+      searchService.searchPage.mockResolvedValueOnce({
+        items: Array.from({ length: 25 }, (_, index) =>
+          row(`p${index}`, `Seite ${index}`),
+        ),
       });
 
       const result = await service.searchSpace(USER, 'space-a', 'Seite');
 
       expect(result.results).toHaveLength(20);
+    });
+
+    it('BRIDGE-AC26: a viewable match ranked below 20 restricted matches is returned', async () => {
+      searchService.searchPage.mockImplementation(async (params) =>
+        params.offset === 100
+          ? { items: [row('visible', 'Sichtbar')] }
+          : { items: [] },
+      );
+
+      const result = await service.searchSpace(USER, 'space-a', 'Plan');
+
+      expect(
+        searchService.searchPage.mock.calls.slice(0, 2).map(([p]) => p.offset),
+      ).toEqual([0, 100]);
+      expect(result.results).toEqual([
+        { id: 'visible', title: 'Sichtbar', spaceId: 'space-a' },
+      ]);
+    });
+
+    it('BRIDGE-AC26: keeps paging until 20 results are collected and never asks for more', async () => {
+      searchService.searchPage.mockImplementation(async (params) => ({
+        items: Array.from({ length: 12 }, (_, index) =>
+          row(`p${params.offset}-${index}`, 'T'),
+        ),
+      }));
+
+      const result = await service.searchSpace(USER, 'space-a', 'Plan');
+
+      expect(searchService.searchPage).toHaveBeenCalledTimes(2);
+      expect(result.results).toHaveLength(20);
+    });
+
+    it('BRIDGE-AC26: drops matches the page access check rejects', async () => {
+      searchService.searchPage.mockResolvedValueOnce({
+        items: [row('ok', 'Ok'), row('restricted', 'Gesperrt')],
+      });
+      aiPageAccessService.filterViewablePageIds.mockResolvedValue(['ok']);
+
+      const result = await service.searchSpace(USER, 'space-a', 'Plan');
+
+      expect(result.results.map((entry) => entry.id)).toEqual(['ok']);
+    });
+
+    it('BRIDGE-AC25: reports the real space of a match and drops one from another space', async () => {
+      searchService.searchPage.mockResolvedValueOnce({
+        items: [row('mine', 'Meins'), row('foreign', 'Fremd', 'space-gf')],
+      });
+
+      const result = await service.searchSpace(USER, 'space-a', 'Plan');
+
+      expect(result.results).toEqual([
+        { id: 'mine', title: 'Meins', spaceId: 'space-a' },
+      ]);
     });
 
     it('BRIDGE-AC62: a space outside the readable spaces answers space_not_found without searching', async () => {
