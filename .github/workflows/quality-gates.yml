@@ -45,7 +45,7 @@ jobs:
             npm ci
           fi
 
-      - uses: astral-sh/setup-uv@v10
+      - uses: astral-sh/setup-uv@v10.3.2
         with:
           working-directory: ai-service
           enable-cache: true
