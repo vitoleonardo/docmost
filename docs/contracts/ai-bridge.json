@@ -7,6 +7,7 @@
   "errorBody": ["code", "message"],
   "errors": {
     "assistant_disabled": 503,
+    "assistant_unavailable": 503,
     "service_token_missing": 401,
     "service_token_invalid": 401,
     "user_token_missing": 401,
@@ -32,6 +33,44 @@
       },
       "status": 200,
       "errors": []
+    },
+    {
+      "side": "wiki-client",
+      "method": "POST",
+      "path": "/api/ai/ask",
+      "auth": ["session"],
+      "request": ["question", "conversationId", "spaceId", "pageId"],
+      "response": [],
+      "responseType": "sse",
+      "responseContentType": "text/event-stream",
+      "events": {
+        "delta": ["type", "text"],
+        "sources": [
+          "type",
+          "sources[].number",
+          "sources[].pageId",
+          "sources[].title",
+          "sources[].spaceName",
+          "sources[].headingPath",
+          "sources[].fileName",
+          "sources[].pdfPage",
+          "sources[].url"
+        ],
+        "no_source": ["type"],
+        "error": ["type", "code"]
+      },
+      "values": {
+        "errorCode": ["model_unavailable"]
+      },
+      "maxQuestionLength": 2000,
+      "status": 200,
+      "errors": [
+        "assistant_disabled",
+        "assistant_unavailable",
+        "invalid_request",
+        "space_not_found",
+        "page_not_found"
+      ]
     },
     {
       "side": "bridge",

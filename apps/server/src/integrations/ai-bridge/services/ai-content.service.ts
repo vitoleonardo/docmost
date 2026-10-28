@@ -212,7 +212,7 @@ export function toIsoTimestamp(value: Date): string {
   return new Date(value).toISOString();
 }
 
-function describeError(error: unknown): string {
+export function describeError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 

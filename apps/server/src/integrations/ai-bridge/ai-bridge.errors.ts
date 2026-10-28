@@ -1,5 +1,6 @@
 export const AI_BRIDGE_ERROR_STATUS = {
   assistant_disabled: 503,
+  assistant_unavailable: 503,
   service_token_missing: 401,
   service_token_invalid: 401,
   user_token_missing: 401,

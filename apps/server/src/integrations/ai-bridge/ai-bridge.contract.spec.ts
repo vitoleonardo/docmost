@@ -1,5 +1,6 @@
 import { stub } from './test-stub';
 import 'reflect-metadata';
+import { EventEmitter } from 'node:events';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { RequestMethod } from '@nestjs/common';
@@ -11,7 +12,8 @@ import {
 } from '@nestjs/common/constants';
 import { RouteParamtypes } from '@nestjs/common/enums/route-paramtypes.enum';
 import { JwtService } from '@nestjs/jwt';
-import { getMetadataStorage } from 'class-validator';
+import { plainToInstance } from 'class-transformer';
+import { getMetadataStorage, validate } from 'class-validator';
 import { Job } from 'bullmq';
 import { FastifyReply } from 'fastify';
 import { Attachment, Page, User } from '@docmost/db/types/entity.types';
@@ -23,11 +25,16 @@ import { AiBridgeController } from './ai-bridge.controller';
 import { AiBridgeInternalController } from './ai-bridge-internal.controller';
 import { AiQueueProcessor } from './ai-queue.processor';
 import { AI_BRIDGE_USER_TOKEN_KEY } from './decorators/ai-bridge-auth.decorator';
+import { AiAskDto } from './dto/ai-ask.dto';
+import { AiAskService } from './services/ai-ask.service';
 import { AiInternalAuthGuard } from './guards/ai-internal-auth.guard';
 import { AiContentService } from './services/ai-content.service';
 import { AiPageAccessService } from './services/ai-page-access.service';
 import { AiPageListService } from './services/ai-page-list.service';
-import { AiServiceClient } from './services/ai-service.client';
+import {
+  AiServiceAskEvent,
+  AiServiceClient,
+} from './services/ai-service.client';
 import { AiStatusService } from './services/ai-status.service';
 import { AiTokenService } from './services/ai-token.service';
 
@@ -40,6 +47,10 @@ interface ContractEndpoint {
   request: string[];
   response: string[];
   responseType?: string;
+  responseContentType?: string;
+  events?: Record<string, string[]>;
+  values?: Record<string, string[]>;
+  maxQuestionLength?: number;
   status: number;
   errors: string[];
 }
@@ -174,6 +185,9 @@ function fieldPaths(value: unknown, prefix = ''): string[] {
 
 const sorted = (values: string[]) => [...values].sort();
 
+const endpointAt = (path: string) =>
+  CONTRACT.endpoints.find((endpoint) => endpoint.path === path)!;
+
 const aiPageAccessService = {
   readableSpaceIds: jest.fn(),
   filterViewablePageIds: jest.fn(),
@@ -220,6 +234,7 @@ const internalController = new AiBridgeInternalController(
 
 const PAGE = stub<Page>({
   id: PAGE_ID,
+  slugId: 'slug-1',
   title: 'Seite',
   spaceId: SPACE_ID,
   workspaceId: WORKSPACE_ID,
@@ -255,7 +270,7 @@ const statusService = (
 
 const RESPONSE_BODIES: Record<string, () => Promise<unknown>> = {
   '/api/ai/status': () =>
-    new AiBridgeController(statusService(true, true)).status(USER),
+    new AiBridgeController(statusService(true, true), stub({})).status(USER),
   '/api/ai-bridge/internal/filter-pages': () =>
     internalController.filterPages({ pageIds: [PAGE_ID] }, USER),
   '/api/ai-bridge/internal/task-token': () =>
@@ -278,7 +293,12 @@ beforeEach(() => {
   aiPageAccessService.filterViewablePageIds.mockResolvedValue([PAGE_ID]);
   aiPageAccessService.findViewablePage.mockResolvedValue(PAGE);
   pageRepo.findById.mockResolvedValue(PAGE);
-  spaceRepo.findById.mockResolvedValue({ id: SPACE_ID, deletedAt: null });
+  spaceRepo.findById.mockResolvedValue({
+    id: SPACE_ID,
+    name: 'Allgemein',
+    slug: 'allgemein',
+    deletedAt: null,
+  });
   aiPageListRepo.listIndexablePages.mockResolvedValue({
     pages: [PAGE],
     hasNextPage: true,
@@ -340,7 +360,10 @@ describe.each(SERVED_ENDPOINTS.map((endpoint) => [endpoint.path, endpoint]))(
     });
 
     it('BRIDGE-AC35: response fields equal the keys of what the services return', async () => {
-      if (endpoint.responseType === 'binary') {
+      if (
+        endpoint.responseType === 'binary' ||
+        endpoint.responseType === 'sse'
+      ) {
         expect(endpoint.response).toEqual([]);
         return;
       }
@@ -401,11 +424,9 @@ describe('served routes', () => {
     expect(AI_BRIDGE_ERROR_STATUS).toEqual(CONTRACT.errors);
   });
 
-  it('BRIDGE-AC35: every code of the record is listed by a bridge endpoint', () => {
+  it('BRIDGE-AC35: every code of the record is listed by a served endpoint', () => {
     const listed = new Set(
-      SERVED_ENDPOINTS.filter((endpoint) => endpoint.side === 'bridge').flatMap(
-        (endpoint) => endpoint.errors,
-      ),
+      SERVED_ENDPOINTS.flatMap((endpoint) => endpoint.errors),
     );
 
     expect([...listed].sort()).toEqual(
@@ -414,19 +435,19 @@ describe('served routes', () => {
   });
 
   it('BRIDGE-AC35: the status endpoint answers exactly the contract values', async () => {
-    const statusEndpoint = SERVED_ENDPOINTS.find(
-      (endpoint) => endpoint.side === 'wiki-client',
-    ) as ContractEndpoint & { values: { status: string[] } };
+    const statusEndpoint = endpointAt('/api/ai/status');
     const answers = await Promise.all(
       [
         statusService(false, false),
         statusService(true, true),
         statusService(true, false),
-      ].map((service) => new AiBridgeController(service).status(USER)),
+      ].map((service) =>
+        new AiBridgeController(service, stub({})).status(USER),
+      ),
     );
 
     expect(answers.map((answer) => answer.status).sort()).toEqual(
-      sorted(statusEndpoint.values.status),
+      sorted(statusEndpoint.values!.status),
     );
   });
 
@@ -445,14 +466,126 @@ describe('served routes', () => {
   });
 });
 
+describe('ask endpoint', () => {
+  const askEndpoint = endpointAt('/api/ai/ask');
+  const CONVERSATION_ID = '6f1c2b8e-1d2a-4c3b-9e4f-5a6b7c8d9e0f';
+  const CITATION = {
+    number: 1,
+    pageId: PAGE_ID,
+    headingPath: ['Abschnitt'],
+    attachmentId: null,
+    fileName: null,
+    pdfPage: null,
+  };
+
+  const streamOf = (events: AiServiceAskEvent[]) =>
+    (async function* () {
+      yield* events;
+    })();
+
+  const answer = async (upstream: AiServiceAskEvent[]) => {
+    const askService = new AiAskService(
+      stub<EnvironmentService>({ isAiBridgeConfigured: () => true }),
+      stub<AiTokenService>({ issueUserToken: async () => 'user-token' }),
+      stub<AiServiceClient>({ ask: async () => streamOf(upstream) }),
+      stub<AiPageAccessService>(aiPageAccessService),
+      stub(spaceRepo),
+    );
+    const raw = Object.assign(new EventEmitter(), {
+      setHeader: jest.fn(),
+      writeHead: jest.fn(),
+      write: jest.fn(),
+      end: jest.fn(),
+    });
+    const reply = stub<FastifyReply>({
+      raw,
+      hijack: jest.fn(),
+      getHeaders: () => ({}),
+    });
+
+    await new AiBridgeController(statusService(true, true), askService).ask(
+      { question: 'Frage', conversationId: CONVERSATION_ID },
+      USER,
+      reply,
+    );
+
+    const frames: string[] = raw.write.mock.calls.map(([frame]) =>
+      String(frame),
+    );
+    for (const frame of frames) expect(frame).toMatch(/^data: [^\n]*\n\n$/);
+    return {
+      raw,
+      events: frames.map((frame) => JSON.parse(frame.slice('data: '.length))),
+    };
+  };
+
+  it('ASK-AC9: the ask endpoint streams with the contract content type', async () => {
+    const { raw } = await answer([{ type: 'no_source' }]);
+
+    const [status, headers] = raw.writeHead.mock.calls[0];
+    expect(status).toBe(askEndpoint.status);
+    expect(headers['content-type']).toContain(askEndpoint.responseContentType);
+    expect(raw.end).toHaveBeenCalled();
+  });
+
+  it('ASK-AC9: every ask event the wiki streams has exactly the fields of the contract', async () => {
+    const runs = await Promise.all([
+      answer([
+        { type: 'delta', text: 'Antwort [1]' },
+        { type: 'citations', citations: [CITATION] },
+      ]),
+      answer([{ type: 'no_source' }]),
+      answer([{ type: 'error', code: 'model_unavailable' }]),
+    ]);
+
+    const byType: Record<string, Set<string>> = {};
+    const errorCodes = new Set<string>();
+    for (const event of runs.flatMap((run) => run.events)) {
+      byType[event.type] ??= new Set();
+      fieldPaths(event).forEach((field) => byType[event.type].add(field));
+      if (event.type === 'error') errorCodes.add(event.code);
+    }
+    expect(
+      Object.fromEntries(
+        Object.entries(byType).map(([type, fields]) => [
+          type,
+          sorted([...fields]),
+        ]),
+      ),
+    ).toEqual(
+      Object.fromEntries(
+        Object.entries(askEndpoint.events!).map(([type, fields]) => [
+          type,
+          sorted(fields),
+        ]),
+      ),
+    );
+    expect([...errorCodes]).toEqual(askEndpoint.values!.errorCode);
+  });
+
+  it('ASK-AC61: the question length limit of the DTO equals the contract', async () => {
+    const errorsFor = (question: string) =>
+      validate(
+        plainToInstance(AiAskDto, {
+          question,
+          conversationId: CONVERSATION_ID,
+        }),
+      );
+
+    expect(await errorsFor('x'.repeat(askEndpoint.maxQuestionLength!))).toEqual(
+      [],
+    );
+    expect(
+      await errorsFor('x'.repeat(askEndpoint.maxQuestionLength! + 1)),
+    ).not.toEqual([]);
+  });
+});
+
 describe('AI service calls of the bridge', () => {
   const client = new AiServiceClient(
     stub<EnvironmentService>(environmentService),
   );
   let fetchSpy: jest.SpyInstance;
-
-  const endpointAt = (path: string) =>
-    AI_SERVICE_ENDPOINTS.find((endpoint) => endpoint.path === path)!;
 
   beforeEach(() => {
     fetchSpy = jest.spyOn(global, 'fetch');
@@ -498,6 +631,43 @@ describe('AI service calls of the bridge', () => {
       sorted(endpoint.request),
     );
     expect(sorted(endpoint.request)).toEqual(sorted(CONTRACT.jobs.body));
+  });
+
+  it('BRIDGE-AC35: the ask call posts the contract request fields with both token headers and reads NDJSON', async () => {
+    const endpoint = endpointAt('/v1/ask');
+    fetchSpy.mockResolvedValue(
+      new Response('{"type":"no_source"}\n', {
+        status: endpoint.status,
+        headers: { 'content-type': endpoint.responseContentType! },
+      }),
+    );
+
+    const events = await client.ask(
+      'user-token',
+      {
+        question: 'Frage',
+        conversationId: 'conversation-1',
+        spaceId: SPACE_ID,
+        pageId: PAGE_ID,
+      },
+      new AbortController().signal,
+    );
+    const received: AiServiceAskEvent[] = [];
+    for await (const event of events) received.push(event);
+
+    expect(received).toEqual([{ type: 'no_source' }]);
+    const { url, init } = lastRequest();
+    expect(url.pathname).toBe(endpoint.path);
+    expect(init.method).toBe(endpoint.method);
+    expect(
+      init.headers[CONTRACT.headers.serviceTokenHeader.toLowerCase()],
+    ).toBe(SERVICE_CREDENTIAL);
+    expect(init.headers[CONTRACT.headers.userTokenHeader.toLowerCase()]).toBe(
+      'user-token',
+    );
+    expect(sorted(Object.keys(JSON.parse(init.body)))).toEqual(
+      sorted(endpoint.request),
+    );
   });
 
   it('BRIDGE-AC35: any other status than the contract status is a failed forward', async () => {
