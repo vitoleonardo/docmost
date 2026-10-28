@@ -1,0 +1,227 @@
+{
+  "version": 1,
+  "headers": {
+    "serviceToken": "X-Service-Token",
+    "userToken": "X-User-Token"
+  },
+  "errorBody": ["code", "message"],
+  "errors": {
+    "assistant_disabled": 503,
+    "service_token_missing": 401,
+    "service_token_invalid": 401,
+    "user_token_missing": 401,
+    "user_token_expired": 401,
+    "user_token_invalid": 401,
+    "user_id_not_allowed": 400,
+    "invalid_request": 400,
+    "too_many_page_ids": 400,
+    "page_not_found": 404,
+    "space_not_found": 404,
+    "attachment_not_found": 404
+  },
+  "endpoints": [
+    {
+      "side": "wiki-client",
+      "method": "POST",
+      "path": "/api/ai/status",
+      "auth": ["session"],
+      "request": [],
+      "response": ["status"],
+      "values": {
+        "status": ["available", "unavailable", "disabled"]
+      },
+      "status": 200,
+      "errors": []
+    },
+    {
+      "side": "bridge",
+      "method": "POST",
+      "path": "/api/ai-bridge/internal/filter-pages",
+      "auth": ["service", "user"],
+      "request": ["pageIds"],
+      "response": ["pageIds"],
+      "status": 200,
+      "errors": [
+        "assistant_disabled",
+        "service_token_missing",
+        "service_token_invalid",
+        "user_token_missing",
+        "user_token_expired",
+        "user_token_invalid",
+        "user_id_not_allowed",
+        "invalid_request",
+        "too_many_page_ids"
+      ]
+    },
+    {
+      "side": "bridge",
+      "method": "POST",
+      "path": "/api/ai-bridge/internal/task-token",
+      "auth": ["service", "user"],
+      "request": ["runId"],
+      "response": ["taskToken", "expiresAt"],
+      "status": 200,
+      "errors": [
+        "assistant_disabled",
+        "service_token_missing",
+        "service_token_invalid",
+        "user_token_missing",
+        "user_token_expired",
+        "user_token_invalid",
+        "user_id_not_allowed",
+        "invalid_request"
+      ]
+    },
+    {
+      "side": "bridge",
+      "method": "POST",
+      "path": "/api/ai-bridge/internal/page-content",
+      "auth": ["service"],
+      "request": ["pageId"],
+      "response": [
+        "id",
+        "title",
+        "spaceId",
+        "workspaceId",
+        "updatedAt",
+        "markdown",
+        "attachments[].id",
+        "attachments[].fileName",
+        "attachments[].mimeType",
+        "attachments[].fileSize"
+      ],
+      "status": 200,
+      "errors": [
+        "assistant_disabled",
+        "service_token_missing",
+        "service_token_invalid",
+        "user_id_not_allowed",
+        "invalid_request",
+        "page_not_found"
+      ]
+    },
+    {
+      "side": "bridge",
+      "method": "POST",
+      "path": "/api/ai-bridge/internal/attachment",
+      "auth": ["service"],
+      "request": ["attachmentId"],
+      "response": [],
+      "responseType": "binary",
+      "responseContentType": "mimeType of the attachment",
+      "status": 200,
+      "errors": [
+        "assistant_disabled",
+        "service_token_missing",
+        "service_token_invalid",
+        "user_id_not_allowed",
+        "invalid_request",
+        "attachment_not_found"
+      ]
+    },
+    {
+      "side": "bridge",
+      "method": "POST",
+      "path": "/api/ai-bridge/internal/tools/read-page",
+      "auth": ["service", "user"],
+      "request": ["pageId"],
+      "response": ["id", "title", "spaceId", "markdown"],
+      "status": 200,
+      "errors": [
+        "assistant_disabled",
+        "service_token_missing",
+        "service_token_invalid",
+        "user_token_missing",
+        "user_token_expired",
+        "user_token_invalid",
+        "user_id_not_allowed",
+        "invalid_request",
+        "page_not_found"
+      ]
+    },
+    {
+      "side": "bridge",
+      "method": "POST",
+      "path": "/api/ai-bridge/internal/tools/search",
+      "auth": ["service", "user"],
+      "request": ["spaceId", "query"],
+      "response": [
+        "results[].id",
+        "results[].title",
+        "results[].spaceId"
+      ],
+      "maxResults": 20,
+      "status": 200,
+      "errors": [
+        "assistant_disabled",
+        "service_token_missing",
+        "service_token_invalid",
+        "user_token_missing",
+        "user_token_expired",
+        "user_token_invalid",
+        "user_id_not_allowed",
+        "invalid_request",
+        "space_not_found"
+      ]
+    },
+    {
+      "side": "ai-service",
+      "method": "POST",
+      "path": "/v1/session",
+      "auth": ["service", "user"],
+      "request": [],
+      "response": ["userId", "workspaceId"],
+      "status": 200,
+      "errors": [
+        "service_token_missing",
+        "service_token_invalid",
+        "user_token_missing",
+        "user_token_expired",
+        "user_token_invalid"
+      ]
+    },
+    {
+      "side": "ai-service",
+      "method": "POST",
+      "path": "/v1/jobs",
+      "auth": ["service"],
+      "request": ["name", "data"],
+      "response": ["id"],
+      "status": 202,
+      "errors": [
+        "service_token_missing",
+        "service_token_invalid",
+        "invalid_request"
+      ]
+    }
+  ],
+  "tokens": {
+    "algorithm": "HS256",
+    "user": {
+      "claims": ["sub", "workspaceId", "spaceIds", "aud", "type", "iat", "exp"],
+      "aud": "ai-service",
+      "type": "user",
+      "maxLifetimeSeconds": 60
+    },
+    "task": {
+      "claims": ["sub", "workspaceId", "runId", "aud", "type", "iat", "exp"],
+      "aud": "ai-service",
+      "type": "task",
+      "maxLifetimeSeconds": 900
+    }
+  },
+  "jobs": {
+    "stream": "ai-service:jobs",
+    "body": ["name", "data"],
+    "forwarded": {
+      "page-created": ["pageIds", "workspaceId"],
+      "page-content-updated": ["pageIds", "workspaceId"],
+      "page-soft-deleted": ["pageIds", "workspaceId"],
+      "page-restored": ["pageIds", "workspaceId"],
+      "page-deleted": ["pageIds", "workspaceId"],
+      "page-moved-to-space": ["pageIds", "spaceId", "workspaceId"],
+      "space-deleted": ["spaceId", "workspaceId"],
+      "workspace-deleted": ["workspaceId"]
+    }
+  }
+}

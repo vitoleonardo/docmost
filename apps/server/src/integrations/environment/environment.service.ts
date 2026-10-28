@@ -400,4 +400,24 @@ export class EnvironmentService {
   getAllowedPrivateNetworks(): string {
     return this.configService.get<string>('ALLOWED_PRIVATE_NETWORKS', 'none');
   }
+
+  getAiBridgeSecret(): string | undefined {
+    return this.configService.get<string>('AI_BRIDGE_SECRET');
+  }
+
+  getAiServiceToken(): string | undefined {
+    return this.configService.get<string>('AI_SERVICE_TOKEN');
+  }
+
+  getAiServiceUrl(): string | undefined {
+    return this.configService.get<string>('AI_SERVICE_URL');
+  }
+
+  isAiBridgeConfigured(): boolean {
+    return Boolean(
+      this.getAiBridgeSecret() &&
+        this.getAiServiceToken() &&
+        this.getAiServiceUrl(),
+    );
+  }
 }
