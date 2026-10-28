@@ -146,22 +146,13 @@ export const SEED_RESTRICTED_PAGES: SeedRestrictedPage[] = [
   },
 ];
 
-function userKeysWithSpaceRole(space: string): Set<SeedUserKey> {
+function userKeysOf(
+  entries: { userKey?: SeedUserKey; groupName?: string }[],
+): Set<SeedUserKey> {
   const keys = new Set<SeedUserKey>();
-  for (const membership of SEED_SPACE_MEMBERSHIPS) {
-    if (membership.space !== space) continue;
-    if (membership.userKey) keys.add(membership.userKey);
-    const group = SEED_GROUPS.find((g) => g.name === membership.groupName);
-    group?.userKeys.forEach((key) => keys.add(key));
-  }
-  return keys;
-}
-
-function userKeysWithGrants(grants: SeedPageGrant[]): Set<SeedUserKey> {
-  const keys = new Set<SeedUserKey>();
-  for (const grant of grants) {
-    if (grant.userKey) keys.add(grant.userKey);
-    const group = SEED_GROUPS.find((g) => g.name === grant.groupName);
+  for (const entry of entries) {
+    if (entry.userKey) keys.add(entry.userKey);
+    const group = SEED_GROUPS.find((g) => g.name === entry.groupName);
     group?.userKeys.forEach((key) => keys.add(key));
   }
   return keys;
@@ -193,13 +184,15 @@ export function deniedUserKeys(
   page: SeedPageRef,
   restrictedPages: SeedRestrictedPage[] = SEED_RESTRICTED_PAGES,
 ): SeedUserKey[] {
-  const withSpaceRole = userKeysWithSpaceRole(page.space);
+  const withSpaceRole = userKeysOf(
+    SEED_SPACE_MEMBERSHIPS.filter((m) => m.space === page.space),
+  );
   const restrictions = pageChain(page, restrictedPages).filter((p) => p.grants);
 
   return SEED_USERS.map((u) => u.key).filter((key) => {
     if (!withSpaceRole.has(key)) return true;
     return restrictions.some(
-      (restricted) => !userKeysWithGrants(restricted.grants!).has(key),
+      (restricted) => !userKeysOf(restricted.grants!).has(key),
     );
   });
 }

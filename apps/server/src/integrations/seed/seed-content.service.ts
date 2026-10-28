@@ -71,11 +71,11 @@ async function seedPageContent(
 @Injectable()
 export class SeedContentService {
   constructor(
-    @InjectKysely() private db: KyselyDB,
-    private pageRepo: PageRepo,
-    private pagePermissionRepo: PagePermissionRepo,
-    private attachmentRepo: AttachmentRepo,
-    private storageService: StorageService,
+    @InjectKysely() private readonly db: KyselyDB,
+    private readonly pageRepo: PageRepo,
+    private readonly pagePermissionRepo: PagePermissionRepo,
+    private readonly attachmentRepo: AttachmentRepo,
+    private readonly storageService: StorageService,
   ) {}
 
   async seedPages(workspace: SeedWorkspaceResult): Promise<SeedPageCounts> {
