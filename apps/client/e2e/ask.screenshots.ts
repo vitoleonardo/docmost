@@ -96,6 +96,19 @@ async function sourcePage(
   };
 }
 
+async function mockAssistantStatus(
+  page: Page,
+  status: "available" | "unavailable",
+) {
+  await page.route("**/api/ai/status", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ data: { status }, success: true, status: 200 }),
+    }),
+  );
+}
+
 function eventStream(events: object[]) {
   return events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join("");
 }
@@ -147,6 +160,7 @@ test.describe("WS asks the wiki", () => {
 
   test.beforeEach(async ({ page }) => {
     await setLocale(page, "de-DE");
+    await mockAssistantStatus(page, "available");
   });
 
   test.afterEach(async ({ page }) => {
@@ -221,17 +235,7 @@ test.describe("WS asks the wiki", () => {
     page,
   }, testInfo) => {
     const pages = await allgemeinPages(page);
-    await page.route("**/api/ai/status", (route) =>
-      route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({
-          data: { status: "unavailable" },
-          success: true,
-          status: 200,
-        }),
-      }),
-    );
+    await mockAssistantStatus(page, "unavailable");
     await openPanelOnAnotherPage(page, pages);
 
     await expect(
