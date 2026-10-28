@@ -1,4 +1,7 @@
 import json
+import socket
+import threading
+import time
 from collections.abc import Callable, Iterator
 
 import httpx
@@ -26,7 +29,7 @@ def chat_model(
         BASE_URL,
         "qwen3:8b",
         http=httpx.Client(transport=httpx.MockTransport(handler)),
-        **({} if clock is None else {"clock": clock}),
+        clock=time.monotonic if clock is None else clock,
     )
 
 
@@ -161,6 +164,49 @@ def test_ask_ac68_text_that_starts_within_60_seconds_may_continue_past_them():
 
     assert list(model.stream(MESSAGES)) == ["Text", "mehr"]
     assert clock.now == 118
+
+
+@pytest.fixture
+def silent_after_an_empty_chunk_port() -> Iterator[int]:
+    server = socket.socket()
+    server.bind(("127.0.0.1", 0))
+    server.listen(1)
+    release = threading.Event()
+
+    def serve() -> None:
+        connection, _ = server.accept()
+        connection.recv(65536)
+        connection.sendall(
+            b"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\n"
+            b"Transfer-Encoding: chunked\r\n\r\n"
+        )
+        empty_chunk = ROLE_ONLY_CHUNK
+        connection.sendall(f"{len(empty_chunk):x}\r\n".encode() + empty_chunk + b"\r\n")
+        release.wait(30)
+        connection.close()
+
+    threading.Thread(target=serve, daemon=True).start()
+    try:
+        yield server.getsockname()[1]
+    finally:
+        release.set()
+        server.close()
+
+
+def test_ask_ac68_an_empty_chunk_then_silence_fails_at_the_deadline_not_at_the_read_timeout(
+    silent_after_an_empty_chunk_port: int,
+):
+    model = ChatModel(
+        f"http://127.0.0.1:{silent_after_an_empty_chunk_port}/v1",
+        "qwen3:8b",
+        http=httpx.Client(timeout=httpx.Timeout(3.0)),
+        first_text_deadline_seconds=0.5,
+    )
+    started = time.monotonic()
+    with pytest.raises(ModelUnavailable) as error:
+        list(model.stream(MESSAGES))
+    assert time.monotonic() - started < 2
+    assert "no answer text within" in error.value.cause
 
 
 def test_ask_ac69_error_after_first_delta_keeps_the_text_then_raises():

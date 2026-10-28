@@ -136,6 +136,7 @@ class AskPipeline:
         token_space_ids: Sequence[str],
         user_token: str,
     ) -> Generator[Event]:
+        self._conversations.touch(user_id, request.conversation_id)
         space_ids = scope_space_ids(token_space_ids, request.space_id)
         if not space_ids:
             run.outcome = Outcome.NO_SOURCE

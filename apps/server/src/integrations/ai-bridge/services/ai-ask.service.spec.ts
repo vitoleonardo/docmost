@@ -862,16 +862,16 @@ describe('AiAskService', () => {
     });
 
     describe('history confirmation', () => {
-      it('ASK-AC56: confirms the turn with both tokens only after the sources event was taken', async () => {
+      it('ASK-AC56: confirms the turn with both tokens before the sources event is sent', async () => {
         answerCiting([citation(1, PAGE_BANDS, ['Bänder'])]);
         const iterator = (await ask())[Symbol.asyncIterator]();
 
         expect((await iterator.next()).value).toMatchObject({ type: 'delta' });
+        expect(confirmRequests()).toEqual([]);
         expect((await iterator.next()).value).toMatchObject({
           type: 'sources',
         });
-        expect(confirmRequests()).toEqual([]);
-        expect((await iterator.next()).done).toBe(true);
+        expect(confirmRequests()).toHaveLength(1);
 
         const [confirm] = confirmRequests();
         expect(JSON.parse(confirm.body)).toEqual({
@@ -903,7 +903,7 @@ describe('AiAskService', () => {
         expect(confirmRequests()).toEqual([]);
       });
 
-      it('ASK-AC56: a client that stops before the sources event leaves the turn unconfirmed', async () => {
+      it('ASK-AC56: a client that stops before the final check ended leaves the turn unconfirmed', async () => {
         const abort = new AbortController();
         answerCiting([citation(1, PAGE_BANDS, [])]);
         const iterator = (await ask({}, abort.signal))[Symbol.asyncIterator]();

@@ -10,14 +10,14 @@ import type {
   IAskTurn,
 } from "@/features/ai-assistant/types/ai-assistant.types.ts";
 
-const emptyConversation = (scope: AskScope): IAskConversation => ({
+const emptyConversation = (): IAskConversation => ({
   conversationId: crypto.randomUUID(),
-  scope,
+  scope: { kind: "all" },
   turns: [],
   unavailable: false,
 });
 
-const askConversationAtom = atom<IAskConversation>(emptyConversation({ kind: "all" }));
+const askConversationAtom = atom<IAskConversation>(emptyConversation());
 const runningAskAtom = atom(null as AbortController | null);
 
 function requestBodyOf(conversation: IAskConversation, question: string): IAskRequest {
@@ -116,7 +116,7 @@ export function useAskConversation() {
   const newConversation = useCallback(() => {
     store.get(runningAskAtom)?.abort();
     store.set(runningAskAtom, null);
-    store.set(askConversationAtom, (current) => emptyConversation(current.scope));
+    store.set(askConversationAtom, emptyConversation());
   }, [store]);
 
   const setScope = useCallback(

@@ -257,7 +257,7 @@ describe("useAskConversation", () => {
     expect(second.result.current.turns[0].status).toBe("stopped");
   });
 
-  it("ASK-AC50: a new conversation aborts the answer, clears turns, renews the id and keeps the scope", async () => {
+  it("ASK-AC50: a new conversation aborts the answer, clears turns, renews the id and resets the scope to all spaces", async () => {
     mockStreamingAsk();
     const { result } = setup();
     act(() => result.current.setScope({ kind: "space", spaceId: "space-it" }));
@@ -279,7 +279,8 @@ describe("useAskConversation", () => {
     expect(result.current.turns).toHaveLength(1);
     expect(result.current.turns[0].question).toBe("Zwei");
     expect(runs[1].body.conversationId).not.toBe(firstId);
-    expect(result.current.scope).toEqual({ kind: "space", spaceId: "space-it" });
+    expect(result.current.scope).toEqual({ kind: "all" });
+    expect(runs[1].body.spaceId).toBeUndefined();
   });
 
   it("ASK-AC50: follow-up questions reuse the conversation id", async () => {

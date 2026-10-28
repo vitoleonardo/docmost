@@ -20,7 +20,12 @@ from ai_service.bridge_client import (
     BridgeRefused,
     BridgeUnavailable,
 )
-from ai_service.conversations import ConversationStore, Turn
+from ai_service.conversations import (
+    HISTORY_TTL_SECONDS,
+    ConversationStore,
+    Turn,
+    conversation_key,
+)
 from ai_service.embedding import EmbeddingFailed
 from ai_service.index_store import IndexStore, SearchHit, StoredSection
 from ai_service.inference import ChatModel, ModelUnavailable
@@ -661,6 +666,49 @@ def test_ask_ac55_history_of_another_user_is_not_loaded(harness: Harness):
 
     assert "Fremde" not in harness.prompt()
     assert harness.search.calls[0][0] == "Eigene Frage?"
+
+
+def history_key() -> str:
+    return conversation_key(USER_ID, CONVERSATION_ID)
+
+
+def test_ask_ac53_a_question_that_ends_in_no_source_extends_the_expiry(harness: Harness):
+    remember(harness, Turn("Alte Frage?", "Alte Antwort [1]", [page_id(1)]))
+    harness.redis.expire(history_key(), 100)
+    harness.search.hits = []
+
+    assert harness.run() == [{"type": "no_source"}]
+
+    assert harness.redis.ttl(history_key()) == HISTORY_TTL_SECONDS
+
+
+def test_ask_ac53_a_question_that_fails_extends_the_expiry(harness: Harness):
+    remember(harness, Turn("Alte Frage?", "Alte Antwort [1]", [page_id(1)]))
+    harness.redis.expire(history_key(), 100)
+    harness.search.hits = [hit(1)]
+    harness.bridge.viewable = {page_id(1)}
+    harness.model.failure = ModelUnavailable("HTTP 503")
+
+    harness.run()
+
+    assert harness.redis.ttl(history_key()) == HISTORY_TTL_SECONDS
+
+
+def test_ask_ac53_a_question_outside_every_space_extends_the_expiry(harness: Harness):
+    remember(harness, Turn("Alte Frage?", "Alte Antwort [1]", [page_id(1)]))
+    harness.redis.expire(history_key(), 100)
+
+    harness.run(space_ids=[])
+
+    assert harness.redis.ttl(history_key()) == HISTORY_TTL_SECONDS
+
+
+def test_ask_ac53_a_question_does_not_create_the_conversation(harness: Harness):
+    harness.search.hits = []
+
+    harness.run()
+
+    assert harness.redis.exists(history_key()) == 0
 
 
 def test_ask_ac56_an_answer_without_a_valid_citation_is_no_source_and_not_stored(

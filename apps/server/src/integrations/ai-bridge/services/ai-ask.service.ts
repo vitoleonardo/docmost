@@ -1,7 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { SpaceRepo } from '@docmost/db/repos/space/space.repo';
 import { Page, Space, User } from '@docmost/db/types/entity.types';
-import { jsonToMarkdown } from '../../../collaboration/collaboration.util';
 import { EnvironmentService } from '../../environment/environment.service';
 import { AiBridgeError } from '../ai-bridge.errors';
 import { AiAskDto } from '../dto/ai-ask.dto';
@@ -14,8 +13,7 @@ import {
   AiServiceUnreachableError,
 } from './ai-service.client';
 import { AiTokenService } from './ai-token.service';
-
-const MARKDOWN_HEADING = /^ {0,3}(#{1,6})(?:[ \t]+(.*?))?(?:[ \t]+#+)?[ \t]*$/;
+import { headingAnchor } from './heading-anchor';
 
 interface AiAskSource {
   number: number;
@@ -39,12 +37,6 @@ const MODEL_UNAVAILABLE: AiAskEvent = {
   type: 'error',
   code: 'model_unavailable',
 };
-
-interface ProseMirrorNode {
-  type?: string;
-  attrs?: { id?: unknown; level?: unknown };
-  content?: ProseMirrorNode[];
-}
 
 @Injectable()
 export class AiAskService {
@@ -127,7 +119,6 @@ export class AiAskService {
           continue;
         }
         const final = await this.finalEvent(user, event);
-        yield final;
         if (
           event.type === 'citations' &&
           final.type === 'sources' &&
@@ -135,6 +126,7 @@ export class AiAskService {
         ) {
           await this.confirmTurn(user, conversationId, event.turnId);
         }
+        yield final;
         return;
       }
       this.logger.warn('AI service ended the answer without a final event');
@@ -228,46 +220,4 @@ export class AiAskService {
 function pageUrl(spaceSlug: string, slugId: string, anchor?: string): string {
   const url = `/s/${spaceSlug}/p/${slugId}`;
   return anchor ? `${url}#${anchor}` : url;
-}
-
-function headingAnchor(
-  content: unknown,
-  headingPath: string[],
-): string | undefined {
-  if (headingPath.length === 0) return undefined;
-  let stack: { level: number; title: string }[] = [];
-  const find = (nodes: ProseMirrorNode[]): string | undefined => {
-    for (const node of nodes) {
-      if (node.type === 'heading') {
-        const level = Number(node.attrs?.level);
-        if (!Number.isInteger(level)) continue;
-        stack = [
-          ...stack.filter((entry) => entry.level < level),
-          { level, title: headingTitle(node) },
-        ];
-        const id = node.attrs?.id;
-        if (typeof id === 'string' && id && samePath(stack, headingPath)) {
-          return id;
-        }
-        continue;
-      }
-      if (node.type === 'blockquote') continue;
-      const found = find(node.content ?? []);
-      if (found) return found;
-    }
-    return undefined;
-  };
-  return find((content as ProseMirrorNode | null)?.content ?? []);
-}
-
-function headingTitle(node: ProseMirrorNode): string {
-  const markdown = jsonToMarkdown({ type: 'doc', content: [node] }).trim();
-  return MARKDOWN_HEADING.exec(markdown)?.[2]?.trim() ?? '';
-}
-
-function samePath(stack: { title: string }[], headingPath: string[]): boolean {
-  return (
-    stack.length === headingPath.length &&
-    stack.every((entry, index) => entry.title === headingPath[index])
-  );
 }

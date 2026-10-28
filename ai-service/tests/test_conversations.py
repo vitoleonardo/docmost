@@ -111,6 +111,19 @@ def test_ask_ac53_append_sets_and_resets_ttl(redis_client: Redis) -> None:
     assert redis_client.ttl(key()) == HISTORY_TTL_SECONDS
 
 
+def test_ask_ac53_touch_resets_the_ttl_without_creating_the_conversation(
+    redis_client: Redis,
+) -> None:
+    store = ConversationStore(redis_client)
+    store.touch(USER_A, CONVERSATION)
+    assert redis_client.exists(key()) == 0
+
+    remember(store, 1)
+    redis_client.expire(key(), 100)
+    store.touch(USER_A, CONVERSATION)
+    assert redis_client.ttl(key()) == HISTORY_TTL_SECONDS
+
+
 def test_ask_ac53_expired_conversation_loads_empty(redis_client: Redis) -> None:
     store = ConversationStore(redis_client)
     remember(store, 1)

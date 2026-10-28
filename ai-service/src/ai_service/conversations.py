@@ -82,6 +82,9 @@ class ConversationStore:
         entries = cast(list[str], self._redis.lrange(key, 0, -1))
         return [stored.turn for stored in stored_turns(key, entries) if stored.confirmed]
 
+    def touch(self, user_id: str, conversation_id: str) -> None:
+        self._redis.expire(conversation_key(user_id, conversation_id), HISTORY_TTL_SECONDS)
+
     def append(self, user_id: str, conversation_id: str, turn: Turn) -> str:
         key = conversation_key(user_id, conversation_id)
         turn_id = str(uuid.uuid4())
