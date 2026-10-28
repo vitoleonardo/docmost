@@ -26,7 +26,7 @@ trap 'rm -rf "$tmp"' EXIT
 # --- parsers -------------------------------------------------------------------
 
 junit() {
-  awk '
+  tr -d '\000' <"$1" | awk '
     function attr(s, key,    m) {
       if (!match(s, "[ \t\r\n]" key "=\"[^\"]*\"")) return ""
       m = substr(s, RSTART + length(key) + 3, RLENGTH - length(key) - 4)
@@ -57,7 +57,7 @@ junit() {
       }
     }
     END { emit(); for (k in st) print k "\t" st[k] }
-  ' "$1" | sort
+  ' | sort
 }
 
 # Diagnostics per file. Understands "file:line[:col]" (ruff, mypy, biome, eslint unix, pyright, also indented),

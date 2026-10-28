@@ -488,7 +488,7 @@ lint	apps/client	src/features/user/components/page-state-pref.tsx	1
 lint	apps/client	src/features/workspace/components/settings/components/workspace-default-page-edit-mode.tsx	1
 lint	apps/client	src/pages/settings/workspace/workspace-members.tsx	1
 coverage	apps/client	10.69
-test	apps/server		pass
+test	apps/server	sanitizeFileName default (storage-safe) strips illegal chars from "nullbyte.txt" → "nullbyte.txt"::sanitizeFileName default (storage-safe) strips illegal chars from "nullbyte.txt" → "nullbyte.txt"	pass
 test	apps/server	A256CBC-HS512 authenticates the additional data::A256CBC-HS512 authenticates the additional data	pass
 test	apps/server	A256CBC-HS512 decrypts the RFC 7518 ciphertext and tag::A256CBC-HS512 decrypts the RFC 7518 ciphertext and tag	pass
 test	apps/server	A256CBC-HS512 matches the RFC 7518 encryption vector::A256CBC-HS512 matches the RFC 7518 encryption vector	pass
