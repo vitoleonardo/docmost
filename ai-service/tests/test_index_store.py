@@ -1,6 +1,4 @@
-from collections.abc import Iterator
 from dataclasses import replace
-from pathlib import Path
 
 import pytest
 
@@ -16,22 +14,10 @@ from tests.index_db import (
     index_page,
     later,
     make_entry,
-    migrated_index_store,
     page_id,
 )
 
 pytestmark = pytest.mark.integration
-
-
-@pytest.fixture
-def store(tmp_path: Path) -> Iterator[IndexStore]:
-    with migrated_index_store(tmp_path) as index_store:
-        yield index_store
-
-
-@pytest.fixture
-def embedder() -> HashingEmbedder:
-    return HashingEmbedder()
 
 
 def pdf_section(

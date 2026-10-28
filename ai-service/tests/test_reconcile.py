@@ -3,7 +3,6 @@ import threading
 import time
 from collections.abc import Callable, Iterator
 from contextlib import nullcontext
-from pathlib import Path
 
 import fakeredis
 import httpx
@@ -15,6 +14,7 @@ from ai_service.index_store import IndexStore, PageEntry
 from ai_service.indexer import Indexer
 from ai_service.jobs import JobConsumer, WriterLock, enqueue_job
 from ai_service.reconcile import ReconcileAborted, ReconcileResult, reconcile
+from tests.conftest import warnings
 from tests.fake_bridge import (
     EMPTY_PAGE,
     PDF_FILE_NAME,
@@ -36,7 +36,6 @@ from tests.index_db import (
     SPACE_C,
     WORKSPACE_A,
     later,
-    migrated_index_store,
     page_id,
 )
 from tests.test_db_role import AI_URL
@@ -44,12 +43,6 @@ from tests.test_db_role import AI_URL
 pytestmark = pytest.mark.integration
 
 LOCK_WAIT_SECONDS = 0.5
-
-
-@pytest.fixture
-def store(tmp_path: Path) -> Iterator[IndexStore]:
-    with migrated_index_store(tmp_path) as index_store:
-        yield index_store
 
 
 @pytest.fixture
@@ -61,11 +54,6 @@ def lock_conn() -> Iterator[psycopg.Connection]:
 @pytest.fixture
 def writer_lock(lock_conn: psycopg.Connection) -> WriterLock:
     return lambda: index_writer_lock(lock_conn)
-
-
-@pytest.fixture
-def embedder() -> HashingEmbedder:
-    return HashingEmbedder()
 
 
 @pytest.fixture
@@ -111,10 +99,6 @@ def index_snapshot(store: IndexStore) -> list[object]:
 def space_of(store: IndexStore, number: int) -> str | None:
     entry = store.get_entry(page_id(number))
     return None if entry is None else entry.space_id
-
-
-def warnings(caplog: pytest.LogCaptureFixture) -> list[str]:
-    return [record.getMessage() for record in caplog.records if record.levelno == logging.WARNING]
 
 
 def messages(caplog: pytest.LogCaptureFixture) -> list[str]:

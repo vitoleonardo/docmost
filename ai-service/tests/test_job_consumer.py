@@ -2,10 +2,9 @@ import json
 import logging
 import threading
 import time
-from collections.abc import Callable, Iterator
+from collections.abc import Callable
 from contextlib import nullcontext
 from dataclasses import dataclass, field
-from pathlib import Path
 
 import fakeredis
 import httpx
@@ -13,7 +12,7 @@ import psycopg
 import pytest
 from redis import Redis
 
-from ai_service.bridge_client import PAGE_CONTENT_PATH, BridgeClient
+from ai_service.bridge_client import PAGE_CONTENT_PATH
 from ai_service.index_lock import index_writer_lock
 from ai_service.index_store import IndexStore, StoredSection
 from ai_service.indexer import Indexer
@@ -25,6 +24,8 @@ from ai_service.jobs import (
     enqueue_job,
 )
 from ai_service.search import search_index
+from tests.conftest import FakeClock, warnings
+from tests.fake_bridge import TOKEN, mock_client, refuse
 from tests.hashing_embedder import HashingEmbedder
 from tests.index_db import (
     SPACE_A,
@@ -35,14 +36,13 @@ from tests.index_db import (
     WORKSPACE_B,
     attachment_id,
     index_page,
+    indexed_ids,
     make_entry,
-    migrated_index_store,
     page_id,
 )
 from tests.test_contract import CONTRACT
 from tests.test_db_role import AI_URL
 
-TOKEN = "test-service-token-jobs"
 GROUP = "indexer"
 SECRET_TITLE = "Geheimtitel Quartalszahlen"
 SECRET_TEXT = "Vertrauliche Umsatzzahlen stehen nur hier"
@@ -93,23 +93,6 @@ class FakeWiki:
         )
 
 
-@dataclass
-class FakeClock:
-    now: float = 0.0
-    sleeps: list[float] = field(default_factory=list)
-    on_sleep: Callable[[], None] | None = None
-
-    def sleep(self, seconds: float) -> None:
-        self.sleeps.append(seconds)
-        self.now += seconds
-        if self.on_sleep is not None:
-            self.on_sleep()
-
-
-def refuse() -> httpx.Response:
-    raise httpx.ConnectError("connection refused")
-
-
 def time_out() -> httpx.Response:
     raise httpx.ReadTimeout("no answer")
 
@@ -133,24 +116,8 @@ def redis(server: fakeredis.FakeServer) -> Redis:
 
 
 @pytest.fixture
-def store(tmp_path: Path) -> Iterator[IndexStore]:
-    with migrated_index_store(tmp_path) as index_store:
-        yield index_store
-
-
-@pytest.fixture
-def embedder() -> HashingEmbedder:
-    return HashingEmbedder()
-
-
-@pytest.fixture
 def wiki() -> FakeWiki:
     return FakeWiki()
-
-
-@pytest.fixture
-def clock() -> FakeClock:
-    return FakeClock()
 
 
 ConsumerFactory = Callable[..., JobConsumer]
@@ -165,9 +132,7 @@ def make_consumer(
         index_store: IndexStore = store,
         writer_lock: WriterLock = nullcontext,
     ) -> JobConsumer:
-        transport = httpx.MockTransport(wiki.handle)
-        http = httpx.Client(base_url="http://wiki.test", transport=transport)
-        indexer = Indexer(BridgeClient("http://wiki.test", TOKEN, http), index_store, embedder)
+        indexer = Indexer(mock_client(wiki.handle), index_store, embedder)
         return JobConsumer(redis_client, indexer, index_store, writer_lock, sleep=clock.sleep)
 
     return make
@@ -210,14 +175,6 @@ def seed(
         1,
     )
     assert store.replace_page(entry, [*sections, pdf])
-
-
-def indexed_ids(store: IndexStore) -> list[str]:
-    return [entry.page_id for entry in store.list_entries()]
-
-
-def warnings(caplog: pytest.LogCaptureFixture) -> list[str]:
-    return [record.getMessage() for record in caplog.records if record.levelno == logging.WARNING]
 
 
 def test_index_ac54_required_fields_per_job_equal_the_contract_table():

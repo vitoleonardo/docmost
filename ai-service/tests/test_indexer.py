@@ -1,9 +1,7 @@
 import json
 import logging
-from collections.abc import Iterator
 from dataclasses import dataclass, field
 from datetime import datetime
-from pathlib import Path
 
 import httpx
 import pytest
@@ -11,13 +9,14 @@ import pytest
 from ai_service.bridge_client import (
     ATTACHMENT_PATH,
     PAGE_CONTENT_PATH,
-    BridgeClient,
     BridgeUnavailable,
 )
 from ai_service.index_store import IndexStore
 from ai_service.indexer import Indexer, IndexOutcome
 from ai_service.search import search_index
 from ai_service.sections import MAX_PDF_BYTES
+from tests.conftest import warnings
+from tests.fake_bridge import TOKEN, mock_client
 from tests.hashing_embedder import HashingEmbedder
 from tests.index_db import (
     SPACE_A,
@@ -25,14 +24,11 @@ from tests.index_db import (
     WORKSPACE_A,
     attachment_id,
     later,
-    migrated_index_store,
     page_id,
 )
 from tests.pdf_fixtures import build_blank_pdf, build_pdf
 
 pytestmark = pytest.mark.integration
-
-TOKEN = "test-service-token-xyz"
 
 
 @dataclass
@@ -88,30 +84,13 @@ class FakeWiki:
 
 
 @pytest.fixture
-def store(tmp_path: Path) -> Iterator[IndexStore]:
-    with migrated_index_store(tmp_path) as index_store:
-        yield index_store
-
-
-@pytest.fixture
-def embedder() -> HashingEmbedder:
-    return HashingEmbedder()
-
-
-@pytest.fixture
 def wiki() -> FakeWiki:
     return FakeWiki()
 
 
 @pytest.fixture
 def indexer(wiki: FakeWiki, store: IndexStore, embedder: HashingEmbedder) -> Indexer:
-    http = httpx.Client(base_url="http://wiki.test", transport=httpx.MockTransport(wiki.handle))
-    return Indexer(
-        BridgeClient("http://wiki.test", TOKEN, http),
-        store,
-        embedder,
-        logging.getLogger("ai_service.indexer"),
-    )
+    return Indexer(mock_client(wiki.handle), store, embedder)
 
 
 def top_page_ids(
@@ -204,8 +183,7 @@ def test_index_ac31_a_pdf_indexed_with_another_model_is_requested_again(
     indexer.index_page(page_id(1))
     wiki.attachment_requests.clear()
     other = HashingEmbedder(model_name="other-model")
-    http = httpx.Client(base_url="http://wiki.test", transport=httpx.MockTransport(wiki.handle))
-    Indexer(BridgeClient("http://wiki.test", TOKEN, http), store, other).index_page(page_id(1))
+    Indexer(mock_client(wiki.handle), store, other).index_page(page_id(1))
     assert wiki.attachment_requests == [identifier]
 
 
@@ -273,8 +251,7 @@ def test_index_ac64_a_pdf_over_the_size_limit_is_not_requested_and_the_limit_is_
 
     assert wiki.attachment_requests == []
     assert all_text(store) == ["Seitentext bleibt."]
-    warnings = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
-    [warning] = warnings
+    [warning] = warnings(caplog)
     assert identifier in warning
     assert "20971520" in warning
 
@@ -317,7 +294,7 @@ def test_index_ac63_a_pdf_without_text_layer_is_skipped_with_a_warning_naming_it
     indexer.index_page(page_id(1))
 
     assert all_text(store) == ["Seitentext bleibt."]
-    [warning] = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
+    [warning] = warnings(caplog)
     assert identifier in warning and "no text layer" in warning
 
 
@@ -327,8 +304,7 @@ def test_index_ac21_an_unreachable_bridge_raises_unavailable_and_leaves_the_inde
     def refuse(request: httpx.Request) -> httpx.Response:
         raise httpx.ConnectError("refused")
 
-    http = httpx.Client(base_url="http://wiki.test", transport=httpx.MockTransport(refuse))
-    indexer = Indexer(BridgeClient("http://wiki.test", TOKEN, http), store, embedder)
+    indexer = Indexer(mock_client(refuse), store, embedder)
     with pytest.raises(BridgeUnavailable):
         indexer.index_page(page_id(1))
     assert store.list_entries() == []

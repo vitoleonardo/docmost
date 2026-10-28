@@ -29,6 +29,11 @@ WIKI_URL = "http://wiki.test"
 PDF_FILE_NAME = "reisekosten.pdf"
 
 
+def mock_client(handler: Callable[[httpx.Request], httpx.Response]) -> BridgeClient:
+    http = httpx.Client(base_url=WIKI_URL, transport=httpx.MockTransport(handler))
+    return BridgeClient(WIKI_URL, TOKEN, http)
+
+
 @dataclass
 class WikiPage:
     space_id: str
@@ -54,8 +59,7 @@ class FakeBridge:
     attachment_requests: list[str] = field(default_factory=list)
 
     def client(self) -> BridgeClient:
-        http = httpx.Client(base_url=WIKI_URL, transport=httpx.MockTransport(self.handle))
-        return BridgeClient(WIKI_URL, TOKEN, http)
+        return mock_client(self.handle)
 
     def listed_ids(self) -> list[str]:
         return sorted(identifier for identifier, page in self.pages.items() if page.listed)

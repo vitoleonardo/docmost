@@ -69,5 +69,9 @@ def index_page(
     return sections
 
 
+def indexed_ids(store: IndexStore) -> list[str]:
+    return [entry.page_id for entry in store.list_entries()]
+
+
 def later(minutes: int) -> datetime:
     return UPDATED_AT + timedelta(minutes=minutes)

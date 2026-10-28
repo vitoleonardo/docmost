@@ -20,10 +20,16 @@ from ai_service.jobs import enqueue_job
 from ai_service.migrations_check import MIGRATION_COMMAND
 from ai_service.settings import WorkerSettings
 from ai_service.worker import RECONCILE_INTERVAL_SECONDS, Runtime, Worker
-from tests.conftest import BRIDGE_KEY, SERVICE_CREDENTIAL, TEST_REDIS_URL
+from tests.conftest import BRIDGE_KEY, SERVICE_CREDENTIAL, TEST_REDIS_URL, FakeClock, warnings
 from tests.fake_bridge import WIKI_URL, FakeBridge, refuse, seed_shaped_bridge
 from tests.hashing_embedder import HashingEmbedder
-from tests.index_db import WORKSPACE_A, index_page, make_entry, migrated_index_store, page_id
+from tests.index_db import (
+    WORKSPACE_A,
+    index_page,
+    indexed_ids,
+    make_entry,
+    page_id,
+)
 from tests.test_db_role import ADMIN_URL, AI_URL
 from tests.test_migrations import fresh_ai_schema, migrate
 from tests.test_settings import IsolatedWorkerSettings
@@ -39,19 +45,6 @@ SETTING_NAMES = [
 ]
 UNKNOWN_MODEL = "no-such-org/no-such-embedding-model"
 BLOCK_MS = 10
-
-
-@dataclass
-class FakeClock:
-    now: float = 0.0
-    sleeps: list[float] = field(default_factory=list)
-
-    def __call__(self) -> float:
-        return self.now
-
-    def sleep(self, seconds: float) -> None:
-        self.sleeps.append(seconds)
-        self.now += seconds
 
 
 @dataclass
@@ -110,20 +103,6 @@ def closed_port_url() -> str:
     return f"http://127.0.0.1:{port}"
 
 
-def indexed_ids(store: IndexStore) -> list[str]:
-    return [entry.page_id for entry in store.list_entries()]
-
-
-def warnings(caplog: pytest.LogCaptureFixture) -> list[str]:
-    return [record.getMessage() for record in caplog.records if record.levelno == logging.WARNING]
-
-
-@pytest.fixture
-def store(tmp_path: Path) -> Iterator[IndexStore]:
-    with migrated_index_store(tmp_path) as index_store:
-        yield index_store
-
-
 @pytest.fixture
 def bridge() -> FakeBridge:
     return seed_shaped_bridge()
@@ -132,11 +111,6 @@ def bridge() -> FakeBridge:
 @pytest.fixture
 def redis() -> Redis:
     return fakeredis.FakeRedis(decode_responses=True)
-
-
-@pytest.fixture
-def clock() -> FakeClock:
-    return FakeClock()
 
 
 @pytest.fixture

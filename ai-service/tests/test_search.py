@@ -1,6 +1,5 @@
-from collections.abc import Iterator, Sequence
+from collections.abc import Sequence
 from dataclasses import fields
-from pathlib import Path
 
 import pytest
 
@@ -14,7 +13,6 @@ from tests.index_db import (
     attachment_id,
     index_page,
     make_entry,
-    migrated_index_store,
     page_id,
 )
 
@@ -29,17 +27,6 @@ SEARCH_FIELDS = {
     "file_name",
     "pdf_page",
 }
-
-
-@pytest.fixture
-def store(tmp_path: Path) -> Iterator[IndexStore]:
-    with migrated_index_store(tmp_path) as index_store:
-        yield index_store
-
-
-@pytest.fixture
-def embedder() -> HashingEmbedder:
-    return HashingEmbedder()
 
 
 def index_many_sections(store: IndexStore, embedder: HashingEmbedder, count: int) -> None:
