@@ -25,12 +25,13 @@ def format_source(number: int, hit: SearchHit) -> str:
 def build_messages(
     question: str,
     sources: Sequence[SearchHit],
-    history: Sequence[tuple[str, str]],
+    history: Sequence[tuple[str, str | None]],
 ) -> list[dict[str, str]]:
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
     for earlier_question, earlier_answer in history[-MAX_HISTORY_TURNS:]:
         messages.append({"role": "user", "content": earlier_question})
-        messages.append({"role": "assistant", "content": earlier_answer})
+        if earlier_answer is not None:
+            messages.append({"role": "assistant", "content": earlier_answer})
     blocks = "\n\n".join(format_source(number, hit) for number, hit in enumerate(sources, start=1))
     messages.append({"role": "user", "content": f"Quellen:\n\n{blocks}\n\nFrage: {question}"})
     return messages

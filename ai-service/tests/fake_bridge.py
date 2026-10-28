@@ -7,8 +7,10 @@ import httpx
 
 from ai_service.bridge_client import (
     ATTACHMENT_PATH,
+    FILTER_PAGES_PATH,
     PAGE_CONTENT_PATH,
     PAGES_PATH,
+    USER_TOKEN_HEADER,
     BridgeClient,
 )
 from tests.conftest import SERVICE_CREDENTIAL
@@ -130,6 +132,32 @@ class FakeBridge:
                 "updatedAt": page.updated_at.isoformat(),
                 "markdown": page.markdown,
                 "attachments": page.attachments,
+            },
+        )
+
+
+@dataclass
+class FilterBridge:
+    viewable: set[str] = field(default_factory=set)
+    failure: Callable[[], httpx.Response] | None = None
+    requests: list[list[str]] = field(default_factory=list)
+    user_tokens: list[str] = field(default_factory=list)
+
+    def client(self) -> BridgeClient:
+        return mock_client(self.handle)
+
+    def handle(self, request: httpx.Request) -> httpx.Response:
+        assert request.headers["X-Service-Token"] == TOKEN
+        assert request.url.path == FILTER_PAGES_PATH
+        self.user_tokens.append(request.headers[USER_TOKEN_HEADER])
+        requested = json.loads(request.content)["pageIds"]
+        self.requests.append(requested)
+        if self.failure is not None:
+            return self.failure()
+        return httpx.Response(
+            200,
+            json={
+                "pageIds": [identifier for identifier in requested if identifier in self.viewable]
             },
         )
 
