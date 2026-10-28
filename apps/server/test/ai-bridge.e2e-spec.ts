@@ -1,4 +1,6 @@
 import { randomUUID } from 'node:crypto';
+import { createServer, IncomingMessage, Server } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -9,7 +11,9 @@ import type { PageRepo } from '@docmost/db/repos/page/page.repo';
 import type { SpaceMemberRepo } from '@docmost/db/repos/space/space-member.repo';
 import type { UserRepo } from '@docmost/db/repos/user/user.repo';
 import { JwtService } from '@nestjs/jwt';
+import type { LoggerService as Logger } from '@nestjs/common';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
+import type { AiQueueProcessor } from '../src/integrations/ai-bridge/ai-queue.processor';
 import type { AiPageAccessService } from '../src/integrations/ai-bridge/services/ai-page-access.service';
 import type { AiTokenService } from '../src/integrations/ai-bridge/services/ai-token.service';
 import type { EnvironmentService } from '../src/integrations/environment/environment.service';
@@ -51,6 +55,7 @@ const USER_KEYS = SEED_USERS.map((user) => user.key);
 interface BridgeApp {
   app: NestFastifyApplication;
   aiPageAccessService: AiPageAccessService;
+  aiQueueProcessor: AiQueueProcessor;
   aiTokenService: AiTokenService;
   environmentService: EnvironmentService;
   pageRepo: PageRepo;
@@ -70,6 +75,8 @@ function bootSeededBridge(storageRoot: string): Promise<BridgeApp> {
       await import('../src/integrations/seed/seed-content.service');
     const { AiPageAccessService } =
       await import('../src/integrations/ai-bridge/services/ai-page-access.service');
+    const { AiQueueProcessor } =
+      await import('../src/integrations/ai-bridge/ai-queue.processor');
     const { AiTokenService } =
       await import('../src/integrations/ai-bridge/services/ai-token.service');
     const { EnvironmentService } =
@@ -91,6 +98,7 @@ function bootSeededBridge(storageRoot: string): Promise<BridgeApp> {
       app,
       seed,
       aiPageAccessService: provider(AiPageAccessService),
+      aiQueueProcessor: provider(AiQueueProcessor),
       aiTokenService: provider(AiTokenService),
       environmentService: provider(EnvironmentService),
       pageRepo: provider(PageRepo),
@@ -1080,6 +1088,300 @@ describe('AI bridge page access (e2e)', () => {
             .where('id', '=', attachmentId)
             .execute();
         }
+      });
+    });
+  });
+
+  describe('assistant status and job forwarding', () => {
+    const clientAddress = `198.51.100.${Math.floor(Math.random() * 254) + 1}`;
+    const JWT_PATTERN = /eyJ[\w-]+\.[\w-]+\.[\w-]+/;
+
+    interface FakeRequest {
+      method?: string;
+      url?: string;
+      headers: IncomingMessage['headers'];
+      body: string;
+    }
+
+    type FakeMode = 'ok' | 'unauthorized' | 'error' | 'hang';
+
+    let fake: Server;
+    let fakeUrl: string;
+    let fakeMode: FakeMode;
+    let fakeRequests: FakeRequest[];
+    let urlSpy: jest.SpyInstance;
+
+    const pointAiServiceAt = (url: string) => urlSpy.mockReturnValue(url);
+
+    const closedUrl = async () => {
+      const probe = createServer();
+      await new Promise<void>((resolve) =>
+        probe.listen(0, '127.0.0.1', resolve),
+      );
+      const port = (probe.address() as AddressInfo).port;
+      await new Promise((resolve) => probe.close(resolve));
+      return `http://127.0.0.1:${port}`;
+    };
+
+    const login = async (key: SeedUserKey) => {
+      const response = await bridge.app.inject({
+        method: 'POST',
+        url: '/api/auth/login',
+        remoteAddress: clientAddress,
+        payload: { email: users[key].email, password: SEED_DEMO_PASSWORD },
+      });
+      const authToken = /authToken=([^;]+)/.exec(
+        String(response.headers['set-cookie']),
+      )?.[1];
+      expect(authToken).toBeTruthy();
+      return { cookie: `authToken=${authToken}` };
+    };
+
+    const api = (
+      path: string,
+      payload: object,
+      headers: Record<string, string> = {},
+    ) =>
+      bridge.app.inject({
+        method: 'POST',
+        url: `/api/${path}`,
+        remoteAddress: clientAddress,
+        headers,
+        payload,
+      });
+
+    const waitFor = async <T>(find: () => T | undefined, timeoutMs = 5000) => {
+      const deadline = Date.now() + timeoutMs;
+      for (;;) {
+        const found = find();
+        if (found !== undefined) return found;
+        if (Date.now() > deadline) throw new Error('timed out waiting');
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+    };
+
+    const createPage = async (
+      headers: Record<string, string>,
+      title: string,
+    ) => {
+      const response = await api(
+        'pages/create',
+        { title, spaceId: spaceId('Allgemein') },
+        headers,
+      );
+      expect(response.statusCode).toBe(200);
+      return response.json().id as string;
+    };
+
+    beforeAll(async () => {
+      fake = createServer((req, res) => {
+        const chunks: Buffer[] = [];
+        req.on('data', (chunk: Buffer) => chunks.push(chunk));
+        req.on('end', () => {
+          fakeRequests.push({
+            method: req.method,
+            url: req.url,
+            headers: req.headers,
+            body: Buffer.concat(chunks).toString('utf8'),
+          });
+          if (fakeMode === 'hang') return;
+          const serviceTokenOk =
+            req.headers['x-service-token'] === TEST_AI_SERVICE_TOKEN;
+          const userToken = String(req.headers['x-user-token'] ?? '');
+          const sessionOk =
+            req.url !== '/v1/session' || JWT_PATTERN.test(userToken);
+          const accepted = serviceTokenOk && sessionOk;
+          const status =
+            fakeMode === 'error'
+              ? 500
+              : fakeMode === 'unauthorized' || !accepted
+                ? 401
+                : req.url === '/v1/jobs'
+                  ? 202
+                  : 200;
+          res.writeHead(status, { 'content-type': 'application/json' });
+          res.end('{}');
+        });
+      });
+      await new Promise<void>((resolve) =>
+        fake.listen(0, '127.0.0.1', resolve),
+      );
+      fakeUrl = `http://127.0.0.1:${(fake.address() as AddressInfo).port}`;
+    });
+
+    afterAll(async () => {
+      fake.closeAllConnections();
+      await new Promise((resolve) => fake.close(resolve));
+    });
+
+    beforeEach(() => {
+      fakeMode = 'ok';
+      fakeRequests = [];
+      urlSpy = jest.spyOn(bridge.environmentService, 'getAiServiceUrl');
+      pointAiServiceAt(fakeUrl);
+    });
+
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    it('BRIDGE-AC37: the status endpoint answers 401 without a session', async () => {
+      const response = await api('ai/status', {});
+
+      expect(response.statusCode).toBe(401);
+      expect(fakeRequests).toHaveLength(0);
+    });
+
+    it('BRIDGE-AC1: the status endpoint answers disabled and sends nothing while the assistant is switched off', async () => {
+      const headers = await login('GF');
+      jest
+        .spyOn(bridge.environmentService, 'isAiBridgeConfigured')
+        .mockReturnValue(false);
+
+      const response = await api('ai/status', {}, headers);
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({ status: 'disabled' });
+      expect(fakeRequests).toHaveLength(0);
+    });
+
+    it('BRIDGE-AC3: the status endpoint answers available when the AI service accepts the session', async () => {
+      const response = await api('ai/status', {}, await login('GF'));
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({ status: 'available' });
+      expect(fakeRequests).toHaveLength(1);
+      expect(fakeRequests[0].url).toBe('/v1/session');
+      expect(fakeRequests[0].headers['x-service-token']).toBe(
+        TEST_AI_SERVICE_TOKEN,
+      );
+    });
+
+    it('BRIDGE-AC4: neither the status body nor its headers contain the user token sent to the AI service or any JWT', async () => {
+      const response = await api('ai/status', {}, await login('GF'));
+
+      const sentToken = String(fakeRequests[0].headers['x-user-token']);
+      expect(sentToken).toMatch(JWT_PATTERN);
+      const visible = `${response.body}${JSON.stringify(response.headers)}`;
+      expect(visible).not.toContain(sentToken);
+      expect(visible).not.toMatch(JWT_PATTERN);
+      expect(Object.keys(response.json())).toEqual(['status']);
+    });
+
+    it('BRIDGE-AC38: the status endpoint answers unavailable when the connection is refused', async () => {
+      pointAiServiceAt(await closedUrl());
+
+      const response = await api('ai/status', {}, await login('GF'));
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({ status: 'unavailable' });
+    });
+
+    it('BRIDGE-AC39: the status endpoint answers unavailable within 5 s when the AI service never answers', async () => {
+      fakeMode = 'hang';
+      const headers = await login('GF');
+      const started = Date.now();
+
+      const response = await api('ai/status', {}, headers);
+
+      expect(Date.now() - started).toBeLessThan(5000);
+      expect(response.json()).toEqual({ status: 'unavailable' });
+    }, 15_000);
+
+    it('BRIDGE-AC40: the status endpoint answers unavailable on HTTP 500', async () => {
+      fakeMode = 'error';
+
+      const response = await api('ai/status', {}, await login('GF'));
+
+      expect(response.json()).toEqual({ status: 'unavailable' });
+    });
+
+    it('BRIDGE-AC41: the status endpoint answers unavailable on HTTP 401', async () => {
+      fakeMode = 'unauthorized';
+
+      const response = await api('ai/status', {}, await login('GF'));
+
+      expect(response.json()).toEqual({ status: 'unavailable' });
+    });
+
+    it('BRIDGE-AC29: creating a page forwards page-created with the page id and workspace to the AI service within 5 s', async () => {
+      const headers = await login('GF');
+
+      const id = await createPage(headers, 'Weiterleitung AC29');
+
+      const forwarded = await waitFor(() =>
+        fakeRequests.find(
+          (request) =>
+            request.url === '/v1/jobs' &&
+            JSON.parse(request.body).data.pageIds?.includes(id),
+        ),
+      );
+      expect(forwarded.method).toBe('POST');
+      expect(forwarded.headers['x-service-token']).toBe(TEST_AI_SERVICE_TOKEN);
+      expect(JSON.parse(forwarded.body)).toEqual({
+        name: 'page-created',
+        data: { pageIds: [id], workspaceId: bridge.seed.workspaceId },
+      });
+    });
+
+    describe('with the AI service down', () => {
+      beforeEach(async () => {
+        pointAiServiceAt(await closedUrl());
+      });
+
+      it('BRIDGE-AC8: login, page create, content update and reload still work', async () => {
+        const headers = await login('GF');
+        const id = await createPage(headers, 'Offline AC8');
+
+        const update = await api(
+          'pages/update',
+          {
+            pageId: id,
+            content: '# Bearbeitet ohne KI',
+            operation: 'replace',
+            format: 'markdown',
+          },
+          headers,
+        );
+        const info = await api('pages/info', { pageId: id }, headers);
+
+        expect(update.statusCode).toBe(200);
+        expect(info.statusCode).toBe(200);
+        expect(JSON.stringify(info.json().content)).toContain(
+          'Bearbeitet ohne KI',
+        );
+      });
+
+      it('BRIDGE-AC9: GET /api/health answers 200 healthy', async () => {
+        const response = await bridge.app.inject({
+          method: 'GET',
+          url: '/api/health',
+          remoteAddress: clientAddress,
+        });
+
+        expect(response.statusCode).toBe(200);
+        expect(response.json().status).toBe('ok');
+      });
+
+      it('BRIDGE-AC68: page create still answers 200 and the failed forward is logged as a warning without content or tokens', async () => {
+        const warn = jest.spyOn(
+          (bridge.aiQueueProcessor as unknown as { logger: Logger }).logger,
+          'warn',
+        );
+        const headers = await login('GF');
+
+        const id = await createPage(headers, 'Offline AC68');
+
+        const call = await waitFor(() =>
+          warn.mock.calls.find((args) =>
+            String(args[0]).startsWith('Forwarding page-created'),
+          ),
+        );
+        const message = String(call[0]);
+        expect(message).toContain(`(pageIds: ${id})`);
+        expect(message).toContain('connection error (ECONNREFUSED)');
+        expect(message).not.toContain(TEST_AI_SERVICE_TOKEN);
+        expect(message).not.toMatch(JWT_PATTERN);
       });
     });
   });
