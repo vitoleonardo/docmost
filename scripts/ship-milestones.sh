@@ -1,9 +1,20 @@
 #!/bin/sh
 set -u
 
+cd "$(git rev-parse --show-toplevel)" || exit 2
+run_dir=.work/ship-run
+mkdir -p "$run_dir"
+if [ -z "${SHIP_MILESTONES_PINNED:-}" ]; then
+  cp scripts/ship-milestones.sh "$run_dir/ship-milestones.sh" || exit 2
+  SHIP_MILESTONES_PINNED=1 exec sh "$run_dir/ship-milestones.sh" "$@"
+fi
+
 milestones="m3:ai-bridge m4:indexing m5:ask m6:leak-tests m7:extraction m8:agent m9:request-log m10:evals"
 first_base=m2-seed-data
-run_dir=.work/ship-run
+max_session_seconds=$((4 * 3600))
+max_idle_seconds=$((20 * 60))
+max_identical_calls=6
+max_turns=500
 from=m3
 dry_run=0
 
@@ -19,9 +30,6 @@ case " $milestones " in
   *" $from:"*) ;;
   *) echo "ship-milestones: unknown milestone $from" >&2; exit 2 ;;
 esac
-
-cd "$(git rev-parse --show-toplevel)" || exit 2
-mkdir -p "$run_dir"
 
 log() {
   line="$(date '+%d.%m.%Y %H:%M') $*"
@@ -62,13 +70,63 @@ has_questions() {
   [ -f ".work/$1.md" ] && grep -q '^## Questions for the user' ".work/$1.md"
 }
 
+loop_or_limit() {
+  node -e '
+    const [file, maxTurns, maxIdentical] = process.argv.slice(1);
+    const lastCall = new Map();
+    let turns = 0;
+    for (const line of require("fs").readFileSync(file, "utf8").split("\n")) {
+      if (!line.startsWith("{")) continue;
+      let message;
+      try { message = JSON.parse(line); } catch { continue; }
+      if (message.type !== "assistant") continue;
+      const agent = message.parent_tool_use_id ?? "main";
+      if (agent === "main") turns++;
+      for (const block of message.message?.content ?? []) {
+        if (block.type !== "tool_use") continue;
+        const call = block.name + " " + JSON.stringify(block.input);
+        const previous = lastCall.get(agent);
+        const count = previous?.call === call ? previous.count + 1 : 1;
+        lastCall.set(agent, { call, count });
+        if (count >= +maxIdentical) {
+          console.log("the same tool call " + count + " times in a row: " + call.slice(0, 120));
+          process.exit(0);
+        }
+      }
+    }
+    if (turns > +maxTurns) console.log("more than " + maxTurns + " turns");
+  ' "$1" "$max_turns" "$max_identical_calls"
+}
+
+watch_session() {
+  pid=$1 file=$2 started=$(date +%s)
+  while kill -0 "$pid" 2>/dev/null; do
+    sleep 60
+    now=$(date +%s)
+    reason=
+    [ $((now - started)) -gt "$max_session_seconds" ] && reason="ran longer than $((max_session_seconds / 3600)) h"
+    [ -z "$reason" ] && [ $((now - $(stat -f %m "$file"))) -gt "$max_idle_seconds" ] &&
+      reason="no output for $((max_idle_seconds / 60)) min"
+    [ -z "$reason" ] && reason=$(loop_or_limit "$file")
+    if [ -n "$reason" ]; then
+      log "LIMIT $milestone session $attempt stopped: $reason"
+      kill "$pid" 2>/dev/null
+      wait "$pid" 2>/dev/null
+      return 1
+    fi
+  done
+  wait "$pid"
+}
+
 run_session() {
   milestone=$1 slug=$2 base=$3 branch=$4 attempt=$5
+  file=$run_dir/$milestone.$attempt.jsonl
   KIT_APPROVAL=autonomous claude -p "/ship-feature $slug ($milestone in docs/spec.md sections 8 and 9)" \
     --dangerously-skip-permissions \
     --append-system-prompt "$(headless_rules "$base" "$branch")" \
     --output-format stream-json --verbose \
-    >"$run_dir/$milestone.$attempt.jsonl" 2>"$run_dir/$milestone.$attempt.err"
+    >"$file" 2>"$run_dir/$milestone.$attempt.err" &
+  watch_session $! "$file"
 }
 
 base=$first_base
@@ -79,6 +137,12 @@ for entry in $milestones; do
   branch=$milestone-$slug
   [ "$milestone" = "$from" ] && started=1
   if [ $started -eq 0 ]; then
+    base=$branch
+    continue
+  fi
+
+  if [ $dry_run -eq 0 ] && shipped "$branch"; then
+    log "SKIP $milestone already has $(pr_url "$branch")"
     base=$branch
     continue
   fi
@@ -98,6 +162,7 @@ for entry in $milestones; do
 
   log "START $milestone on $branch (base $base)"
   for attempt in 1 2; do
+    [ -e "$run_dir/$milestone.$attempt.jsonl" ] && attempt=$attempt.$(date +%s)
     run_session "$milestone" "$slug" "$base" "$branch" "$attempt" || log "$milestone: session $attempt exited with $?"
     shipped "$branch" && break
     has_questions "$branch" && halt "$milestone: questions in .work/$branch.md"

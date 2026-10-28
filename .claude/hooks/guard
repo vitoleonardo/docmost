@@ -200,7 +200,8 @@ check "${git}branch[[:space:]][^;&|]*-D" "force-deleting a branch loses unmerged
 check "(^|[^[:alnum:]_-])(sudo|mkfs[[:alnum:].]*)[[:space:]]" "privileged or disk-level command."
 check "(^|[^[:alnum:]_-])dd[[:space:]][^;&|]*of=/dev/" "writing to a raw device."
 check "chmod[[:space:]]+-R[[:space:]]+0?777" "world-writable permissions."
-check "(^|[^[:alnum:]_-])(curl|wget|nc|ncat|ssh|scp|rsync)[[:space:]]" "network access outside the package manager."
+[ "$(.claude/bin/gate level 2>/dev/null)" = autonomous ] ||
+  check "(^|[^[:alnum:]_-])(curl|wget|nc|ncat|ssh|scp|rsync)[[:space:]]" "network access outside the package manager (allowed only at KIT_APPROVAL=autonomous)."
 check "(^|[[:space:];|&(/])(printenv|env)([[:space:]]*$|[[:space:]]*[|>;&])" "printing the environment can expose secrets."
 check "(drop[[:space:]]+(table|database|schema)|truncate[[:space:]]+table)" "destructive database statement."
 is_secret_name "$flat" && block "the command touches an environment file that may contain secrets."
