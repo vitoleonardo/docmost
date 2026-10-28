@@ -17,7 +17,7 @@ import { AiTokenService } from './ai-token.service';
 
 const MARKDOWN_HEADING = /^ {0,3}(#{1,6})(?:[ \t]+(.*?))?(?:[ \t]+#+)?[ \t]*$/;
 
-export interface AiAskSource {
+interface AiAskSource {
   number: number;
   pageId: string;
   title: string;

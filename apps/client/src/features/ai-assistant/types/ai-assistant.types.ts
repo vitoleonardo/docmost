@@ -22,7 +22,7 @@ export interface IAskSource {
   url: string;
 }
 
-export type AskStreamErrorCode = "model_unavailable";
+type AskStreamErrorCode = "model_unavailable";
 
 export type AskRequestErrorCode =
   | "invalid_request"

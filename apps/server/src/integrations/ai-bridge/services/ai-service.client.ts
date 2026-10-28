@@ -5,7 +5,7 @@ const AI_SERVICE_TIMEOUT_MS = 3000;
 
 export class AiServiceUnreachableError extends Error {}
 
-export interface AiServiceAskRequest {
+interface AiServiceAskRequest {
   question: string;
   conversationId: string;
   spaceId?: string;

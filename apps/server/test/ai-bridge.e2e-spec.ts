@@ -113,6 +113,17 @@ function bootSeededBridge(storageRoot: string): Promise<BridgeApp> {
   });
 }
 
+function expectError(
+  response: { statusCode: number; json: () => unknown },
+  status: number,
+  code: string,
+) {
+  expect({ status: response.statusCode, body: response.json() }).toEqual({
+    status,
+    body: { code, message: expect.any(String) },
+  });
+}
+
 function spaceSlug(spaceName: string) {
   return SEED_SPACES.find((space) => space.name === spaceName)!.slug;
 }
@@ -328,17 +339,6 @@ describe('AI bridge page access (e2e)', () => {
 
     const filterAs = async (token: string, pageIds: unknown[]) =>
       post('filter-pages', { pageIds }, asUser(token));
-
-    const expectError = (
-      response: { statusCode: number; json: () => unknown },
-      status: number,
-      code: string,
-    ) => {
-      expect({ status: response.statusCode, body: response.json() }).toEqual({
-        status,
-        body: { code, message: expect.any(String) },
-      });
-    };
 
     it('BRIDGE-AC14: a page moved into Geschäftsführung is dropped for WS and kept for GF', async () => {
       const id = await pageId('Willkommen bei Ostmooimooi');
@@ -1617,17 +1617,6 @@ describe('AI bridge page access (e2e)', () => {
       const ask = (body: object, headers: Record<string, string> = {}) =>
         api('ai/ask', { conversationId: CONVERSATION_ID, ...body }, headers);
 
-      const expectAskError = (
-        response: { statusCode: number; json: () => unknown },
-        status: number,
-        code: string,
-      ) => {
-        expect({ status: response.statusCode, body: response.json() }).toEqual({
-          status,
-          body: { code, message: expect.any(String) },
-        });
-      };
-
       const sseEvents = (body: string) =>
         body
           .split('\n\n')
@@ -1636,6 +1625,27 @@ describe('AI bridge page access (e2e)', () => {
             expect(frame.startsWith('data: ')).toBe(true);
             return JSON.parse(frame.slice('data: '.length));
           });
+
+      const expectWithdrawn = async (headers: Record<string, string>) => {
+        const response = await ask({ question: 'Frage' }, headers);
+
+        expect(sseEvents(response.body)).toEqual([
+          { type: 'delta', text: 'Antwort [1]' },
+          { type: 'no_source' },
+        ]);
+      };
+
+      const expectModelUnavailableAfterText = async (
+        headers: Record<string, string>,
+      ) => {
+        const response = await ask({ question: 'Frage' }, headers);
+
+        expect(response.statusCode).toBe(200);
+        expect(sseEvents(response.body)).toEqual([
+          { type: 'delta', text: 'Teil' },
+          { type: 'error', code: 'model_unavailable' },
+        ]);
+      };
 
       const ndjson = (...events: object[]) =>
         events.map((event) => `${JSON.stringify(event)}\n`).join('');
@@ -1687,7 +1697,7 @@ describe('AI bridge page access (e2e)', () => {
         ];
 
         for (const body of bodies) {
-          expectAskError(await ask(body, headers), 400, 'invalid_request');
+          expectError(await ask(body, headers), 400, 'invalid_request');
         }
         expect(askRequests()).toHaveLength(0);
       });
@@ -1696,7 +1706,7 @@ describe('AI bridge page access (e2e)', () => {
         const headers = await session('WS');
         const itId = spaceId('IT');
 
-        expectAskError(
+        expectError(
           await ask(
             { question: 'Frage', spaceId: spaceId('Geschäftsführung') },
             headers,
@@ -1704,7 +1714,7 @@ describe('AI bridge page access (e2e)', () => {
           404,
           'space_not_found',
         );
-        expectAskError(
+        expectError(
           await ask({ question: 'Frage', spaceId: randomUUID() }, headers),
           404,
           'space_not_found',
@@ -1715,7 +1725,7 @@ describe('AI bridge page access (e2e)', () => {
           .where('id', '=', itId)
           .execute();
         try {
-          expectAskError(
+          expectError(
             await ask({ question: 'Frage', spaceId: itId }, headers),
             404,
             'space_not_found',
@@ -1735,12 +1745,12 @@ describe('AI bridge page access (e2e)', () => {
         const restricted = await pageId('Umstrukturierung 2027');
         const trashed = await pageId('Bürozeiten und Erreichbarkeit');
 
-        expectAskError(
+        expectError(
           await ask({ question: 'Frage', pageId: restricted }, headers),
           404,
           'page_not_found',
         );
-        expectAskError(
+        expectError(
           await ask({ question: 'Frage', pageId: randomUUID() }, headers),
           404,
           'page_not_found',
@@ -1751,7 +1761,7 @@ describe('AI bridge page access (e2e)', () => {
           bridge.seed.workspaceId,
         );
         try {
-          expectAskError(
+          expectError(
             await ask({ question: 'Frage', pageId: trashed }, headers),
             404,
             'page_not_found',
@@ -1768,7 +1778,7 @@ describe('AI bridge page access (e2e)', () => {
           .spyOn(bridge.environmentService, 'isAiBridgeConfigured')
           .mockReturnValue(false);
 
-        expectAskError(
+        expectError(
           await ask({ question: 'Frage' }, headers),
           503,
           'assistant_disabled',
@@ -1780,7 +1790,7 @@ describe('AI bridge page access (e2e)', () => {
         const headers = await session('WS');
         pointAiServiceAt(await closedUrl());
 
-        expectAskError(
+        expectError(
           await ask({ question: 'Frage' }, headers),
           503,
           'assistant_unavailable',
@@ -1792,7 +1802,7 @@ describe('AI bridge page access (e2e)', () => {
 
         for (const mode of ['unauthorized', 'error'] as const) {
           fakeMode = mode;
-          expectAskError(
+          expectError(
             await ask({ question: 'Frage' }, headers),
             503,
             'assistant_unavailable',
@@ -1912,12 +1922,7 @@ describe('AI bridge page access (e2e)', () => {
         );
 
         try {
-          const response = await ask({ question: 'Frage' }, headers);
-
-          expect(sseEvents(response.body)).toEqual([
-            { type: 'delta', text: 'Antwort [1]' },
-            { type: 'no_source' },
-          ]);
+          await expectWithdrawn(headers);
         } finally {
           await bridge.pageRepo.restorePage(travel, bridge.seed.workspaceId);
         }
@@ -1940,12 +1945,7 @@ describe('AI bridge page access (e2e)', () => {
         );
 
         try {
-          const response = await ask({ question: 'Frage' }, headers);
-
-          expect(sseEvents(response.body)).toEqual([
-            { type: 'delta', text: 'Antwort [1]' },
-            { type: 'no_source' },
-          ]);
+          await expectWithdrawn(headers);
         } finally {
           await bridge.spaceMemberRepo.insertSpaceMember(member);
         }
@@ -1968,12 +1968,7 @@ describe('AI bridge page access (e2e)', () => {
         });
 
         try {
-          const response = await ask({ question: 'Frage' }, headers);
-
-          expect(sseEvents(response.body)).toEqual([
-            { type: 'delta', text: 'Antwort [1]' },
-            { type: 'no_source' },
-          ]);
+          await expectWithdrawn(headers);
         } finally {
           await db
             .deleteFrom('pageAccess')
@@ -1994,13 +1989,7 @@ describe('AI bridge page access (e2e)', () => {
           );
         };
 
-        const response = await ask({ question: 'Frage' }, headers);
-
-        expect(response.statusCode).toBe(200);
-        expect(sseEvents(response.body)).toEqual([
-          { type: 'delta', text: 'Teil' },
-          { type: 'error', code: 'model_unavailable' },
-        ]);
+        await expectModelUnavailableAfterText(headers);
       });
 
       it('ASK-AC69: a stream that breaks off after text ends with model_unavailable, not a 500', async () => {
@@ -2012,13 +2001,7 @@ describe('AI bridge page access (e2e)', () => {
           response.destroy();
         };
 
-        const response = await ask({ question: 'Frage' }, headers);
-
-        expect(response.statusCode).toBe(200);
-        expect(sseEvents(response.body)).toEqual([
-          { type: 'delta', text: 'Teil' },
-          { type: 'error', code: 'model_unavailable' },
-        ]);
+        await expectModelUnavailableAfterText(headers);
       });
     });
 
