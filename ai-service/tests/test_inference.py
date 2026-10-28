@@ -1,4 +1,5 @@
 import json
+import logging
 import socket
 import threading
 import time
@@ -196,15 +197,16 @@ def silent_after_an_empty_chunk_port() -> Iterator[int]:
 def test_ask_ac68_an_empty_chunk_then_silence_fails_at_the_deadline_not_at_the_read_timeout(
     silent_after_an_empty_chunk_port: int,
 ):
-    model = ChatModel(
-        f"http://127.0.0.1:{silent_after_an_empty_chunk_port}/v1",
-        "qwen3:8b",
-        http=httpx.Client(timeout=httpx.Timeout(3.0)),
-        first_text_deadline_seconds=0.5,
-    )
     started = time.monotonic()
-    with pytest.raises(ModelUnavailable) as error:
-        list(model.stream(MESSAGES))
+    with httpx.Client(timeout=httpx.Timeout(3.0)) as http:
+        model = ChatModel(
+            f"http://127.0.0.1:{silent_after_an_empty_chunk_port}/v1",
+            "qwen3:8b",
+            http=http,
+            first_text_deadline_seconds=0.5,
+        )
+        with pytest.raises(ModelUnavailable) as error:
+            list(model.stream(MESSAGES))
     assert time.monotonic() - started < 2
     assert "no answer text within" in error.value.cause
 
@@ -247,3 +249,63 @@ def test_ask_ac69_closing_the_generator_closes_the_response():
 
 def test_ask_ac67_model_name_is_exposed():
     assert chat_model(serving(sse("x"))).model == "qwen3:8b"
+
+
+class HangsUntilReadTimeout(httpx.SyncByteStream):
+    def __iter__(self) -> Iterator[bytes]:
+        time.sleep(0.3)
+        raise httpx.ReadTimeout("read timed out")
+
+
+class StreamWithoutExtraInfo:
+    pass
+
+
+class StreamWithBrokenExtraInfo:
+    def get_extra_info(self, name: str) -> object:
+        raise RuntimeError("no socket for " + name)
+
+
+def run_with_expiring_watchdog(
+    network_stream: object, monkeypatch: pytest.MonkeyPatch
+) -> tuple[list[threading.ExceptHookArgs], ModelUnavailable]:
+    thread_errors: list[threading.ExceptHookArgs] = []
+    monkeypatch.setattr(threading, "excepthook", thread_errors.append)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            stream=HangsUntilReadTimeout(),
+            extensions={"network_stream": network_stream},
+        )
+
+    model = ChatModel(
+        BASE_URL,
+        "qwen3:8b",
+        http=httpx.Client(transport=httpx.MockTransport(handler)),
+        first_text_deadline_seconds=0.05,
+    )
+    with pytest.raises(ModelUnavailable) as error:
+        list(model.stream(MESSAGES))
+    time.sleep(0.1)
+    return thread_errors, error.value
+
+
+def test_ask_ac68_a_stream_without_extra_info_leaves_the_read_timeout_to_end_the_call(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    thread_errors, failure = run_with_expiring_watchdog(StreamWithoutExtraInfo(), monkeypatch)
+    assert thread_errors == []
+    assert "no answer text within" in failure.cause
+
+
+def test_ask_ac68_an_unexpected_socket_lookup_error_is_logged_not_raised_in_the_timer_thread(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+):
+    with caplog.at_level(logging.WARNING):
+        thread_errors, failure = run_with_expiring_watchdog(
+            StreamWithBrokenExtraInfo(), monkeypatch
+        )
+    assert thread_errors == []
+    assert "no answer text within" in failure.cause
+    assert "RuntimeError" in caplog.text

@@ -1,36 +1,42 @@
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { jsonToMarkdown } from '../../../collaboration/collaboration.util';
 import { headingAnchor } from './heading-anchor';
 
 type Json = Record<string, unknown>;
 
-const SECTION_HEADING = /^ {0,3}(#{1,6})(?:[ \t]+(.*?))?(?:[ \t]+#+)?[ \t]*$/;
+const FIXTURE_PATH = join(
+  __dirname,
+  '../../../../../../docs/contracts/heading-anchor-fixture.json',
+);
 
 const heading = (level: number, title: string): Json => ({
   type: 'heading',
   attrs: { id: `id-${title}`, level },
   content: [{ type: 'text', text: title }],
 });
+const body = (title: string): Json => paragraph(`Text ${title}`);
 const paragraph = (text: string): Json => ({
   type: 'paragraph',
   content: [{ type: 'text', text }],
 });
 const item = (...content: Json[]): Json => ({ type: 'listItem', content });
 
-const SUPPORTED = ['InCallout', 'InDetails', 'InColumn', 'InNestedCallout'];
-
 const DOCUMENT: Json = {
   type: 'doc',
   content: [
     heading(1, 'Top'),
+    body('Top'),
     {
       type: 'callout',
       attrs: { type: 'info' },
       content: [
         heading(2, 'InCallout'),
+        body('InCallout'),
         {
           type: 'callout',
           attrs: { type: 'info' },
-          content: [heading(3, 'InNestedCallout')],
+          content: [heading(3, 'InNestedCallout'), body('InNestedCallout')],
         },
       ],
     },
@@ -41,24 +47,54 @@ const DOCUMENT: Json = {
           type: 'detailsSummary',
           content: [{ type: 'text', text: 'Mehr' }],
         },
-        { type: 'detailsContent', content: [heading(2, 'InDetails')] },
+        {
+          type: 'detailsContent',
+          content: [heading(2, 'InDetails'), body('InDetails')],
+        },
       ],
     },
     {
       type: 'columns',
       content: [
-        { type: 'column', content: [heading(2, 'InColumn')] },
+        {
+          type: 'column',
+          content: [heading(2, 'InColumn'), body('InColumn')],
+        },
         { type: 'column', content: [paragraph('rechts')] },
       ],
     },
     heading(1, 'Unsupported'),
-    { type: 'bulletList', content: [item(heading(2, 'FirstInItem'))] },
+    body('Unsupported'),
+    {
+      type: 'bulletList',
+      content: [
+        item(heading(2, 'FirstInItem'), body('FirstInItem')),
+        item(
+          paragraph('x'),
+          heading(2, 'SecondInItem'),
+          body('SecondInItem'),
+          heading(3, 'ThirdInItem'),
+          body('ThirdInItem'),
+        ),
+      ],
+    },
+    {
+      type: 'orderedList',
+      attrs: { start: 1 },
+      content: [
+        item(paragraph('y'), heading(2, 'SecondInOrderedItem')),
+        item(heading(2, 'FirstInOrderedItem')),
+      ],
+    },
+    body('AfterOrdered'),
     {
       type: 'bulletList',
       content: [
         item(paragraph('x'), {
           type: 'bulletList',
-          content: [item(heading(2, 'TwoLevelsDeep'))],
+          content: [
+            item(paragraph('y'), heading(2, 'TwoLevelsDeep'), body('Deep')),
+          ],
         }),
       ],
     },
@@ -68,7 +104,7 @@ const DOCUMENT: Json = {
         {
           type: 'taskItem',
           attrs: { checked: false },
-          content: [heading(2, 'InTask')],
+          content: [heading(2, 'InTask'), body('InTask')],
         },
       ],
     },
@@ -77,7 +113,12 @@ const DOCUMENT: Json = {
       content: [
         {
           type: 'tableRow',
-          content: [{ type: 'tableCell', content: [heading(2, 'InCell')] }],
+          content: [
+            {
+              type: 'tableCell',
+              content: [heading(2, 'InCell'), body('InCell')],
+            },
+          ],
         },
       ],
     },
@@ -91,93 +132,59 @@ const DOCUMENT: Json = {
               type: 'tabLabel',
               content: [{ type: 'text', text: 'Reiter' }],
             },
-            { type: 'tabPanel', content: [heading(2, 'InTab')] },
+            {
+              type: 'tabPanel',
+              content: [heading(2, 'InTab'), body('InTab')],
+            },
           ],
         },
       ],
     },
-    { type: 'blockquote', content: [heading(2, 'InQuote')] },
+    {
+      type: 'blockquote',
+      content: [heading(2, 'InQuote'), body('InQuote')],
+    },
     heading(1, 'After'),
+    body('After'),
   ],
 };
 
-function indexPaths(markdown: string): string[][] {
-  const paths: string[][] = [];
-  let stack: { level: number; title: string }[] = [];
-  for (const line of markdown.split('\n')) {
-    const match = SECTION_HEADING.exec(line);
-    if (!match) continue;
-    const level = match[1].length;
-    stack = [
-      ...stack.filter((entry) => entry.level < level),
-      { level, title: (match[2] ?? '').trim() },
-    ];
-    paths.push(stack.map((entry) => entry.title));
-  }
-  return paths;
+interface Fixture {
+  markdown: string;
+  headings: { id: string; path: string[] }[];
 }
 
-function documentPaths(nodes: Json[]): string[][] {
-  const paths: string[][] = [];
-  let stack: { level: number; title: string }[] = [];
-  const visit = (node: Json) => {
-    if (node.type === 'heading') {
-      const level = (node.attrs as { level: number }).level;
-      const title = ((node.content as Json[])[0].text as string) ?? '';
-      stack = [
-        ...stack.filter((entry) => entry.level < level),
-        { level, title },
-      ];
-      paths.push(stack.map((entry) => entry.title));
-      return;
-    }
-    ((node.content as Json[] | undefined) ?? []).forEach(visit);
-  };
-  nodes.forEach(visit);
-  return paths;
-}
+const fixture: Fixture = JSON.parse(readFileSync(FIXTURE_PATH, 'utf8'));
 
 describe('headingAnchor', () => {
-  const markdown = jsonToMarkdown(DOCUMENT);
-  const produced = indexPaths(markdown);
-  const key = (path: string[]) => JSON.stringify(path);
-  const producedKeys = new Set(produced.map(key));
-
-  it('ASK-AC21: every supported container keeps its heading at line start in the index', () => {
-    for (const title of SUPPORTED) {
-      expect(markdown).toMatch(new RegExp(`^#{2,3} ${title}$`, 'm'));
-    }
+  it('ASK-AC21: the converter still produces the markdown the index was checked against', () => {
+    expect(jsonToMarkdown(DOCUMENT)).toBe(fixture.markdown);
   });
 
-  it('ASK-AC21: a heading path the index produces for a supported container gets that heading id', () => {
-    for (const title of SUPPORTED) {
-      const path = produced.find(
-        (candidate) => candidate[candidate.length - 1] === title,
-      )!;
-      expect(headingAnchor(DOCUMENT, path)).toBe(`id-${title}`);
+  it('ASK-AC21: every path the index sees as a heading gets that heading id', () => {
+    expect(fixture.headings.length).toBeGreaterThan(8);
+    for (const { id, path } of fixture.headings) {
+      expect(headingAnchor(DOCUMENT, path)).toBe(id);
     }
-  });
-
-  it('ASK-AC21: no path is anchored that the index cannot produce', () => {
-    const anchoredButNotProduced = documentPaths(
-      DOCUMENT.content as Json[],
-    ).filter(
-      (path) =>
-        headingAnchor(DOCUMENT, path) !== undefined &&
-        !producedKeys.has(key(path)),
-    );
-
-    expect(anchoredButNotProduced).toEqual([]);
   });
 
   it.each([
     'FirstInItem',
+    'FirstInOrderedItem',
     'TwoLevelsDeep',
     'InTask',
     'InCell',
-    'InTab',
     'InQuote',
   ])('ASK-AC21: a heading in %s gets no anchor', (title) => {
     expect(headingAnchor(DOCUMENT, ['Unsupported', title])).toBeUndefined();
+    expect(
+      fixture.headings.some((entry) => entry.path.includes(title)),
+    ).toBe(false);
+  });
+
+  it('ASK-AC21: later headings keep their path after a non-first list heading', () => {
+    expect(
+      headingAnchor(DOCUMENT, ['Unsupported', 'SecondInItem', 'ThirdInItem']),
+    ).toBe('id-ThirdInItem');
   });
 });

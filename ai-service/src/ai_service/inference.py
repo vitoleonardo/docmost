@@ -1,5 +1,5 @@
-import contextlib
 import json
+import logging
 import socket
 import threading
 import time
@@ -10,6 +10,7 @@ import httpx
 CONNECT_TIMEOUT_SECONDS = 10.0
 READ_TIMEOUT_SECONDS = 60.0
 FIRST_TEXT_DEADLINE_SECONDS = 60.0
+LOGGER = logging.getLogger("ai_service.inference")
 DONE_MARKER = "[DONE]"
 DATA_PREFIX = "data:"
 
@@ -33,11 +34,21 @@ class FirstTextWatchdog:
 
     def _expire(self) -> None:
         self.expired.set()
-        network_stream = self._response.extensions.get("network_stream")
-        sock = network_stream.get_extra_info("socket") if network_stream else None
-        if sock is not None:
-            with contextlib.suppress(OSError):
+        get_extra_info = getattr(
+            self._response.extensions.get("network_stream"), "get_extra_info", None
+        )
+        if get_extra_info is None:
+            return
+        try:
+            sock = get_extra_info("socket")
+            if sock is not None:
                 sock.shutdown(socket.SHUT_RDWR)
+        except OSError:
+            return
+        except Exception as error:
+            LOGGER.warning(
+                "first-text watchdog could not close the socket: %s", type(error).__name__
+            )
 
 
 class ChatModel:
