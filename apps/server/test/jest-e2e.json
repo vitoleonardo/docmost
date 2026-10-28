@@ -1,14 +1,36 @@
 {
-  "moduleFileExtensions": ["js", "json", "ts"],
+  "moduleFileExtensions": ["js", "json", "ts", "tsx"],
   "rootDir": ".",
   "testEnvironment": "node",
   "testRegex": ".e2e-spec.ts$",
   "transform": {
-    "^.+\\.(t|j)s$": "ts-jest"
+    "happy-dom.+\\.js$": [
+      "babel-jest",
+      {
+        "presets": [
+          [
+            "@babel/preset-env",
+            {
+              "targets": {
+                "node": "current"
+              }
+            }
+          ]
+        ]
+      }
+    ],
+    "^.+\\.(t|j)sx?$": "ts-jest"
   },
+  "transformIgnorePatterns": [
+    "/node_modules/(?!(\\.pnpm/)?(nanoid|uuid|image-dimensions|marked|happy-dom|@sindresorhus[+/]slugify|escape-string-regexp|@sindresorhus[+/]transliterate|p-limit|yocto-queue|@fastify[+/]cookie|cookie)(@|/))"
+  ],
   "moduleNameMapper": {
     "^@docmost/db/(.*)$": "<rootDir>/../src/database/$1",
     "^@docmost/transactional/(.*)$": "<rootDir>/../src/integrations/transactional/$1",
-    "^@docmost/ee/(.*)$": "<rootDir>/../src/ee/$1"
-  }
+    "^@docmost/ee/(.*)$": "<rootDir>/../src/ee/$1",
+    "^src/(.*)$": "<rootDir>/../src/$1",
+    "^@docmost/base-formula/server$": "<rootDir>/../../../packages/base-formula/src/index.server.ts",
+    "^@docmost/base-formula/client$": "<rootDir>/../../../packages/base-formula/src/index.client.ts"
+  },
+  "forceExit": true
 }
