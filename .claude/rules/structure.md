@@ -35,6 +35,7 @@ Every kind of code has one home. The Map below says where; `.claude/bin/structur
 | AI service (Python, planned) | `ai-service/` | not checked until it has a toolchain |
 | Unit tests | `*.test.*`, `*.spec.*` | next to the source; the test name starts with the criterion ID |
 | Server e2e tests | `apps/server/test/` | `<feature>.e2e-spec.ts` (`app.e2e-spec.ts`) |
+| Browser flows and verify screenshots (Playwright) | `apps/client/e2e/` | `<feature>.screenshots.ts`; criterion ID first in the test name and the image (`seed-data.screenshots.ts`) |
 | Scripts | `scripts/` | verb and noun (`seed-db.ts`) |
 | Tool config | `*.config.*` | the tool's name (`vite.config.ts`, `eslint.config.mjs`) |
 

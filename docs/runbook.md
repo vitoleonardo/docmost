@@ -52,3 +52,13 @@ Who sees what: the space and page matrices in `specs/seed-data.md`.
 
 - Data, PDF and preflight tests: `.claude/bin/check test-related apps/server/src/integrations/seed/<file>`.
 - Database tests: `pnpm --filter ./apps/server run build`, then `pnpm --filter ./apps/server run test:e2e -- seed-data`. They create and drop `docmost_seed_test` on the dev Postgres and never touch `docmost`. CI does not run them yet.
+
+## Verify data runs and screenshots
+
+`/verify-feature` runs these through `.claude/bin/evidence data` and `.claude/bin/evidence screenshots` (commands in `.claude/kit.conf`).
+
+- Data runs: build `packages/*`, `pnpm seed` (prints `seed: <tree hash of the seed folder>`), then the server e2e suite.
+- Screenshots: `pnpm build`, `pnpm seed`, then Playwright starts `pnpm start` on `KIT_APP_URL` and runs `apps/client/e2e/*.screenshots.ts` on desktop and mobile. Images are named `<criterion>-<step>-<desktop|mobile>.png`.
+- Stop `pnpm dev` and `pnpm start` first: Playwright needs the port free and the seed needs the app stopped.
+- Without the evidence pack: `pnpm exec playwright test`; the images land in `test-results/`.
+- The base-branch run uses a fresh worktree without `.env`, so the app does not start there and base images are missing; the evidence pack records that as a warning.
