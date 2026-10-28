@@ -7,13 +7,28 @@ from fastapi import Depends, Header, Request
 
 from ai_service.settings import Settings
 
+USER_TOKEN_ALGORITHM = "HS256"
+USER_TOKEN_AUDIENCE = "ai-service"
+USER_TOKEN_TYPE = "user"
+USER_TOKEN_REGISTERED_CLAIMS = ("sub", "aud", "iat", "exp")
+USER_TOKEN_CUSTOM_CLAIMS = ("workspaceId", "type")
+
+ERROR_STATUS = {
+    "service_token_missing": 401,
+    "service_token_invalid": 401,
+    "user_token_missing": 401,
+    "user_token_expired": 401,
+    "user_token_invalid": 401,
+    "invalid_request": 400,
+}
+
 
 class ApiError(Exception):
-    def __init__(self, code: str, message: str, status_code: int = 401) -> None:
+    def __init__(self, code: str, message: str) -> None:
         super().__init__(message)
         self.code = code
         self.message = message
-        self.status_code = status_code
+        self.status_code = ERROR_STATUS[code]
 
 
 @dataclass(frozen=True)
@@ -53,15 +68,15 @@ def decode_user_token(token: str, secret: str) -> dict[str, Any]:
         claims: dict[str, Any] = jwt.decode(
             token,
             secret,
-            algorithms=["HS256"],
-            audience="ai-service",
-            options={"require": ["exp", "iat", "sub", "aud"]},
+            algorithms=[USER_TOKEN_ALGORITHM],
+            audience=USER_TOKEN_AUDIENCE,
+            options={"require": list(USER_TOKEN_REGISTERED_CLAIMS)},
         )
     except jwt.ExpiredSignatureError as error:
         raise ApiError("user_token_expired", "The user token has expired.") from error
     except jwt.InvalidTokenError as error:
         raise ApiError("user_token_invalid", "The user token is not valid.") from error
-    if claims.get("type") != "user" or not _is_text(claims.get("workspaceId")):
+    if claims.get("type") != USER_TOKEN_TYPE or not _is_text(claims.get("workspaceId")):
         raise ApiError("user_token_invalid", "The user token is not valid.")
     if not _is_text(claims["sub"]):
         raise ApiError("user_token_invalid", "The user token is not valid.")

@@ -45,6 +45,15 @@ jobs:
             npm ci
           fi
 
+      - uses: astral-sh/setup-uv@v10
+        with:
+          working-directory: ai-service
+          enable-cache: true
+          cache-dependency-glob: ai-service/uv.lock
+
+      - name: Install ai-service dependencies
+        run: uv sync --frozen --project ai-service
+
       - name: Build workspace packages
         if: ${{ steps.install.outcome == 'success' }}
         run: pnpm --filter @docmost/editor-ext --filter @docmost/base-formula run build
