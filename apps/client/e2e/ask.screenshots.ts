@@ -3,7 +3,7 @@ import { screenshot, seedUserState } from "./screenshot";
 
 const SPACE_SLUG = "allgemein";
 const SOURCE_PAGE_TITLE = "Bürozeiten und Erreichbarkeit";
-const SOURCE_HEADING = "Kernarbeitszeit";
+const SOURCE_HEADING = "Notfälle auf Baustellen";
 const ANSWER_TEXT =
   "Die Kernarbeitszeit liegt zwischen 9:00 Uhr und 15:00 Uhr [1].";
 const NO_SOURCE_TEXT =
@@ -251,6 +251,8 @@ test.describe("WS asks the wiki", () => {
     page,
   }, testInfo) => {
     const pages = await allgemeinPages(page);
+    const width = page.viewportSize()?.width ?? 1280;
+    await page.setViewportSize({ width, height: 360 });
     const source = await sourcePage(page, pages);
     const url = `/s/${SPACE_SLUG}/p/${source.slugId}#${source.headingId}`;
     await answerWith(page, citedAnswer(url, source.id));
