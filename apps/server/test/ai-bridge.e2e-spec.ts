@@ -25,7 +25,11 @@ import {
   SEED_USERS,
   SeedUserKey,
 } from '../src/integrations/seed/seed-definition';
-import { SEED_PAGES } from '../src/integrations/seed/seed-pages';
+import {
+  readSeedPdf,
+  SEED_PAGES,
+  SEED_PDFS,
+} from '../src/integrations/seed/seed-pages';
 import {
   bootSeedHttpApp,
   createMigratedTestDatabase,
@@ -690,6 +694,393 @@ describe('AI bridge page access (e2e)', () => {
         400,
         'too_many_page_ids',
       );
+    });
+
+    describe('content endpoints and read tools', () => {
+      const serviceOnly = { 'x-service-token': TEST_AI_SERVICE_TOKEN };
+      const LICENSE_PAGE = 'Softwarelizenzvertrag Planungssoftware';
+      const LICENSE_PDF = 'softwarelizenzvertrag-planungssoftware.pdf';
+
+      const pageContent = (id: string) =>
+        post('page-content', { pageId: id }, serviceOnly);
+
+      const readPageAs = (token: string, id: string) =>
+        post('tools/read-page', { pageId: id }, asUser(token));
+
+      const searchAs = (token: string, space: string, query: unknown) =>
+        post('tools/search', { spaceId: space, query }, asUser(token));
+
+      const taskTokenOf = async (key: SeedUserKey) => {
+        const exchanged = await post(
+          'task-token',
+          { runId: `run-content-${key}` },
+          asUser(await userToken(key)),
+        );
+        return (exchanged.json() as { taskToken: string }).taskToken;
+      };
+
+      const attachmentIdOf = async (fileName: string) =>
+        (
+          await db
+            .selectFrom('attachments')
+            .select('id')
+            .where('fileName', '=', fileName)
+            .executeTakeFirstOrThrow()
+        ).id;
+
+      const withTrashedPage = async (
+        title: string,
+        run: () => Promise<void>,
+      ) => {
+        const id = await pageId(title);
+        await bridge.pageRepo.removePage(
+          id,
+          users.GF.id,
+          bridge.seed.workspaceId,
+        );
+        try {
+          await run();
+        } finally {
+          await bridge.pageRepo.restorePage(id, bridge.seed.workspaceId);
+        }
+      };
+
+      const withDeletedSpace = async (
+        name: string,
+        run: () => Promise<void>,
+      ) => {
+        const id = spaceId(name);
+        await db
+          .updateTable('spaces')
+          .set({ deletedAt: new Date() })
+          .where('id', '=', id)
+          .execute();
+        try {
+          await run();
+        } finally {
+          await db
+            .updateTable('spaces')
+            .set({ deletedAt: null })
+            .where('id', '=', id)
+            .execute();
+        }
+      };
+
+      it('BRIDGE-AC20: page-content returns the page fields and markdown with its headings, without envelope', async () => {
+        const id = await pageId('Willkommen bei Ostmooimooi');
+        const stored = await bridge.pageRepo.findById(id);
+
+        const response = await pageContent(id);
+
+        expect(response.statusCode).toBe(200);
+        const body = response.json() as { markdown: string };
+        expect(body).toEqual({
+          id,
+          title: 'Willkommen bei Ostmooimooi',
+          spaceId: spaceId('Allgemein'),
+          workspaceId: bridge.seed.workspaceId,
+          updatedAt: new Date(stored.updatedAt).toISOString(),
+          markdown: expect.any(String),
+          attachments: [],
+        });
+        expect(body.markdown).toMatch(/^## Unser Unternehmen$/m);
+        expect(body.markdown).toMatch(/^## Fragen und Feedback$/m);
+      });
+
+      it('BRIDGE-AC21: page-content lists the PDF attachment with id, file name, type and size and skips other attachments', async () => {
+        const id = await pageId(LICENSE_PAGE);
+        const pdfId = await attachmentIdOf(LICENSE_PDF);
+        const pdf = SEED_PDFS.find((entry) => entry.fileName === LICENSE_PDF)!;
+        const imageId = randomUUID();
+        await db
+          .insertInto('attachments')
+          .values({
+            id: imageId,
+            type: 'file',
+            filePath: `${bridge.seed.workspaceId}/files/${imageId}/bild.png`,
+            fileName: 'bild.png',
+            fileSize: 10,
+            mimeType: 'image/png',
+            fileExt: '.png',
+            creatorId: users.GF.id,
+            workspaceId: bridge.seed.workspaceId,
+            pageId: id,
+            spaceId: spaceId('IT'),
+          })
+          .execute();
+        try {
+          const response = await pageContent(id);
+
+          expect(response.json()).toEqual(
+            expect.objectContaining({
+              attachments: [
+                {
+                  id: pdfId,
+                  fileName: LICENSE_PDF,
+                  mimeType: 'application/pdf',
+                  fileSize: readSeedPdf(pdf).length,
+                },
+              ],
+            }),
+          );
+        } finally {
+          await db
+            .deleteFrom('attachments')
+            .where('id', '=', imageId)
+            .execute();
+        }
+      });
+
+      it('BRIDGE-AC22: page-content returns the restricted page and a Geschäftsführung page', async () => {
+        for (const title of [
+          'Umstrukturierung 2027',
+          'Strategie 2027 bis 2030',
+        ]) {
+          const id = await pageId(title);
+
+          const response = await pageContent(id);
+
+          expect({ title, status: response.statusCode }).toEqual({
+            title,
+            status: 200,
+          });
+          expect(response.json()).toEqual(
+            expect.objectContaining({ id, title }),
+          );
+        }
+      });
+
+      it('BRIDGE-AC23: attachment returns the stored bytes with the PDF content type', async () => {
+        const pdf = SEED_PDFS.find((entry) => entry.fileName === LICENSE_PDF)!;
+
+        const response = await post(
+          'attachment',
+          { attachmentId: await attachmentIdOf(LICENSE_PDF) },
+          serviceOnly,
+        );
+
+        expect(response.statusCode).toBe(200);
+        expect(response.headers['content-type']).toBe('application/pdf');
+        expect(response.rawPayload.equals(readSeedPdf(pdf))).toBe(true);
+      });
+
+      it('BRIDGE-AC24: read-page returns id, title, space and markdown for a viewer', async () => {
+        const id = await pageId('Willkommen bei Ostmooimooi');
+
+        const response = await readPageAs(await userToken('PL'), id);
+
+        expect(response.statusCode).toBe(200);
+        expect(response.json()).toEqual({
+          id,
+          title: 'Willkommen bei Ostmooimooi',
+          spaceId: spaceId('Allgemein'),
+          markdown: expect.stringMatching(/^## Unser Unternehmen$/m),
+        });
+      });
+
+      it.each([
+        ['HR', 'Urlaubsantrag im Personalportal', 'Kalenderfuchs'],
+        ['Vertrieb', 'Preisliste Standardkomponenten', 'Pegelhase'],
+      ])(
+        'BRIDGE-AC25: searching %s for %s returns pages of that space only, and AC26: it finds the page',
+        async (space, title, word) => {
+          const member = membersOfSpace(space)[0];
+
+          const response = await searchAs(
+            await userToken(member),
+            spaceId(space),
+            word,
+          );
+
+          expect(response.statusCode).toBe(200);
+          const { results } = response.json() as {
+            results: { id: string; title: string; spaceId: string }[];
+          };
+          expect(results.map((entry) => entry.title)).toContain(title);
+          expect(results.length).toBeLessThanOrEqual(20);
+          expect(
+            results.every((entry) => entry.spaceId === spaceId(space)),
+          ).toBe(true);
+          expect(results[0]).toEqual({
+            id: await pageId(title),
+            title,
+            spaceId: spaceId(space),
+          });
+        },
+      );
+
+      it('BRIDGE-AC25: a page in the trash is not found', async () => {
+        const member = membersOfSpace('Vertrieb')[0];
+
+        await withTrashedPage('Preisliste Standardkomponenten', async () => {
+          const response = await searchAs(
+            await userToken(member),
+            spaceId('Vertrieb'),
+            'Pegelhase',
+          );
+
+          expect(response.json()).toEqual({ results: [] });
+        });
+      });
+
+      it('BRIDGE-AC28: read-page and search with a task token answer as with the user token', async () => {
+        const id = await pageId('Preisliste Standardkomponenten');
+        const token = await userToken('VT');
+        const taskToken = await taskTokenOf('VT');
+
+        const readWithUser = await readPageAs(token, id);
+        const readWithTask = await readPageAs(taskToken, id);
+        const searchWithUser = await searchAs(
+          token,
+          spaceId('Vertrieb'),
+          'Pegelhase',
+        );
+        const searchWithTask = await searchAs(
+          taskToken,
+          spaceId('Vertrieb'),
+          'Pegelhase',
+        );
+
+        expect(readWithTask.statusCode).toBe(200);
+        expect(readWithTask.json()).toEqual(readWithUser.json());
+        expect(searchWithTask.statusCode).toBe(200);
+        expect(searchWithTask.json()).toEqual(searchWithUser.json());
+        expect(
+          (searchWithTask.json() as { results: unknown[] }).results,
+        ).not.toHaveLength(0);
+      });
+
+      it('BRIDGE-AC61: read-page answers every unreadable variant with the same 404 page_not_found', async () => {
+        const token = await userToken('WS');
+        const bodies: unknown[] = [];
+        const collect = async (id: string) => {
+          const response = await readPageAs(token, id);
+          expectError(response, 404, 'page_not_found');
+          bodies.push(response.json());
+        };
+
+        await collect(await pageId('Umstrukturierung 2027'));
+        await collect(await pageId('Strategie 2027 bis 2030'));
+        await collect(randomUUID());
+        await withTrashedPage('Willkommen bei Ostmooimooi', async () =>
+          collect(await pageId('Willkommen bei Ostmooimooi')),
+        );
+        await withDeletedSpace('IT', async () =>
+          collect(await pageId('Wartung Serverraum')),
+        );
+
+        expect(bodies).toHaveLength(5);
+        expect(new Set(bodies.map((body) => JSON.stringify(body))).size).toBe(
+          1,
+        );
+      });
+
+      it('BRIDGE-AC62: search answers a foreign, deleted or unknown space with the same 404 space_not_found', async () => {
+        const token = await userToken('WS');
+        const bodies: unknown[] = [];
+        const collect = async (space: string) => {
+          const response = await searchAs(token, space, 'Plan');
+          expectError(response, 404, 'space_not_found');
+          bodies.push(response.json());
+        };
+
+        await collect(spaceId('Geschäftsführung'));
+        await collect(randomUUID());
+        await withDeletedSpace('IT', async () => collect(spaceId('IT')));
+
+        expect(new Set(bodies.map((body) => JSON.stringify(body))).size).toBe(
+          1,
+        );
+      });
+
+      it('BRIDGE-AC63: search with an empty or blank query answers 400 invalid_request', async () => {
+        const token = await userToken('WS');
+
+        for (const query of ['', '   ', undefined, 'x'.repeat(201)]) {
+          expectError(
+            await searchAs(token, spaceId('Allgemein'), query),
+            400,
+            'invalid_request',
+          );
+        }
+      });
+
+      it('BRIDGE-AC64: a word only in a restricted page finds nothing for WS and the page for GF', async () => {
+        const allgemein = spaceId('Allgemein');
+
+        const denied = await searchAs(
+          await userToken('WS'),
+          allgemein,
+          'Zweiströmeland',
+        );
+        const granted = await searchAs(
+          await userToken('GF'),
+          allgemein,
+          'Zweiströmeland',
+        );
+
+        expect(denied.json()).toEqual({ results: [] });
+        expect(granted.json()).toEqual({
+          results: [
+            {
+              id: await pageId('Umstrukturierung 2027'),
+              title: 'Umstrukturierung 2027',
+              spaceId: allgemein,
+            },
+          ],
+        });
+      });
+
+      it('BRIDGE-AC65: page-content answers a page in the trash and an unknown id with 404 page_not_found', async () => {
+        expectError(await pageContent(randomUUID()), 404, 'page_not_found');
+
+        await withTrashedPage('Willkommen bei Ostmooimooi', async () => {
+          expectError(
+            await pageContent(await pageId('Willkommen bei Ostmooimooi')),
+            404,
+            'page_not_found',
+          );
+        });
+      });
+
+      it('BRIDGE-AC67: attachment answers an unknown id, a deleted attachment and one of a trashed page with 404 attachment_not_found', async () => {
+        const attachmentId = await attachmentIdOf(LICENSE_PDF);
+        const fetchAttachment = (id: string) =>
+          post('attachment', { attachmentId: id }, serviceOnly);
+
+        expectError(
+          await fetchAttachment(randomUUID()),
+          404,
+          'attachment_not_found',
+        );
+
+        await withTrashedPage(LICENSE_PAGE, async () => {
+          expectError(
+            await fetchAttachment(attachmentId),
+            404,
+            'attachment_not_found',
+          );
+        });
+
+        await db
+          .updateTable('attachments')
+          .set({ deletedAt: new Date() })
+          .where('id', '=', attachmentId)
+          .execute();
+        try {
+          expectError(
+            await fetchAttachment(attachmentId),
+            404,
+            'attachment_not_found',
+          );
+        } finally {
+          await db
+            .updateTable('attachments')
+            .set({ deletedAt: null })
+            .where('id', '=', attachmentId)
+            .execute();
+        }
+      });
     });
   });
 });
