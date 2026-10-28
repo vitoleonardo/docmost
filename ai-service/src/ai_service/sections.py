@@ -9,7 +9,7 @@ MAX_PDF_PAGES = 300
 MAX_PDF_BYTES = 20_971_520
 
 HEADING = re.compile(r"^ {0,3}(#{1,6})(?:[ \t]+(.*?))?(?:[ \t]+#+)?[ \t]*$")
-FENCE = "```"
+FENCE = re.compile(r"^\s*(`{3,}|~{3,})")
 SPLITTERS = (
     (re.compile(r"\n\s*\n"), "\n\n"),
     (re.compile(r"(?<=[.!?])\s+"), " "),
@@ -68,7 +68,7 @@ def markdown_sections(markdown: str) -> list[Section]:
     sections: list[Section] = []
     stack: list[tuple[int, str]] = []
     lines: list[str] = []
-    in_fence = False
+    open_fence: str | None = None
 
     def flush() -> None:
         path = tuple(title for _, title in stack)
@@ -76,9 +76,12 @@ def markdown_sections(markdown: str) -> list[Section]:
         lines.clear()
 
     for line in markdown.splitlines():
-        if line.lstrip().startswith(FENCE):
-            in_fence = not in_fence
-        heading = None if in_fence else HEADING.match(line)
+        fence = FENCE.match(line)
+        if fence and open_fence is None:
+            open_fence = fence.group(1)[0]
+        elif fence and fence.group(1)[0] == open_fence:
+            open_fence = None
+        heading = None if open_fence else HEADING.match(line)
         if not heading:
             lines.append(line)
             continue

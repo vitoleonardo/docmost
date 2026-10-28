@@ -1,9 +1,12 @@
 from collections.abc import Sequence
+from contextlib import AbstractContextManager
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, LiteralString
 
 import psycopg
+
+from ai_service.index_lock import index_writer_lock
 
 ENTRY_COLUMNS: LiteralString = """
     page_id::text, workspace_id::text, space_id::text, title, page_updated_at,
@@ -67,6 +70,9 @@ def section_from_row(row: tuple[Any, ...]) -> StoredSection:
 class IndexStore:
     def __init__(self, conn: psycopg.Connection) -> None:
         self._conn = conn
+
+    def writer_lock(self) -> AbstractContextManager[None]:
+        return index_writer_lock(self._conn)
 
     def get_entry(self, page_id: str) -> PageEntry | None:
         with self._conn.transaction():
@@ -199,6 +205,7 @@ class IndexStore:
                 CROSS JOIN (SELECT %s::ai.vector AS vector) query
                 WHERE p.space_id = ANY(%s::uuid[])
                   AND p.embedding_model = %s
+                  AND (s.embedding OPERATOR(ai.<=>) query.vector) <> 'NaN'::float8
                 ORDER BY score DESC, p.page_id, s.position
                 LIMIT %s
                 """,

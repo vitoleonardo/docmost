@@ -5,7 +5,9 @@ from pathlib import Path
 
 import psycopg
 
+from ai_service.embedding import Embedder
 from ai_service.index_store import IndexStore, PageEntry, StoredSection
+from ai_service.indexer import search_text
 from tests.hashing_embedder import HashingEmbedder
 from tests.test_db_role import AI_URL
 from tests.test_migrations import fresh_ai_schema, migrate
@@ -71,6 +73,27 @@ def index_page(
 
 def indexed_ids(store: IndexStore) -> list[str]:
     return [entry.page_id for entry in store.list_entries()]
+
+
+def stored_and_fresh_embeddings(
+    store: IndexStore, embedder: Embedder
+) -> list[tuple[StoredSection, list[float]]]:
+    pairs: list[tuple[StoredSection, list[float]]] = []
+    for entry in store.list_entries():
+        assert entry.embedding_model == embedder.model_name
+        sections = store.sections_of(entry.page_id)
+        if not sections:
+            continue
+        fresh = embedder.embed(
+            [search_text(entry.title, s.heading_path, s.text, s.file_name) for s in sections]
+        )
+        pairs.extend(zip(sections, fresh, strict=True))
+    return pairs
+
+
+def max_component_difference(first: Sequence[float], second: Sequence[float]) -> float:
+    assert len(first) == len(second)
+    return max(abs(a - b) for a, b in zip(first, second, strict=True))
 
 
 def later(minutes: int) -> datetime:

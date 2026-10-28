@@ -3,6 +3,8 @@ from dataclasses import replace
 import pytest
 
 from ai_service.index_store import IndexStore, StoredSection
+from ai_service.indexer import Indexer
+from tests.fake_bridge import seed_shaped_bridge
 from tests.hashing_embedder import HashingEmbedder
 from tests.index_db import (
     SPACE_A,
@@ -14,7 +16,9 @@ from tests.index_db import (
     index_page,
     later,
     make_entry,
+    max_component_difference,
     page_id,
+    stored_and_fresh_embeddings,
 )
 
 pytestmark = pytest.mark.integration
@@ -89,24 +93,37 @@ def test_a_page_without_sections_is_listed_with_its_entry_fields(
     assert store.get_entry(page_id(2)) is None
 
 
-def test_index_ac12_stored_embedding_equals_a_new_embedding_of_the_section_text(
+def test_index_ac12_an_indexed_section_embedded_again_equals_its_stored_embedding(
+    store: IndexStore, embedder: HashingEmbedder
+):
+    bridge = seed_shaped_bridge()
+    indexer = Indexer(bridge.client(), store, embedder)
+    for listed in bridge.listed_ids():
+        indexer.index_page(listed)
+
+    pairs = stored_and_fresh_embeddings(store, embedder)
+
+    assert any(section.attachment_id is None and section.heading_path for section, _ in pairs)
+    assert any(section.attachment_id is not None for section, _ in pairs)
+    for section, fresh in pairs:
+        assert max_component_difference(section.embedding, fresh) <= 1e-5
+
+
+def test_stored_embeddings_round_trip_through_the_store(
     store: IndexStore, embedder: HashingEmbedder
 ):
     texts = ["Urlaub beantragen im Portal", "Reisekosten bis 30 Tage einreichen"]
-    index_page(store, embedder, make_entry(1), texts)
+    written = index_page(store, embedder, make_entry(1), texts)
     store.replace_page(
         make_entry(2),
         [pdf_section(embedder, 0, attachment_id(1), 1, "Kapitel eins der Anleitung")],
     )
 
-    stored = store.sections_of(page_id(1)) + store.sections_of(page_id(2))
-    entries = {entry.page_id: entry for entry in store.list_entries()}
-    assert len(stored) == 3
-    assert {entry.embedding_model for entry in entries.values()} == {embedder.model_name}
-    fresh = embedder.embed([section.text for section in stored])
-    for section, vector in zip(stored, fresh, strict=True):
-        assert len(section.embedding) == len(vector)
-        assert max(abs(a - b) for a, b in zip(section.embedding, vector, strict=True)) <= 1e-5
+    stored = store.sections_of(page_id(1))
+    [pdf] = store.sections_of(page_id(2))
+    for section, original in zip(stored, written, strict=True):
+        assert max_component_difference(section.embedding, original.embedding) <= 1e-5
+    assert max_component_difference(pdf.embedding, embedder.embed([pdf.text])[0]) <= 1e-5
 
 
 def test_sections_keep_heading_path_and_pdf_fields(store: IndexStore, embedder: HashingEmbedder):

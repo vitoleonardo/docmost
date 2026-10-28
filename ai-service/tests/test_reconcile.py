@@ -1,7 +1,7 @@
 import logging
 import threading
 import time
-from collections.abc import Callable, Iterator
+from collections.abc import Callable
 from contextlib import nullcontext
 
 import fakeredis
@@ -46,17 +46,6 @@ LOCK_WAIT_SECONDS = 0.5
 
 
 @pytest.fixture
-def lock_conn() -> Iterator[psycopg.Connection]:
-    with psycopg.connect(AI_URL, autocommit=True) as conn:
-        yield conn
-
-
-@pytest.fixture
-def writer_lock(lock_conn: psycopg.Connection) -> WriterLock:
-    return lambda: index_writer_lock(lock_conn)
-
-
-@pytest.fixture
 def bridge() -> FakeBridge:
     return seed_shaped_bridge()
 
@@ -65,16 +54,16 @@ Reconcile = Callable[..., ReconcileResult]
 
 
 @pytest.fixture
-def run_reconcile(
-    bridge: FakeBridge, store: IndexStore, embedder: HashingEmbedder, writer_lock: WriterLock
-) -> Reconcile:
+def run_reconcile(bridge: FakeBridge, store: IndexStore, embedder: HashingEmbedder) -> Reconcile:
     def run(
         model_embedder: HashingEmbedder = embedder,
-        lock: WriterLock = writer_lock,
+        index_store: IndexStore = store,
+        lock: WriterLock | None = None,
     ) -> ReconcileResult:
         client = bridge.client()
-        indexer = Indexer(client, store, model_embedder)
-        return reconcile(client, store, indexer, model_embedder.model_name, lock)
+        indexer = Indexer(client, index_store, model_embedder)
+        writer_lock = index_store.writer_lock if lock is None else lock
+        return reconcile(client, index_store, indexer, model_embedder.model_name, writer_lock)
 
     return run
 
@@ -362,7 +351,6 @@ def test_a_page_listed_twice_is_indexed_once(
 
 def start_consumer(
     store_conn: psycopg.Connection,
-    lock_conn: psycopg.Connection,
     bridge: FakeBridge,
     embedder: HashingEmbedder,
     redis: fakeredis.FakeRedis,
@@ -373,7 +361,7 @@ def start_consumer(
         redis,
         Indexer(client, job_store, embedder),
         job_store,
-        lambda: index_writer_lock(lock_conn),
+        job_store.writer_lock,
         sleep=lambda seconds: None,
     )
     thread = threading.Thread(target=lambda: consumer.process_next(10))
@@ -388,10 +376,7 @@ def test_index_ac41_a_page_created_after_the_list_was_read_is_indexed(
     run_reconcile()
     redis = fakeredis.FakeRedis(decode_responses=True)
     threads: list[threading.Thread] = []
-    with (
-        psycopg.connect(AI_URL, autocommit=True) as job_store_conn,
-        psycopg.connect(AI_URL, autocommit=True) as job_lock_conn,
-    ):
+    with psycopg.connect(AI_URL, autocommit=True) as job_store_conn:
 
         def create_page_after_list_read() -> None:
             bridge.after_list_read = None
@@ -401,7 +386,7 @@ def test_index_ac41_a_page_created_after_the_list_was_read_is_indexed(
             enqueue_job(
                 redis, "page-created", {"pageIds": [page_id(8)], "workspaceId": WORKSPACE_A}
             )
-            threads.append(start_consumer(job_store_conn, job_lock_conn, bridge, embedder, redis))
+            threads.append(start_consumer(job_store_conn, bridge, embedder, redis))
 
         bridge.after_list_read = create_page_after_list_read
 
@@ -421,10 +406,7 @@ def test_index_ac42_a_page_moved_after_the_list_was_read_keeps_its_new_space(
     run_reconcile()
     redis = fakeredis.FakeRedis(decode_responses=True)
     threads: list[threading.Thread] = []
-    with (
-        psycopg.connect(AI_URL, autocommit=True) as job_store_conn,
-        psycopg.connect(AI_URL, autocommit=True) as job_lock_conn,
-    ):
+    with psycopg.connect(AI_URL, autocommit=True) as job_store_conn:
 
         def move_page_after_list_read() -> None:
             bridge.after_list_read = None
@@ -434,7 +416,7 @@ def test_index_ac42_a_page_moved_after_the_list_was_read_keeps_its_new_space(
                 "page-moved-to-space",
                 {"pageIds": [page_id(4)], "spaceId": SPACE_A, "workspaceId": WORKSPACE_A},
             )
-            threads.append(start_consumer(job_store_conn, job_lock_conn, bridge, embedder, redis))
+            threads.append(start_consumer(job_store_conn, bridge, embedder, redis))
 
         bridge.after_list_read = move_page_after_list_read
         run_reconcile()
@@ -449,8 +431,14 @@ def test_index_ac80_a_reconcile_waits_while_another_holds_the_writer_lock(
     run_reconcile: Reconcile, bridge: FakeBridge, store: IndexStore
 ):
     results: list[ReconcileResult] = []
-    with psycopg.connect(AI_URL, autocommit=True) as holder_conn:
-        second = threading.Thread(target=lambda: results.append(run_reconcile()))
+    with (
+        psycopg.connect(AI_URL, autocommit=True) as holder_conn,
+        psycopg.connect(AI_URL, autocommit=True) as second_conn,
+    ):
+        second_store = IndexStore(second_conn)
+        second = threading.Thread(
+            target=lambda: results.append(run_reconcile(index_store=second_store))
+        )
         with index_writer_lock(holder_conn):
             second.start()
             time.sleep(LOCK_WAIT_SECONDS)

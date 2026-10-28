@@ -1,8 +1,15 @@
 import logging
+from collections.abc import Sequence
 from dataclasses import dataclass, replace
 from enum import StrEnum
 
-from ai_service.bridge_client import AttachmentInfo, AttachmentNotFound, BridgeClient, PageNotFound
+from ai_service.bridge_client import (
+    AttachmentInfo,
+    AttachmentNotFound,
+    BridgeClient,
+    PageContent,
+    PageNotFound,
+)
 from ai_service.embedding import Embedder
 from ai_service.index_store import IndexStore, PageEntry, StoredSection
 from ai_service.sections import MAX_PDF_BYTES, PdfSkipped, markdown_sections, pdf_sections
@@ -16,6 +23,13 @@ class IndexOutcome(StrEnum):
     KEPT_NEWER = "kept-newer"
 
 
+def search_text(
+    title: str, heading_path: Sequence[str], text: str, file_name: str | None = None
+) -> str:
+    context = list(heading_path) if file_name is None else [file_name]
+    return "\n".join([title, *context, text])
+
+
 @dataclass(frozen=True)
 class PendingSection:
     heading_path: list[str]
@@ -24,6 +38,20 @@ class PendingSection:
     attachment_id: str | None = None
     file_name: str | None = None
     pdf_page: int | None = None
+
+
+def to_embed_again(title: str, sections: list[StoredSection]) -> list[PendingSection]:
+    return [
+        PendingSection(
+            section.heading_path,
+            section.text,
+            search_text(title, section.heading_path, section.text, section.file_name),
+            section.attachment_id,
+            section.file_name,
+            section.pdf_page,
+        )
+        for section in sections
+    ]
 
 
 class Indexer:
@@ -46,25 +74,15 @@ class Indexer:
             self._store.remove_pages([page_id])
             self._logger.info("Page %s is gone from the wiki, removed from the index", page_id)
             return IndexOutcome.REMOVED
-        reusable = self._store.pdf_sections_for(
-            page_id,
-            [attachment.id for attachment in content.attachments],
-            self._embedder.model_name,
-        )
-        pending = [
+        ordered: list[PendingSection | list[StoredSection]] = [
             PendingSection(
                 list(section.heading_path),
                 section.text,
-                "\n".join([content.title, *section.heading_path, section.text]),
+                search_text(content.title, section.heading_path, section.text),
             )
             for section in markdown_sections(content.markdown)
         ]
-        ordered: list[PendingSection | list[StoredSection]] = list(pending)
-        for attachment in content.attachments:
-            if attachment.id in reusable:
-                ordered.append(reusable[attachment.id])
-                continue
-            ordered.extend(self._new_pdf_sections(page_id, content.title, attachment))
+        ordered.extend(self._pdf_parts(content))
         sections = self._embed_and_number(ordered)
         entry = PageEntry(
             page_id=content.id,
@@ -79,6 +97,25 @@ class Indexer:
             return IndexOutcome.KEPT_NEWER
         self._logger.info("Page %s indexed with %d sections", page_id, len(sections))
         return IndexOutcome.INDEXED
+
+    def _pdf_parts(self, content: PageContent) -> list[PendingSection | list[StoredSection]]:
+        reusable = self._store.pdf_sections_for(
+            content.id,
+            [attachment.id for attachment in content.attachments],
+            self._embedder.model_name,
+        )
+        stored = self._store.get_entry(content.id) if reusable else None
+        retitled = stored is not None and stored.title != content.title
+        parts: list[PendingSection | list[StoredSection]] = []
+        for attachment in content.attachments:
+            reused = reusable.get(attachment.id)
+            if reused is None:
+                parts.extend(self._new_pdf_sections(content.id, content.title, attachment))
+            elif retitled:
+                parts.extend(to_embed_again(content.title, reused))
+            else:
+                parts.append(reused)
+        return parts
 
     def _new_pdf_sections(
         self, page_id: str, title: str, attachment: AttachmentInfo
@@ -112,7 +149,7 @@ class Indexer:
             PendingSection(
                 [],
                 section.text,
-                "\n".join([title, attachment.file_name, section.text]),
+                search_text(title, [], section.text, attachment.file_name),
                 attachment.id,
                 attachment.file_name,
                 section.pdf_page,

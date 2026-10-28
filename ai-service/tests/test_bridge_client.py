@@ -14,7 +14,9 @@ from ai_service.bridge_client import (
     AttachmentNotFound,
     BridgeClient,
     BridgeError,
+    BridgeRefused,
     BridgeUnavailable,
+    BridgeUnreachable,
     PageNotFound,
 )
 
@@ -140,6 +142,44 @@ def test_index_bridge_client_unreachable_or_refusing_bridge_is_unavailable(
 ) -> None:
     with pytest.raises(BridgeUnavailable):
         client.page_content(PAGE_ID)
+
+
+@pytest.mark.parametrize(
+    "client",
+    [
+        raising(httpx.ConnectError("refused")),
+        raising(httpx.ReadTimeout("slow")),
+        raising(httpx.ConnectTimeout("slow")),
+    ],
+)
+def test_index_ac79_transport_errors_and_timeouts_are_unreachable(client: BridgeClient) -> None:
+    with pytest.raises(BridgeUnreachable):
+        client.list_pages(None)
+
+
+@pytest.mark.parametrize(
+    "client",
+    [
+        answering(503, "assistant_disabled"),
+        answering(401, "service_token_invalid"),
+        answering(401, "service_token_missing"),
+    ],
+)
+def test_index_bridge_client_disabled_assistant_or_rejected_token_is_refused(
+    client: BridgeClient,
+) -> None:
+    with pytest.raises(BridgeRefused) as raised:
+        client.list_pages(None)
+    assert not isinstance(raised.value, BridgeUnreachable)
+
+
+@pytest.mark.parametrize("client", [answering(500), answering(502), answering(503)])
+def test_index_bridge_client_server_error_is_unavailable_but_neither_unreachable_nor_refused(
+    client: BridgeClient,
+) -> None:
+    with pytest.raises(BridgeUnavailable) as raised:
+        client.list_pages(None)
+    assert not isinstance(raised.value, BridgeUnreachable | BridgeRefused)
 
 
 def test_index_bridge_client_page_not_found_has_its_own_error() -> None:

@@ -9,8 +9,10 @@ from typing import TYPE_CHECKING, Any, cast
 
 import psycopg
 from redis import Redis, ResponseError
+from redis.exceptions import ConnectionError as RedisConnectionError
+from redis.exceptions import TimeoutError as RedisTimeoutError
 
-from ai_service.bridge_client import BridgeUnavailable
+from ai_service.bridge_client import BridgeError, BridgeUnavailable
 
 if TYPE_CHECKING:
     from ai_service.index_store import IndexStore
@@ -39,6 +41,7 @@ LOGGER = logging.getLogger("ai_service.jobs")
 
 WriterLock = Callable[[], AbstractContextManager[object]]
 RETRYABLE_ERRORS = (BridgeUnavailable, psycopg.OperationalError)
+REDIS_ERRORS = (RedisConnectionError, RedisTimeoutError)
 
 
 def enqueue_job(redis: Redis, name: str, data: dict[str, object]) -> str:
@@ -91,9 +94,21 @@ def parse_job(entry_id: str, fields: dict[str, str]) -> Job:
 
 
 def describe_error(error: Exception) -> str:
-    if isinstance(error, BridgeUnavailable):
+    if isinstance(error, BridgeError):
         return error.cause
     return type(error).__name__
+
+
+def wait_for_redis(
+    logger: logging.Logger, sleep: Callable[[float], None], what: str, error: Exception
+) -> None:
+    logger.warning(
+        "Redis unreachable, %s, next attempt in %d s: %s",
+        what,
+        RETRY_DELAY_SECONDS,
+        type(error).__name__,
+    )
+    sleep(RETRY_DELAY_SECONDS)
 
 
 class JobConsumer:
@@ -125,7 +140,11 @@ class JobConsumer:
         self._create_group()
 
     def process_next(self, block_ms: int) -> bool:
-        entry = self._read(OWN_PENDING_ID, None) or self._read(NEW_ENTRIES_ID, block_ms or None)
+        try:
+            entry = self._read(OWN_PENDING_ID, None) or self._read(NEW_ENTRIES_ID, block_ms or None)
+        except REDIS_ERRORS as error:
+            wait_for_redis(self._logger, self._sleep, "no job read", error)
+            return False
         if entry is None:
             return False
         entry_id, fields = entry
@@ -208,4 +227,7 @@ class JobConsumer:
         return None
 
     def _ack(self, entry_id: str) -> None:
-        self._redis.xack(JOB_STREAM, CONSUMER_GROUP, entry_id)
+        try:
+            self._redis.xack(JOB_STREAM, CONSUMER_GROUP, entry_id)
+        except REDIS_ERRORS as error:
+            wait_for_redis(self._logger, self._sleep, f"job {entry_id} stays pending", error)

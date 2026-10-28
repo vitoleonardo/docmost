@@ -152,7 +152,9 @@ After a seed rebuild (`pnpm seed` empties schema `ai` and gives the pages new id
   - `STACK_SERVICE_TOKEN`: the wiki's `AI_SERVICE_TOKEN`
   - `STACK_EMBEDDING_MODEL`: optional, default as the worker
 
-  INDEX-AC23 changes a page through `POST /api/pages/update` as the seed owner and prints `INDEX-AC23 freshness: <seconds> s` (limit 60 s). Each run appends one section to the page "Bürozeiten und Erreichbarkeit".
+  - `STACK_SEED_PASSWORD`: optional, default the demo password above
+
+  INDEX-AC23 creates a throwaway page as the seed owner in the space of "Bürozeiten und Erreichbarkeit", changes it through `POST /api/pages/update`, prints `INDEX-AC23 freshness: <seconds> s` (limit 60 s) and moves the page to the trash.
 
 Stack on a separate database, so `docmost` stays untouched (fake values; ports 3100 and 8101 instead of 3000 and 8100; Redis db 5):
 1. Create the database `docmost_index_stack` on the dev Postgres. Run `DATABASE_URL=<its URL> pnpm --filter ./apps/server run migration:latest`.

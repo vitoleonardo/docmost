@@ -27,6 +27,7 @@ from tests.pdf_fixtures import build_pdf
 TOKEN = SERVICE_CREDENTIAL
 WIKI_URL = "http://wiki.test"
 PDF_FILE_NAME = "reisekosten.pdf"
+CURSOR_SIGNATURE = ".fake-signature"
 
 
 def mock_client(handler: Callable[[httpx.Request], httpx.Response]) -> BridgeClient:
@@ -85,11 +86,12 @@ class FakeBridge:
         part_number = len(self.list_requests)
         if part_number == self.failing_list_part and self.list_failure is not None:
             return self.list_failure()
+        after = None if cursor is None else cursor.removesuffix(CURSOR_SIGNATURE)
         remaining = [
-            identifier for identifier in self.listed_ids() if cursor is None or identifier > cursor
+            identifier for identifier in self.listed_ids() if after is None or identifier > after
         ]
         part = remaining[: self.page_size]
-        next_cursor = part[-1] if len(remaining) > self.page_size else None
+        next_cursor = part[-1] + CURSOR_SIGNATURE if len(remaining) > self.page_size else None
         if next_cursor is None and self.repeated_page is not None:
             part = [*part, self.repeated_page]
         response = httpx.Response(
@@ -179,6 +181,10 @@ def server_error() -> httpx.Response:
 
 def refuse() -> httpx.Response:
     raise httpx.ConnectError("connection refused")
+
+
+def answer(status: int, code: str) -> Callable[[], httpx.Response]:
+    return lambda: httpx.Response(status, json={"code": code, "message": "failure"})
 
 
 def bad_request() -> httpx.Response:

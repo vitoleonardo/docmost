@@ -79,10 +79,13 @@ def test_index_ac5_heading_without_text_gives_no_section():
     assert sections == [Section(("A", "C"), "Text.")]
 
 
-def test_index_ac62_empty_whitespace_and_headings_only_bodies_have_no_sections():
-    assert markdown_sections("") == []
-    assert markdown_sections("  \n\n \t\n") == []
-    assert markdown_sections("# A\n\n## B\n\n### C") == []
+@pytest.mark.parametrize(
+    "body",
+    ["", "  \n\n \t\n", "# A\n\n## B\n\n### C"],
+    ids=["empty", "whitespace", "headings-only"],
+)
+def test_index_ac62_empty_whitespace_and_headings_only_bodies_have_no_sections(body: str):
+    assert markdown_sections(body) == []
 
 
 def test_index_ac5_hash_lines_inside_a_code_fence_are_not_headings():
@@ -91,6 +94,16 @@ def test_index_ac5_hash_lines_inside_a_code_fence_are_not_headings():
     assert len(sections) == 1
     assert sections[0].heading_path == ("A",)
     assert "# not a heading" in sections[0].text
+    assert "After." in sections[0].text
+
+
+def test_index_ac5_hash_lines_inside_a_tilde_fence_are_not_headings():
+    markdown = "# A\n\n~~~\n# not a heading\n```\n# still code\n~~~\n\nAfter."
+    sections = markdown_sections(markdown)
+    assert len(sections) == 1
+    assert sections[0].heading_path == ("A",)
+    assert "# not a heading" in sections[0].text
+    assert "# still code" in sections[0].text
     assert "After." in sections[0].text
 
 

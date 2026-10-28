@@ -6,8 +6,12 @@ import pytest
 
 from ai_service import embedding
 from ai_service.embedding import MODEL_CACHE_DIR, EmbeddingModelError, FastEmbedEmbedder
+from ai_service.index_store import IndexStore
+from ai_service.indexer import Indexer
 from ai_service.settings import WorkerSettings
+from tests.fake_bridge import seed_shaped_bridge
 from tests.hashing_embedder import HashingEmbedder
+from tests.index_db import max_component_difference, stored_and_fresh_embeddings
 
 SERVICE_ROOT = Path(__file__).resolve().parents[1]
 
@@ -55,11 +59,20 @@ def test_hashing_embedder_is_deterministic_and_normalised():
 
 @pytest.mark.integration
 @pytest.mark.model
-def test_index_ac12_real_model_gives_the_same_embedding_for_the_same_text():
+def test_index_ac12_real_model_reembeds_indexed_sections_to_their_stored_embedding(
+    store: IndexStore,
+):
     embedder = FastEmbedEmbedder(WorkerSettings.model_fields["ai_embedding_model"].default)
-    texts = ["Urlaub wird im Portal beantragt.", "Reisekosten bis 30 Tage einreichen."]
-    first, second = embedder.embed(texts), embedder.embed(list(reversed(texts)))[::-1]
-    assert all(type(component) is float for component in first[0])
-    assert len(first[0]) == 768
-    for a, b in zip(first, second, strict=True):
-        assert max(abs(x - y) for x, y in zip(a, b, strict=True)) <= 1e-5
+    bridge = seed_shaped_bridge()
+    indexer = Indexer(bridge.client(), store, embedder)
+    for listed in bridge.listed_ids():
+        indexer.index_page(listed)
+
+    pairs = stored_and_fresh_embeddings(store, embedder)
+
+    assert any(section.attachment_id is None and section.heading_path for section, _ in pairs)
+    assert any(section.attachment_id is not None for section, _ in pairs)
+    assert all(type(component) is float for component in pairs[0][1])
+    assert len(pairs[0][1]) == 768
+    for section, fresh in pairs:
+        assert max_component_difference(section.embedding, fresh) <= 1e-5

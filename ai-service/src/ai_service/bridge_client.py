@@ -9,7 +9,7 @@ SERVICE_TOKEN_HEADER = "X-Service-Token"
 PAGES_PATH = "/api/ai-bridge/internal/pages"
 PAGE_CONTENT_PATH = "/api/ai-bridge/internal/page-content"
 ATTACHMENT_PATH = "/api/ai-bridge/internal/attachment"
-UNAVAILABLE_CODES = {"assistant_disabled", "service_token_missing", "service_token_invalid"}
+REFUSING_CODES = {"assistant_disabled", "service_token_missing", "service_token_invalid"}
 
 
 class BridgeError(Exception):
@@ -19,6 +19,14 @@ class BridgeError(Exception):
 
 
 class BridgeUnavailable(BridgeError):
+    pass
+
+
+class BridgeUnreachable(BridgeUnavailable):
+    pass
+
+
+class BridgeRefused(BridgeUnavailable):
     pass
 
 
@@ -123,14 +131,16 @@ class BridgeClient:
         try:
             response = self._http.post(path, json=body, headers=self._headers)
         except httpx.TimeoutException as error:
-            raise BridgeUnavailable("bridge did not answer in time") from error
+            raise BridgeUnreachable("bridge did not answer in time") from error
         except httpx.TransportError as error:
-            raise BridgeUnavailable(f"bridge not reachable ({type(error).__name__})") from error
+            raise BridgeUnreachable(f"bridge not reachable ({type(error).__name__})") from error
         if response.is_success:
             return response
         code = error_code(response)
         cause = describe(response, code)
-        if response.status_code >= 500 or code in UNAVAILABLE_CODES:
+        if code in REFUSING_CODES:
+            raise BridgeRefused(cause)
+        if response.status_code >= 500:
             raise BridgeUnavailable(cause)
         if response.status_code == 404 and code == "page_not_found":
             raise PageNotFound(cause)

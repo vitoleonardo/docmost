@@ -76,6 +76,46 @@ def test_index_ac70_empty_space_list_returns_nothing_without_embedding():
     assert embedder.calls == []
 
 
+@pytest.mark.parametrize(
+    "space_ids",
+    [["not-a-uuid"], [SPACE_A, "0192f000"], [SPACE_A, ""]],
+    ids=["word", "short", "empty"],
+)
+def test_index_ac16_space_ids_that_are_not_uuids_are_refused_naming_the_argument(
+    space_ids: list[str],
+):
+    embedder = HashingEmbedder()
+    with pytest.raises(ValueError, match="space_ids"):
+        search_index(RefusingStore(), embedder, "Urlaub", space_ids)
+    assert embedder.calls == []
+
+
+def test_index_ac16_space_ids_in_upper_case_are_accepted():
+    embedder = HashingEmbedder()
+
+    class RecordingStore(RefusingStore):
+        def search(
+            self,
+            query_vector: Sequence[float],
+            space_ids: Sequence[str],
+            embedding_model: str,
+            limit: int,
+        ) -> list[SearchHit]:
+            return []
+
+    assert search_index(RecordingStore(), embedder, "Urlaub", [SPACE_A.upper()]) == []
+
+
+@pytest.mark.integration
+def test_index_ac17_a_question_with_a_zero_embedding_returns_no_nan_scores(
+    store: IndexStore, embedder: HashingEmbedder
+):
+    index_page(store, embedder, make_entry(1), ["Urlaub im Sommer", "Urlaub im Winter"])
+    assert embedder.embed(["?!"]) == [[0.0] * embedder.dims]
+
+    assert search_index(store, embedder, "?!", [SPACE_A]) == []
+
+
 @pytest.mark.integration
 def test_index_ac16_results_belong_only_to_pages_of_the_listed_spaces(
     store: IndexStore, embedder: HashingEmbedder

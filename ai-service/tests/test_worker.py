@@ -12,16 +12,17 @@ import fakeredis
 import psycopg
 import pytest
 from redis import Redis
+from redis.exceptions import ConnectionError as RedisConnectionError
 
 import ai_service.worker as worker_module
 from ai_service import reconcile_command
 from ai_service.index_store import IndexStore
-from ai_service.jobs import enqueue_job
+from ai_service.jobs import CONSUMER_GROUP, JOB_STREAM, enqueue_job
 from ai_service.migrations_check import MIGRATION_COMMAND
 from ai_service.settings import WorkerSettings
-from ai_service.worker import RECONCILE_INTERVAL_SECONDS, Runtime, Worker
+from ai_service.worker import RECONCILE_INTERVAL_SECONDS, IndexSession, Runtime, Worker
 from tests.conftest import BRIDGE_KEY, SERVICE_CREDENTIAL, TEST_REDIS_URL, FakeClock, warnings
-from tests.fake_bridge import WIKI_URL, FakeBridge, refuse, seed_shaped_bridge
+from tests.fake_bridge import WIKI_URL, FakeBridge, answer, refuse, seed_shaped_bridge
 from tests.hashing_embedder import HashingEmbedder
 from tests.index_db import (
     WORKSPACE_A,
@@ -31,6 +32,7 @@ from tests.index_db import (
     page_id,
 )
 from tests.test_db_role import ADMIN_URL, AI_URL
+from tests.test_job_consumer import fail_once
 from tests.test_migrations import fresh_ai_schema, migrate
 from tests.test_settings import IsolatedWorkerSettings
 
@@ -208,24 +210,55 @@ def test_worker_keeps_running_when_a_reconcile_is_aborted_and_retries_at_the_nex
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("dropped", [[0], [1], [0, 1]], ids=["store", "lock", "both"])
-def test_worker_reopens_its_connections_after_the_database_dropped_them(
+def test_index_ac39_worker_logs_an_unexpected_reconcile_error_and_retries_at_the_next_interval(
+    make_worker: Callable[..., Worker],
+    bridge: FakeBridge,
+    store: IndexStore,
+    redis: Redis,
+    clock: FakeClock,
+    caplog: pytest.LogCaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    real_reconcile = worker_module.reconcile
+    calls: list[int] = []
+
+    def fail_first(*args: Any, **kwargs: Any) -> Any:
+        calls.append(len(calls))
+        if len(calls) == 1:
+            raise RuntimeError("Urlaubsregeln page text")
+        return real_reconcile(*args, **kwargs)
+
+    monkeypatch.setattr(worker_module, "reconcile", fail_first)
+    worker = make_worker()
+    enqueue_job(redis, "page-deleted", {"pageIds": [page_id(1)], "workspaceId": WORKSPACE_A})
+
+    worker.run_once()
+
+    lines = [line for line in warnings(caplog) if "RuntimeError" in line]
+    assert lines
+    assert not [line for line in lines if "Urlaubsregeln" in line]
+    assert redis.xpending(JOB_STREAM, CONSUMER_GROUP)["pending"] == 0
+    worker.run_once()
+    assert calls == [0]
+    clock.now += RECONCILE_INTERVAL_SECONDS
+    worker.run_once()
+    assert calls == [0, 1]
+    assert indexed_ids(store) == bridge.listed_ids()
+
+
+@pytest.mark.integration
+def test_worker_reopens_its_connection_after_the_database_dropped_it(
     make_worker: Callable[..., Worker],
     connect: RecordingConnect,
     store: IndexStore,
     redis: Redis,
     clock: FakeClock,
     caplog: pytest.LogCaptureFixture,
-    dropped: list[int],
 ):
     worker = make_worker()
     worker.run_once()
-    assert len(connect.opened) == 2
-    with psycopg.connect(ADMIN_URL, autocommit=True) as admin:
-        for index in dropped:
-            admin.execute(
-                "SELECT pg_terminate_backend(%s)", (connect.opened[index].info.backend_pid,)
-            )
+    assert len(connect.opened) == 1
+    terminate(connect.opened[0])
     enqueue_job(redis, "page-deleted", {"pageIds": [page_id(1)], "workspaceId": WORKSPACE_A})
 
     worker.run_once()
@@ -233,9 +266,76 @@ def test_worker_reopens_its_connections_after_the_database_dropped_them(
     assert clock.sleeps == [10]
 
     worker.run_once()
-    assert len(connect.opened) == 4
+    assert len(connect.opened) == 2
     assert page_id(1) not in indexed_ids(store)
     assert any("reconnect" in line for line in warnings(caplog))
+
+
+def terminate(conn: psycopg.Connection) -> None:
+    with psycopg.connect(ADMIN_URL, autocommit=True) as admin:
+        admin.execute("SELECT pg_terminate_backend(%s)", (conn.info.backend_pid,))
+
+
+def advisory_lock_holders() -> list[int]:
+    with psycopg.connect(ADMIN_URL, autocommit=True) as admin:
+        rows = admin.execute(
+            "SELECT l.pid FROM pg_locks l JOIN pg_database d ON d.oid = l.database"
+            " WHERE l.locktype = 'advisory' AND l.granted AND d.datname = current_database()"
+        ).fetchall()
+    return [pid for (pid,) in rows]
+
+
+@pytest.mark.integration
+def test_index_ac80_the_writer_lock_is_held_on_the_connection_that_writes(
+    connect: RecordingConnect, store: IndexStore
+):
+    runtime = Runtime(worker_settings(), HashingEmbedder(), seed_shaped_bridge().client(), connect)
+    with IndexSession(runtime) as session, session.writer_lock():
+        assert len(connect.opened) == 1
+        assert advisory_lock_holders() == [connect.opened[0].info.backend_pid]
+
+
+@pytest.mark.integration
+def test_index_ac80_a_dropped_connection_ends_the_lock_and_the_writes_together(
+    connect: RecordingConnect, store: IndexStore
+):
+    runtime = Runtime(worker_settings(), HashingEmbedder(), seed_shaped_bridge().client(), connect)
+    session = IndexSession(runtime)
+    lock = session.writer_lock()
+    lock.__enter__()
+    terminate(connect.opened[0])
+
+    with pytest.raises(psycopg.OperationalError):
+        session.store.remove_pages([page_id(1)])
+    assert advisory_lock_holders() == []
+    with pytest.raises(psycopg.OperationalError):
+        lock.__exit__(None, None, None)
+    assert session.closed
+    session.close()
+
+
+@pytest.mark.integration
+def test_worker_waits_10_s_when_redis_fails_while_creating_the_group_and_retries(
+    make_worker: Callable[..., Worker],
+    bridge: FakeBridge,
+    connect: RecordingConnect,
+    store: IndexStore,
+    redis: Redis,
+    clock: FakeClock,
+    caplog: pytest.LogCaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    fail_once(monkeypatch, redis, "xgroup_create", RedisConnectionError("Connection refused"))
+    worker = make_worker()
+
+    worker.run_once()
+
+    assert clock.sleeps == [10]
+    assert any("ConnectionError" in line for line in warnings(caplog))
+    assert connect.opened[0].closed
+    assert store.list_entries() == []
+    worker.run_once()
+    assert indexed_ids(store) == bridge.listed_ids()
 
 
 def test_worker_waits_and_retries_when_the_database_cannot_be_reached(
@@ -284,6 +384,37 @@ def test_index_ac79_unreachable_bridge_exits_1_naming_the_bridge_address(
 
     assert exit_info.value.code == 1
     assert f"Wiki bridge unreachable at {url}" in capsys.readouterr().err
+    assert store.list_entries() == []
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    ("status", "code"),
+    [(401, "service_token_invalid"), (503, "assistant_disabled")],
+    ids=["service-token-invalid", "assistant-disabled"],
+)
+def test_reconcile_command_names_a_bridge_that_refused_it_and_exits_1(
+    patched_start_up: Callable[..., None],
+    bridge: FakeBridge,
+    store: IndexStore,
+    capsys: pytest.CaptureFixture[str],
+    status: int,
+    code: str,
+):
+    bridge.failing_list_part = 1
+    bridge.list_failure = answer(status, code)
+    patched_start_up()
+
+    with pytest.raises(SystemExit) as exit_info:
+        reconcile_command.main()
+
+    assert exit_info.value.code == 1
+    stderr = capsys.readouterr().err
+    assert (
+        f"Wiki bridge refused the reconcile at {WIKI_URL}: bridge answered {status} {code}"
+        in stderr
+    )
+    assert "unreachable" not in stderr
     assert store.list_entries() == []
 
 

@@ -12,7 +12,7 @@ from ai_service.bridge_client import (
     BridgeUnavailable,
 )
 from ai_service.index_store import IndexStore
-from ai_service.indexer import Indexer, IndexOutcome
+from ai_service.indexer import Indexer, IndexOutcome, search_text
 from ai_service.search import search_index
 from ai_service.sections import MAX_PDF_BYTES
 from tests.conftest import warnings
@@ -174,6 +174,31 @@ def test_index_ac31_a_text_only_edit_reuses_the_pdf_without_requesting_it(
     assert [s.position for s in store.sections_of(page_id(1))] == [0, 1]
     assert embedder.calls == [["Urlaubsregeln\nZweiter Text."]]
     assert page_id(1) in top_page_ids(store, embedder, "Brandschutz Uebung jeden Herbst")
+
+
+def test_index_ac31_a_title_change_reembeds_the_reused_pdf_without_requesting_it(
+    indexer: Indexer, wiki: FakeWiki, store: IndexStore, embedder: HashingEmbedder
+):
+    wiki.markdown = "Seitentext."
+    identifier = wiki.add_pdf(1, build_pdf(["Brandschutz Uebung jeden Herbst"]))
+    indexer.index_page(page_id(1))
+    wiki.attachment_requests.clear()
+
+    wiki.title = "Sicherheitsregeln"
+    wiki.updated_at = later(5)
+    assert indexer.index_page(page_id(1)) == IndexOutcome.INDEXED
+
+    assert wiki.attachment_requests == []
+    [pdf] = [s for s in store.sections_of(page_id(1)) if s.attachment_id == identifier]
+    [expected] = embedder.embed(
+        [search_text("Sicherheitsregeln", [], "Brandschutz Uebung jeden Herbst", "datei-1.pdf")]
+    )
+    assert pdf.embedding == pytest.approx(expected, abs=1e-5)
+    assert (pdf.text, pdf.file_name, pdf.pdf_page) == (
+        "Brandschutz Uebung jeden Herbst",
+        "datei-1.pdf",
+        1,
+    )
 
 
 def test_index_ac31_a_pdf_indexed_with_another_model_is_requested_again(

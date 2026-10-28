@@ -14,10 +14,9 @@ from redis import Redis
 from ai_service.bridge_client import BridgeClient
 from ai_service.db_check import RoleNotIsolatedError, check_database_role
 from ai_service.embedding import Embedder, EmbeddingModelError, FastEmbedEmbedder
-from ai_service.index_lock import index_writer_lock
 from ai_service.index_store import IndexStore
 from ai_service.indexer import Indexer
-from ai_service.jobs import RETRY_DELAY_SECONDS, JobConsumer
+from ai_service.jobs import REDIS_ERRORS, RETRY_DELAY_SECONDS, JobConsumer, wait_for_redis
 from ai_service.migrations_check import MigrationsMissingError, assert_migrated
 from ai_service.reconcile import ReconcileAborted, ReconcileResult, reconcile
 from ai_service.settings import WorkerSettings
@@ -99,21 +98,16 @@ def start_up() -> Runtime:
 class IndexSession:
     def __init__(self, runtime: Runtime) -> None:
         self._runtime = runtime
-        self._store_conn = runtime.connect()
-        try:
-            self._lock_conn = runtime.connect()
-        except psycopg.OperationalError:
-            self._store_conn.close()
-            raise
-        self.store = IndexStore(self._store_conn)
+        self._conn = runtime.connect()
+        self.store = IndexStore(self._conn)
         self.indexer = Indexer(runtime.bridge, self.store, runtime.embedder)
 
     def writer_lock(self) -> AbstractContextManager[None]:
-        return index_writer_lock(self._lock_conn)
+        return self.store.writer_lock()
 
     @property
     def closed(self) -> bool:
-        return self._store_conn.closed or self._lock_conn.closed
+        return self._conn.closed
 
     def reconcile(self) -> ReconcileResult:
         return reconcile(
@@ -125,8 +119,7 @@ class IndexSession:
         )
 
     def close(self) -> None:
-        self._store_conn.close()
-        self._lock_conn.close()
+        self._conn.close()
 
     def __enter__(self) -> IndexSession:
         return self
@@ -187,9 +180,14 @@ class Worker:
         except psycopg.OperationalError as error:
             self._wait_for_database(error)
             return None
-        consumer = JobConsumer(
-            self._redis, session.indexer, session.store, session.writer_lock, sleep=self._sleep
-        )
+        try:
+            consumer = JobConsumer(
+                self._redis, session.indexer, session.store, session.writer_lock, sleep=self._sleep
+            )
+        except REDIS_ERRORS as error:
+            session.close()
+            wait_for_redis(self._logger, self._sleep, "job group not ready", error)
+            return None
         self._active = (session, consumer)
         return self._active
 
@@ -216,6 +214,14 @@ class Worker:
             session.reconcile()
         except ReconcileAborted:
             self._logger.info("Next reconcile in %d s", RECONCILE_INTERVAL_SECONDS)
+        except psycopg.OperationalError:
+            raise
+        except Exception as error:
+            self._logger.warning(
+                "Reconcile failed, next reconcile in %d s: %s",
+                RECONCILE_INTERVAL_SECONDS,
+                type(error).__name__,
+            )
         finally:
             self._last_reconcile = self._clock()
 

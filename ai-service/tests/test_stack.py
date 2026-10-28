@@ -25,7 +25,7 @@ SEED_GENERATED = (
     Path(__file__).resolve().parents[2] / "apps/server/src/integrations/seed/content/generated"
 )
 OWNER_EMAIL = "joerg.ostmoor@ostmooimooi.example.com"
-OWNER_PASSWORD = "seed-demo-password"
+OWNER_PASSWORD = os.environ.get("STACK_SEED_PASSWORD", "seed-demo-password")
 PAGE_SENTENCE = (
     "Die Personalabteilung verschickt den Vertrag, bestellt den Laptop"
     " und legt die Benutzerkonten an."
@@ -33,7 +33,7 @@ PAGE_SENTENCE = (
 PDF_FILE = "kundenvertrag-stadtwerke-beispielstadt.pdf"
 PDF_FIELD = "term"
 TITLE_WORD = "zugangsregeln"
-EDITED_PAGE_TITLE = "Bürozeiten und Erreichbarkeit"
+WRITABLE_SPACE_PAGE_TITLE = "Bürozeiten und Erreichbarkeit"
 FRESHNESS_LIMIT_SECONDS = 60
 POLL_SECONDS = 0.5
 GIVE_UP_SECONDS = 180
@@ -227,12 +227,47 @@ def owner_session(wiki_url: str) -> Iterator[httpx.Client]:
         yield session
 
 
+@contextmanager
+def throwaway_page(session: httpx.Client, space_id: str, token: str) -> Iterator[str]:
+    response = session.post(
+        "/api/pages/create",
+        json={
+            "spaceId": space_id,
+            "title": f"Wegwerfseite {token}",
+            "content": f"Platzhalter {token}",
+            "format": "markdown",
+        },
+    )
+    assert response.status_code == 200, response.text
+    page_id = response.json()["data"]["id"]
+    try:
+        yield page_id
+    finally:
+        deleted = session.post("/api/pages/delete", json={"pageId": page_id})
+        assert deleted.status_code == 200, deleted.text
+
+
+def wait_until_found(stack: Stack, sentence: str, page_id: str, token: str) -> float | None:
+    started = time.monotonic()
+    while time.monotonic() - started < GIVE_UP_SECONDS:
+        results = stack.search(sentence, limit=5)
+        if any(hit.page_id == page_id and token in hit.text for hit in results):
+            return time.time()
+        time.sleep(POLL_SECONDS)
+    return None
+
+
 def test_index_ac23_a_rest_content_update_is_searchable_within_60_seconds(stack: Stack):
-    page_id = next(page_id for page_id, c in stack.contents.items() if c.title == EDITED_PAGE_TITLE)
-    previous_update = stack.bridge.page_content(page_id).updated_at
+    space_id = next(
+        c.space_id for c in stack.contents.values() if c.title == WRITABLE_SPACE_PAGE_TITLE
+    )
     token = uuid.uuid4().hex[:8]
     sentence = f"Die Kantine bietet donnerstags Linsensuppe mit Würstchen an, Kennung {token}."
-    with owner_session(stack.wiki_url) as session:
+    with (
+        owner_session(stack.wiki_url) as session,
+        throwaway_page(session, space_id, token) as page_id,
+    ):
+        previous_update = stack.bridge.page_content(page_id).updated_at
         response = session.post(
             "/api/pages/update",
             json={
@@ -242,17 +277,10 @@ def test_index_ac23_a_rest_content_update_is_searchable_within_60_seconds(stack:
                 "format": "markdown",
             },
         )
-    assert response.status_code == 200, response.text
-    started = time.monotonic()
-    found_at: float | None = None
-    while time.monotonic() - started < GIVE_UP_SECONDS:
-        results = stack.search(sentence, limit=5)
-        if any(hit.page_id == page_id and token in hit.text for hit in results):
-            found_at = time.time()
-            break
-        time.sleep(POLL_SECONDS)
-    assert found_at is not None, f"page not searchable after {GIVE_UP_SECONDS} s"
-    new_update = stack.bridge.page_content(page_id).updated_at
+        assert response.status_code == 200, response.text
+        found_at = wait_until_found(stack, sentence, page_id, token)
+        assert found_at is not None, f"page not searchable after {GIVE_UP_SECONDS} s"
+        new_update = stack.bridge.page_content(page_id).updated_at
     assert new_update > previous_update
     seconds = found_at - new_update.timestamp()
     print(f"INDEX-AC23 freshness: {seconds:.1f} s")

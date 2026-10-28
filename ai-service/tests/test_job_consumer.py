@@ -11,8 +11,16 @@ import httpx
 import psycopg
 import pytest
 from redis import Redis
+from redis.exceptions import ConnectionError as RedisConnectionError
+from redis.exceptions import TimeoutError as RedisTimeoutError
 
-from ai_service.bridge_client import PAGE_CONTENT_PATH
+from ai_service.bridge_client import (
+    PAGE_CONTENT_PATH,
+    AttachmentNotFound,
+    BridgeError,
+    BridgeUnavailable,
+    PageNotFound,
+)
 from ai_service.index_lock import index_writer_lock
 from ai_service.index_store import IndexStore, StoredSection
 from ai_service.indexer import Indexer
@@ -21,11 +29,12 @@ from ai_service.jobs import (
     JOB_STREAM,
     JobConsumer,
     WriterLock,
+    describe_error,
     enqueue_job,
 )
 from ai_service.search import search_index
 from tests.conftest import FakeClock, warnings
-from tests.fake_bridge import TOKEN, mock_client, refuse
+from tests.fake_bridge import TOKEN, answer, mock_client, refuse
 from tests.hashing_embedder import HashingEmbedder
 from tests.index_db import (
     SPACE_A,
@@ -95,10 +104,6 @@ class FakeWiki:
 
 def time_out() -> httpx.Response:
     raise httpx.ReadTimeout("no answer")
-
-
-def answer(status: int, code: str) -> Callable[[], httpx.Response]:
-    return lambda: httpx.Response(status, json={"code": code, "message": "failure"})
 
 
 def crash() -> httpx.Response:
@@ -175,6 +180,19 @@ def seed(
         1,
     )
     assert store.replace_page(entry, [*sections, pdf])
+
+
+@pytest.mark.parametrize(
+    "error_class", [BridgeError, BridgeUnavailable, PageNotFound, AttachmentNotFound]
+)
+def test_index_ac58_a_bridge_error_is_described_by_its_cause(error_class: type[BridgeError]):
+    assert describe_error(error_class("bridge answered 400 invalid_request")) == (
+        "bridge answered 400 invalid_request"
+    )
+
+
+def test_index_ac58_another_error_is_described_by_its_class_only():
+    assert describe_error(ValueError("page text that must not be logged")) == "ValueError"
 
 
 def test_index_ac54_required_fields_per_job_equal_the_contract_table():
@@ -512,7 +530,7 @@ def test_index_ac58_other_error_is_tried_3_times_then_skipped_and_the_next_job_r
         if "skipped" in line and "page-created" in line and entry_id in line
     ]
     assert len(skipped) == 1
-    assert "BridgeError" in skipped[0]
+    assert "bridge answered 400 invalid_request" in skipped[0]
 
     assert consumer.process_next(BLOCK_MS)
     assert indexed_ids(store) == []
@@ -541,7 +559,7 @@ def test_index_ac58_a_failed_attempt_followed_by_a_success_indexes_the_page(
     assert indexed_ids(store) == [page_id(1)]
     assert len(wiki.requests) == 2
     assert pending_count(redis) == 0
-    assert len([line for line in warnings(caplog) if "BridgeError" in line]) == 1
+    assert len([line for line in warnings(caplog) if "bridge answered 400" in line]) == 1
 
 
 @pytest.mark.integration
@@ -635,6 +653,77 @@ def test_index_ac73_job_log_lines_name_job_entry_and_page_ids_without_content(
     assert [line for line in lines if failed_id in line and "skipped" in line]
 
 
+def fail_once(monkeypatch: pytest.MonkeyPatch, redis: Redis, method: str, error: Exception) -> None:
+    original = getattr(redis, method)
+    raised: list[Exception] = []
+
+    def flaky(*args: object, **kwargs: object) -> object:
+        if not raised:
+            raised.append(error)
+            raise error
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(redis, method, flaky)
+
+
+REDIS_FAILURES = [
+    RedisConnectionError("Connection refused"),
+    RedisTimeoutError("Timeout reading from socket"),
+]
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("error", REDIS_FAILURES, ids=["connection", "timeout"])
+def test_a_redis_read_error_waits_10_s_and_the_job_runs_on_the_next_call(
+    consumer: JobConsumer,
+    redis: Redis,
+    store: IndexStore,
+    embedder: HashingEmbedder,
+    clock: FakeClock,
+    caplog: pytest.LogCaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
+    error: Exception,
+):
+    seed(store, embedder, 1)
+    enqueue_job(redis, "page-deleted", page_job(1))
+    fail_once(monkeypatch, redis, "xreadgroup", error)
+
+    assert not consumer.process_next(BLOCK_MS)
+
+    assert clock.sleeps == [10]
+    assert indexed_ids(store) == [page_id(1)]
+    assert [line for line in warnings(caplog) if type(error).__name__ in line]
+    assert consumer.process_next(BLOCK_MS)
+    assert indexed_ids(store) == []
+    assert pending_count(redis) == 0
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("error", REDIS_FAILURES, ids=["connection", "timeout"])
+def test_a_redis_ack_error_keeps_the_job_pending_and_the_next_call_acks_it(
+    consumer: JobConsumer,
+    redis: Redis,
+    store: IndexStore,
+    embedder: HashingEmbedder,
+    clock: FakeClock,
+    caplog: pytest.LogCaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
+    error: Exception,
+):
+    seed(store, embedder, 1)
+    entry_id = enqueue_job(redis, "page-deleted", page_job(1))
+    fail_once(monkeypatch, redis, "xack", error)
+
+    assert consumer.process_next(BLOCK_MS)
+
+    assert clock.sleeps == [10]
+    assert pending_count(redis) == 1
+    assert [line for line in warnings(caplog) if entry_id in line and type(error).__name__ in line]
+    assert consumer.process_next(BLOCK_MS)
+    assert pending_count(redis) == 0
+    assert not consumer.process_next(BLOCK_MS)
+
+
 @pytest.mark.integration
 def test_index_writer_lock_held_elsewhere_delays_the_job_until_released(
     make_consumer: ConsumerFactory,
@@ -645,9 +734,10 @@ def test_index_writer_lock_held_elsewhere_delays_the_job_until_released(
     seed(store, embedder, 1)
     with (
         psycopg.connect(AI_URL, autocommit=True) as holder_conn,
-        psycopg.connect(AI_URL, autocommit=True) as consumer_lock_conn,
+        psycopg.connect(AI_URL, autocommit=True) as consumer_conn,
     ):
-        consumer = make_consumer(writer_lock=lambda: index_writer_lock(consumer_lock_conn))
+        consumer_store = IndexStore(consumer_conn)
+        consumer = make_consumer(index_store=consumer_store, writer_lock=consumer_store.writer_lock)
         enqueue_job(redis, "page-deleted", page_job(1))
         results: list[bool] = []
         worker = threading.Thread(target=lambda: results.append(consumer.process_next(BLOCK_MS)))
