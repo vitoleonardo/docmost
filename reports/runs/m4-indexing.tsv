@@ -1,0 +1,2 @@
+run	2026-10-28	indexing	m4-indexing	8	0	4	3173842	0	483791	1464645	1225406
+stop	review	spec	round 1: 2 high (INDEX-AC12 test bypassed the indexer; INDEX-AC48 accepted any well-formed cursor), 4 medium	fixed in code so the approved spec text holds (indexer-level AC12 test, signed cursor), mediums and 6 lows fixed	review round 2
