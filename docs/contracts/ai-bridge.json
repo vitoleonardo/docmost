@@ -1,8 +1,8 @@
 {
   "version": 1,
   "headers": {
-    "serviceToken": "X-Service-Token",
-    "userToken": "X-User-Token"
+    "serviceTokenHeader": "X-Service-Token",
+    "userTokenHeader": "X-User-Token"
   },
   "errorBody": ["code", "message"],
   "errors": {

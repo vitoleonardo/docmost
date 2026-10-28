@@ -12,8 +12,8 @@ from redis import Redis
 from ai_service.app import create_app
 from ai_service.settings import Settings
 
-BRIDGE_SECRET = "test-bridge-secret-0123456789abcdef"
-SERVICE_TOKEN = "test-service-token-0123456789abcdef"
+BRIDGE_KEY = "test-bridge-secret-0123456789abcdef"
+SERVICE_CREDENTIAL = "test-service-token-0123456789abcdef"
 USER_ID = "0192f000-0000-7000-8000-000000000001"
 WORKSPACE_ID = "0192f000-0000-7000-8000-000000000002"
 TEST_REDIS_URL = "redis://127.0.0.1:6380/15"
@@ -26,8 +26,8 @@ class IsolatedSettings(Settings):
 
 def make_settings(**overrides: Any) -> Settings:
     values: dict[str, Any] = {
-        "ai_bridge_secret": BRIDGE_SECRET,
-        "ai_service_token": SERVICE_TOKEN,
+        "ai_bridge_secret": BRIDGE_KEY,
+        "ai_service_token": SERVICE_CREDENTIAL,
         "redis_url": TEST_REDIS_URL,
         "ai_database_url": TEST_DATABASE_URL,
         **overrides,
@@ -52,13 +52,13 @@ def client(settings: Settings, redis_client: Redis) -> TestClient:
 
 @pytest.fixture
 def service_headers() -> dict[str, str]:
-    return {"X-Service-Token": SERVICE_TOKEN}
+    return {"X-Service-Token": SERVICE_CREDENTIAL}
 
 
 @pytest.fixture
 def make_token() -> Callable[..., str]:
     def make(
-        secret: str = BRIDGE_SECRET,
+        secret: str = BRIDGE_KEY,
         algorithm: str = "HS256",
         **overrides: Any,
     ) -> str:

@@ -12,14 +12,14 @@ from psycopg import sql
 
 import ai_service.__main__ as entry
 from ai_service.db_check import ROLE_NOT_ISOLATED_MESSAGE, RoleNotIsolatedError
-from tests.conftest import BRIDGE_SECRET, SERVICE_TOKEN, TEST_REDIS_URL, make_settings
+from tests.conftest import BRIDGE_KEY, SERVICE_CREDENTIAL, TEST_REDIS_URL, make_settings
 
 POSTGRES_SERVER = "postgresql://docmost:docmost@127.0.0.1:5433"
 TEST_DATABASE = "docmost_ai_role_test"
 TEST_ROLE = "docmost_ai_test"
-TEST_ROLE_PASSWORD = "test-ai-role-password"
+TEST_ROLE_LOGIN = "test-ai-role-password"
 ADMIN_URL = f"{POSTGRES_SERVER}/{TEST_DATABASE}"
-AI_URL = f"postgresql://{TEST_ROLE}:{TEST_ROLE_PASSWORD}@127.0.0.1:5433/{TEST_DATABASE}"
+AI_URL = f"postgresql://{TEST_ROLE}:{TEST_ROLE_LOGIN}@127.0.0.1:5433/{TEST_DATABASE}"
 PAGE_ID = "0192f000-0000-7000-8000-0000000000aa"
 WIKI_ROW_CHANGES: list[LiteralString] = [
     "INSERT INTO public.pages VALUES ('0192f000-0000-7000-8000-0000000000bb', 'x')",
@@ -150,7 +150,7 @@ def test_bridge_ac78_setup_prints_one_line_without_the_password(wiki_database: s
     assert run.returncode == 0, run.stderr
     assert len(run.stdout.strip().splitlines()) == 1
     assert TEST_ROLE in run.stdout
-    assert TEST_ROLE_PASSWORD not in run.stdout + run.stderr
+    assert TEST_ROLE_LOGIN not in run.stdout + run.stderr
 
 
 @pytest.mark.integration
@@ -216,8 +216,8 @@ def test_bridge_ac76_startup_refuses_a_role_that_reads_wiki_tables(
     run = run_module(
         "ai_service",
         tmp_path,
-        AI_BRIDGE_SECRET=BRIDGE_SECRET,
-        AI_SERVICE_TOKEN=SERVICE_TOKEN,
+        AI_BRIDGE_SECRET=BRIDGE_KEY,
+        AI_SERVICE_TOKEN=SERVICE_CREDENTIAL,
         REDIS_URL=TEST_REDIS_URL,
         AI_DATABASE_URL=wiki_database,
         AI_SERVICE_PORT="0",

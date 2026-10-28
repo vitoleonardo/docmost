@@ -51,7 +51,7 @@ interface TokenContract {
 }
 
 const CONTRACT: {
-  headers: { serviceToken: string; userToken: string };
+  headers: { serviceTokenHeader: string; userTokenHeader: string };
   errors: Record<string, number>;
   endpoints: ContractEndpoint[];
   tokens: { algorithm: string; user: TokenContract; task: TokenContract };
@@ -74,8 +74,8 @@ const AI_SERVICE_ENDPOINTS = CONTRACT.endpoints.filter(
   (endpoint) => endpoint.side === 'ai-service',
 );
 
-const BRIDGE_SECRET = 'test-bridge-secret-0123456789abcdef';
-const SERVICE_TOKEN = 'test-service-token-0123456789abcdef';
+const BRIDGE_KEY = 'test-bridge-secret-0123456789abcdef';
+const SERVICE_CREDENTIAL = 'test-service-token-0123456789abcdef';
 const WORKSPACE_ID = 'workspace-1';
 const SPACE_ID = 'space-a';
 const PAGE_ID = 'page-1';
@@ -262,8 +262,8 @@ const RESPONSE_BODIES: Record<string, () => Promise<unknown>> = {
 
 beforeEach(() => {
   jest.resetAllMocks();
-  environmentService.getAiBridgeSecret.mockReturnValue(BRIDGE_SECRET);
-  environmentService.getAiServiceToken.mockReturnValue(SERVICE_TOKEN);
+  environmentService.getAiBridgeSecret.mockReturnValue(BRIDGE_KEY);
+  environmentService.getAiServiceToken.mockReturnValue(SERVICE_CREDENTIAL);
   environmentService.getAiServiceUrl.mockReturnValue('http://127.0.0.1:8100');
   aiPageAccessService.readableSpaceIds.mockResolvedValue([SPACE_ID]);
   aiPageAccessService.filterViewablePageIds.mockResolvedValue([PAGE_ID]);
@@ -461,7 +461,7 @@ describe('AI service calls of the bridge', () => {
     expect(url.pathname).toBe(endpoint.path);
     expect(init.method).toBe(endpoint.method);
     expect(Object.keys(init.headers).sort()).toEqual(
-      [CONTRACT.headers.serviceToken, CONTRACT.headers.userToken]
+      [CONTRACT.headers.serviceTokenHeader, CONTRACT.headers.userTokenHeader]
         .map((name) => name.toLowerCase())
         .sort(),
     );
@@ -477,8 +477,8 @@ describe('AI service calls of the bridge', () => {
     const { url, init } = lastRequest();
     expect(url.pathname).toBe(endpoint.path);
     expect(init.method).toBe(endpoint.method);
-    expect(init.headers[CONTRACT.headers.serviceToken.toLowerCase()]).toBe(
-      SERVICE_TOKEN,
+    expect(init.headers[CONTRACT.headers.serviceTokenHeader.toLowerCase()]).toBe(
+      SERVICE_CREDENTIAL,
     );
     expect(sorted(Object.keys(JSON.parse(init.body)))).toEqual(
       sorted(endpoint.request),

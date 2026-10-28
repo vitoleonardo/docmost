@@ -46,8 +46,8 @@ import {
 const TEST_DATABASE = 'docmost_ai_bridge_test';
 const TEST_DATABASE_URL = `${TEST_POSTGRES_SERVER}/${TEST_DATABASE}`;
 
-const TEST_AI_BRIDGE_SECRET = 'test-ai-bridge-secret-0123456789abcdef';
-const TEST_AI_SERVICE_TOKEN = 'test-ai-service-token-0123456789abcdef';
+const TEST_AI_BRIDGE_KEY = 'test-ai-bridge-secret-0123456789abcdef';
+const TEST_AI_SERVICE_CREDENTIAL = 'test-ai-service-token-0123456789abcdef';
 const TEST_AI_SERVICE_URL = 'http://127.0.0.1:9';
 
 const USER_KEYS = SEED_USERS.map((user) => user.key);
@@ -65,8 +65,8 @@ interface BridgeApp {
 }
 
 function bootSeededBridge(storageRoot: string): Promise<BridgeApp> {
-  process.env.AI_BRIDGE_SECRET = TEST_AI_BRIDGE_SECRET;
-  process.env.AI_SERVICE_TOKEN = TEST_AI_SERVICE_TOKEN;
+  process.env.AI_BRIDGE_SECRET = TEST_AI_BRIDGE_KEY;
+  process.env.AI_SERVICE_TOKEN = TEST_AI_SERVICE_CREDENTIAL;
   process.env.AI_SERVICE_URL = TEST_AI_SERVICE_URL;
   return loadAppModulesFor(TEST_DATABASE_URL, async (): Promise<BridgeApp> => {
     const { SeedService } =
@@ -314,7 +314,7 @@ describe('AI bridge page access (e2e)', () => {
       });
 
     const asUser = (userToken: string) => ({
-      'x-service-token': TEST_AI_SERVICE_TOKEN,
+      'x-service-token': TEST_AI_SERVICE_CREDENTIAL,
       'x-user-token': userToken,
     });
 
@@ -365,7 +365,7 @@ describe('AI bridge page access (e2e)', () => {
           type: 'user',
         },
         {
-          secret: TEST_AI_BRIDGE_SECRET,
+          secret: TEST_AI_BRIDGE_KEY,
           audience: 'ai-service',
           expiresIn: 60,
         },
@@ -470,7 +470,7 @@ describe('AI bridge page access (e2e)', () => {
       const body = response.json() as { taskToken: string; expiresAt: string };
       expect(Object.keys(body).sort()).toEqual(['expiresAt', 'taskToken']);
       const claims = jwt.verify(body.taskToken, {
-        secret: TEST_AI_BRIDGE_SECRET,
+        secret: TEST_AI_BRIDGE_KEY,
         audience: 'ai-service',
       });
       expect(claims).toEqual(
@@ -526,7 +526,7 @@ describe('AI bridge page access (e2e)', () => {
           'filter-pages',
           { pageIds: [] },
           {
-            'x-service-token': TEST_AI_SERVICE_TOKEN.replace(/.$/, 'X'),
+            'x-service-token': TEST_AI_SERVICE_CREDENTIAL.replace(/.$/, 'X'),
             'x-user-token': token,
           },
         ),
@@ -536,7 +536,7 @@ describe('AI bridge page access (e2e)', () => {
     });
 
     it('BRIDGE-AC48: a user id in the body without a user token answers 401 user_token_missing', async () => {
-      const serviceOnly = { 'x-service-token': TEST_AI_SERVICE_TOKEN };
+      const serviceOnly = { 'x-service-token': TEST_AI_SERVICE_CREDENTIAL };
 
       expectError(
         await post(
@@ -593,7 +593,7 @@ describe('AI bridge page access (e2e)', () => {
             iat: past,
             exp: past + 60,
           },
-          { secret: TEST_AI_BRIDGE_SECRET, audience: 'ai-service' },
+          { secret: TEST_AI_BRIDGE_KEY, audience: 'ai-service' },
         );
 
       expectError(
@@ -730,7 +730,7 @@ describe('AI bridge page access (e2e)', () => {
     });
 
     describe('content endpoints and read tools', () => {
-      const serviceOnly = { 'x-service-token': TEST_AI_SERVICE_TOKEN };
+      const serviceOnly = { 'x-service-token': TEST_AI_SERVICE_CREDENTIAL };
       const LICENSE_PAGE = 'Softwarelizenzvertrag Planungssoftware';
       const LICENSE_PDF = 'softwarelizenzvertrag-planungssoftware.pdf';
 
@@ -1221,7 +1221,7 @@ describe('AI bridge page access (e2e)', () => {
           });
           if (fakeMode === 'hang') return;
           const serviceTokenOk =
-            req.headers['x-service-token'] === TEST_AI_SERVICE_TOKEN;
+            req.headers['x-service-token'] === TEST_AI_SERVICE_CREDENTIAL;
           const userToken = String(req.headers['x-user-token'] ?? '');
           const sessionOk =
             req.url !== '/v1/session' || JWT_PATTERN.test(userToken);
@@ -1288,7 +1288,7 @@ describe('AI bridge page access (e2e)', () => {
       expect(fakeRequests).toHaveLength(1);
       expect(fakeRequests[0].url).toBe('/v1/session');
       expect(fakeRequests[0].headers['x-service-token']).toBe(
-        TEST_AI_SERVICE_TOKEN,
+        TEST_AI_SERVICE_CREDENTIAL,
       );
     });
 
@@ -1352,7 +1352,7 @@ describe('AI bridge page access (e2e)', () => {
         ),
       );
       expect(forwarded.method).toBe('POST');
-      expect(forwarded.headers['x-service-token']).toBe(TEST_AI_SERVICE_TOKEN);
+      expect(forwarded.headers['x-service-token']).toBe(TEST_AI_SERVICE_CREDENTIAL);
       expect(JSON.parse(forwarded.body)).toEqual({
         name: 'page-created',
         data: { pageIds: [id], workspaceId: bridge.seed.workspaceId },
@@ -1415,7 +1415,7 @@ describe('AI bridge page access (e2e)', () => {
         const message = String(call[0]);
         expect(message).toContain(`(pageIds: ${id})`);
         expect(message).toContain('connection error (ECONNREFUSED)');
-        expect(message).not.toContain(TEST_AI_SERVICE_TOKEN);
+        expect(message).not.toContain(TEST_AI_SERVICE_CREDENTIAL);
         expect(message).not.toMatch(JWT_PATTERN);
       });
     });

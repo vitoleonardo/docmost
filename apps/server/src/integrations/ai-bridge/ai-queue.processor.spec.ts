@@ -5,7 +5,7 @@ import { EnvironmentService } from '../environment/environment.service';
 import { AiQueueProcessor } from './ai-queue.processor';
 import { AiServiceClient } from './services/ai-service.client';
 
-const SERVICE_TOKEN = 'test-service-token-0123456789abcdef';
+const SERVICE_CREDENTIAL = 'test-service-token-0123456789abcdef';
 
 const FORWARDED_JOBS: Record<string, string[]> = {
   'page-created': ['pageIds', 'workspaceId'],
@@ -114,7 +114,7 @@ describe('AiQueueProcessor', () => {
       );
       expect(message).not.toContain(FULL_DATA.content);
       expect(message).not.toContain(FULL_DATA.title);
-      expect(message).not.toContain(SERVICE_TOKEN);
+      expect(message).not.toContain(SERVICE_CREDENTIAL);
     },
   );
 

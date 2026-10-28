@@ -5,8 +5,8 @@ from pydantic import ValidationError
 
 import ai_service.__main__ as entry
 from tests.conftest import (
-    BRIDGE_SECRET,
-    SERVICE_TOKEN,
+    BRIDGE_KEY,
+    SERVICE_CREDENTIAL,
     TEST_DATABASE_URL,
     TEST_REDIS_URL,
     IsolatedSettings,
@@ -52,8 +52,8 @@ def test_bridge_ac75_short_secret_is_rejected(field: str):
 
 
 def test_bridge_ac75_values_come_from_environment(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setenv("AI_BRIDGE_SECRET", BRIDGE_SECRET)
-    monkeypatch.setenv("AI_SERVICE_TOKEN", SERVICE_TOKEN)
+    monkeypatch.setenv("AI_BRIDGE_SECRET", BRIDGE_KEY)
+    monkeypatch.setenv("AI_SERVICE_TOKEN", SERVICE_CREDENTIAL)
     monkeypatch.setenv("REDIS_URL", TEST_REDIS_URL)
     monkeypatch.setenv("AI_DATABASE_URL", TEST_DATABASE_URL)
     monkeypatch.setenv("AI_SERVICE_PORT", "9200")

@@ -8,8 +8,8 @@ import { AiBridgeUserToken } from '../decorators/ai-bridge-auth.decorator';
 import { AiTokenService } from '../services/ai-token.service';
 import { AiInternalAuthGuard } from './ai-internal-auth.guard';
 
-const SERVICE_TOKEN = 'test-service-token-0123456789abcdef';
-const USER_TOKEN = 'test-user-token';
+const SERVICE_CREDENTIAL = 'test-service-token-0123456789abcdef';
+const USER_CREDENTIAL = 'test-user-token';
 
 class RoutesUnderTest {
   @AiBridgeUserToken({ allowTask: true })
@@ -52,8 +52,8 @@ describe('AiInternalAuthGuard', () => {
   );
 
   const validHeaders = {
-    'x-service-token': SERVICE_TOKEN,
-    'x-user-token': USER_TOKEN,
+    'x-service-token': SERVICE_CREDENTIAL,
+    'x-user-token': USER_CREDENTIAL,
   };
 
   async function codeOf(
@@ -72,7 +72,7 @@ describe('AiInternalAuthGuard', () => {
   beforeEach(() => {
     jest.resetAllMocks();
     environmentService.isAiBridgeConfigured.mockReturnValue(true);
-    environmentService.getAiServiceToken.mockReturnValue(SERVICE_TOKEN);
+    environmentService.getAiServiceToken.mockReturnValue(SERVICE_CREDENTIAL);
     aiTokenService.verifyToken.mockResolvedValue(user);
   });
 
@@ -98,7 +98,7 @@ describe('AiInternalAuthGuard', () => {
 
   it('BRIDGE-AC46: answers service_token_missing without the header, also when a user token is present', async () => {
     expect(
-      await codeOf('userOrTask', { headers: { 'x-user-token': USER_TOKEN } }),
+      await codeOf('userOrTask', { headers: { 'x-user-token': USER_CREDENTIAL } }),
     ).toBe('service_token_missing');
     expect(await codeOf('serviceOnly', { headers: {} })).toBe(
       'service_token_missing',
@@ -112,8 +112,8 @@ describe('AiInternalAuthGuard', () => {
   });
 
   it('BRIDGE-AC47: answers service_token_invalid for a wrong token of equal or different length', async () => {
-    const sameLength = SERVICE_TOKEN.replace(/.$/, 'X');
-    for (const wrong of [sameLength, 'short', `${SERVICE_TOKEN}-longer`]) {
+    const sameLength = SERVICE_CREDENTIAL.replace(/.$/, 'X');
+    for (const wrong of [sameLength, 'short', `${SERVICE_CREDENTIAL}-longer`]) {
       expect(
         await codeOf('userOrTask', {
           headers: { ...validHeaders, 'x-service-token': wrong },
@@ -126,7 +126,7 @@ describe('AiInternalAuthGuard', () => {
   it('BRIDGE-AC47: a repeated service token header is invalid', async () => {
     expect(
       await codeOf('serviceOnly', {
-        headers: { 'x-service-token': [SERVICE_TOKEN, SERVICE_TOKEN] },
+        headers: { 'x-service-token': [SERVICE_CREDENTIAL, SERVICE_CREDENTIAL] },
       }),
     ).toBe('service_token_invalid');
   });
@@ -134,13 +134,13 @@ describe('AiInternalAuthGuard', () => {
   it('BRIDGE-AC48: answers user_token_missing for a user id in the body without a user token', async () => {
     expect(
       await codeOf('userOrTask', {
-        headers: { 'x-service-token': SERVICE_TOKEN },
+        headers: { 'x-service-token': SERVICE_CREDENTIAL },
         body: { userId: user.id, pageIds: [] },
       }),
     ).toBe('user_token_missing');
     expect(
       await codeOf('userOnly', {
-        headers: { 'x-service-token': SERVICE_TOKEN, 'x-user-token': '' },
+        headers: { 'x-service-token': SERVICE_CREDENTIAL, 'x-user-token': '' },
         body: { runId: 'run-1' },
       }),
     ).toBe('user_token_missing');
@@ -168,7 +168,7 @@ describe('AiInternalAuthGuard', () => {
   it('BRIDGE-AC49: service-only routes reject a user id as well', async () => {
     expect(
       await codeOf('serviceOnly', {
-        headers: { 'x-service-token': SERVICE_TOKEN },
+        headers: { 'x-service-token': SERVICE_CREDENTIAL },
         body: { userId: user.id, pageId: 'page-1' },
       }),
     ).toBe('user_id_not_allowed');
@@ -189,8 +189,8 @@ describe('AiInternalAuthGuard', () => {
     await codeOf('userOrTask', { headers: validHeaders });
 
     expect(aiTokenService.verifyToken.mock.calls).toEqual([
-      [USER_TOKEN, { allowTask: false }],
-      [USER_TOKEN, { allowTask: true }],
+      [USER_CREDENTIAL, { allowTask: false }],
+      [USER_CREDENTIAL, { allowTask: true }],
     ]);
   });
 
@@ -203,7 +203,7 @@ describe('AiInternalAuthGuard', () => {
 
   it('BRIDGE-AC46: service-only routes pass with the service token alone and never verify a user token', async () => {
     const request: TestRequest = {
-      headers: { 'x-service-token': SERVICE_TOKEN },
+      headers: { 'x-service-token': SERVICE_CREDENTIAL },
       body: { pageId: 'page-1' },
     };
 

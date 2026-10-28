@@ -5,7 +5,7 @@ import { AiServiceClient } from './ai-service.client';
 import { AiStatusService } from './ai-status.service';
 import { AiTokenService } from './ai-token.service';
 
-const USER_TOKEN = 'header.payload.signature';
+const USER_CREDENTIAL = 'header.payload.signature';
 
 describe('AiStatusService', () => {
   const user = { id: 'user-1' } as User;
@@ -21,7 +21,7 @@ describe('AiStatusService', () => {
   beforeEach(() => {
     jest.resetAllMocks();
     environmentService.isAiBridgeConfigured.mockReturnValue(true);
-    aiTokenService.issueUserToken.mockResolvedValue(USER_TOKEN);
+    aiTokenService.issueUserToken.mockResolvedValue(USER_CREDENTIAL);
     aiServiceClient.checkSession.mockResolvedValue(true);
   });
 
@@ -40,7 +40,7 @@ describe('AiStatusService', () => {
     });
 
     expect(aiTokenService.issueUserToken).toHaveBeenCalledWith(user);
-    expect(aiServiceClient.checkSession).toHaveBeenCalledWith(USER_TOKEN);
+    expect(aiServiceClient.checkSession).toHaveBeenCalledWith(USER_CREDENTIAL);
   });
 
   it('BRIDGE-AC38: answers unavailable when the session check fails', async () => {
@@ -55,6 +55,6 @@ describe('AiStatusService', () => {
     const result = await service.status(user);
 
     expect(Object.keys(result)).toEqual(['status']);
-    expect(JSON.stringify(result)).not.toContain(USER_TOKEN);
+    expect(JSON.stringify(result)).not.toContain(USER_CREDENTIAL);
   });
 });

@@ -1,9 +1,6 @@
 [project]
 name = "ai-service"
 version = "0.1.0"
-authors = [
-    { name = "Viktor Krawutschke", email = "viktor.krawutschke@gmail.com" }
-]
 requires-python = ">=3.14"
 dependencies = [
     "fastapi>=0.162.0",

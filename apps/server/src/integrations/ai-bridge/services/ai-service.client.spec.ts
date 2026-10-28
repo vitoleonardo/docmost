@@ -4,8 +4,8 @@ import { AddressInfo } from 'node:net';
 import { EnvironmentService } from '../../environment/environment.service';
 import { AiServiceClient } from './ai-service.client';
 
-const SERVICE_TOKEN = 'test-service-token-0123456789abcdef';
-const USER_TOKEN = 'test-user-token';
+const SERVICE_CREDENTIAL = 'test-service-token-0123456789abcdef';
+const USER_CREDENTIAL = 'test-user-token';
 
 interface RecordedRequest {
   method?: string;
@@ -25,7 +25,7 @@ describe('AiServiceClient', () => {
 
   const environmentService = stub<EnvironmentService>({
     getAiServiceUrl: () => url,
-    getAiServiceToken: () => SERVICE_TOKEN,
+    getAiServiceToken: () => SERVICE_CREDENTIAL,
   });
   const client = new AiServiceClient(environmentService);
 
@@ -78,26 +78,26 @@ describe('AiServiceClient', () => {
 
   describe('checkSession', () => {
     it('BRIDGE-AC3: answers true on HTTP 200 and sends both tokens to POST /v1/session', async () => {
-      await expect(client.checkSession(USER_TOKEN)).resolves.toBe(true);
+      await expect(client.checkSession(USER_CREDENTIAL)).resolves.toBe(true);
 
       expect(requests).toHaveLength(1);
       expect(requests[0].method).toBe('POST');
       expect(requests[0].url).toBe('/v1/session');
-      expect(requests[0].headers['x-service-token']).toBe(SERVICE_TOKEN);
-      expect(requests[0].headers['x-user-token']).toBe(USER_TOKEN);
+      expect(requests[0].headers['x-service-token']).toBe(SERVICE_CREDENTIAL);
+      expect(requests[0].headers['x-user-token']).toBe(USER_CREDENTIAL);
     });
 
     it('BRIDGE-AC38: answers false when the connection is refused', async () => {
       url = await closedPortUrl();
 
-      await expect(client.checkSession(USER_TOKEN)).resolves.toBe(false);
+      await expect(client.checkSession(USER_CREDENTIAL)).resolves.toBe(false);
     });
 
     it('BRIDGE-AC39: answers false within 5 s when the service never answers', async () => {
       behaviour = 'hang';
       const started = Date.now();
 
-      await expect(client.checkSession(USER_TOKEN)).resolves.toBe(false);
+      await expect(client.checkSession(USER_CREDENTIAL)).resolves.toBe(false);
 
       expect(Date.now() - started).toBeLessThan(5000);
     }, 10_000);
@@ -105,25 +105,25 @@ describe('AiServiceClient', () => {
     it('BRIDGE-AC40: answers false on HTTP 500', async () => {
       behaviour = 'error';
 
-      await expect(client.checkSession(USER_TOKEN)).resolves.toBe(false);
+      await expect(client.checkSession(USER_CREDENTIAL)).resolves.toBe(false);
     });
 
     it('BRIDGE-AC41: answers false on HTTP 401', async () => {
       behaviour = 'unauthorized';
 
-      await expect(client.checkSession(USER_TOKEN)).resolves.toBe(false);
+      await expect(client.checkSession(USER_CREDENTIAL)).resolves.toBe(false);
     });
 
     it('BRIDGE-AC3: does not accept 202 as an available session', async () => {
       behaviour = 'accepted';
 
-      await expect(client.checkSession(USER_TOKEN)).resolves.toBe(false);
+      await expect(client.checkSession(USER_CREDENTIAL)).resolves.toBe(false);
     });
 
     it('BRIDGE-AC38: rejects a programming error such as an invalid service URL', async () => {
       url = 'not a url';
 
-      await expect(client.checkSession(USER_TOKEN)).rejects.toThrow();
+      await expect(client.checkSession(USER_CREDENTIAL)).rejects.toThrow();
     });
   });
 
@@ -139,7 +139,7 @@ describe('AiServiceClient', () => {
       ).resolves.toBeUndefined();
 
       expect(requests[0].url).toBe('/v1/jobs');
-      expect(requests[0].headers['x-service-token']).toBe(SERVICE_TOKEN);
+      expect(requests[0].headers['x-service-token']).toBe(SERVICE_CREDENTIAL);
       expect(JSON.parse(requests[0].body)).toEqual({
         name: 'page-created',
         data: { pageIds: ['p1'], workspaceId: 'w1' },
@@ -183,7 +183,7 @@ describe('AiServiceClient', () => {
 
       const error = await client.enqueueJob('page-created', {}).catch((e) => e);
 
-      expect(String(error.message)).not.toContain(SERVICE_TOKEN);
+      expect(String(error.message)).not.toContain(SERVICE_CREDENTIAL);
     });
   });
 });

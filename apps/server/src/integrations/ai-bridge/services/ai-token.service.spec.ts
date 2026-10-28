@@ -7,9 +7,9 @@ import { AiBridgeError } from '../ai-bridge.errors';
 import { AiPageAccessService } from './ai-page-access.service';
 import { AiTokenService } from './ai-token.service';
 
-const BRIDGE_SECRET = 'test-bridge-secret-0123456789abcdef';
-const APP_SECRET = 'test-app-secret-0123456789abcdefgh';
-const OTHER_SECRET = 'test-other-secret-0123456789abcdef';
+const BRIDGE_KEY = 'test-bridge-secret-0123456789abcdef';
+const APP_KEY = 'test-app-secret-0123456789abcdefgh';
+const OTHER_KEY = 'test-other-secret-0123456789abcdef';
 const WORKSPACE_ID = 'workspace-1';
 const RUN_ID = 'run-1';
 const NOW = new Date('2026-10-28T10:00:00.000Z');
@@ -80,8 +80,8 @@ describe('AiTokenService', () => {
       'space-a',
       'space-b',
     ]);
-    environmentService.getAiBridgeSecret.mockReturnValue(BRIDGE_SECRET);
-    environmentService.getAppSecret.mockReturnValue(APP_SECRET);
+    environmentService.getAiBridgeSecret.mockReturnValue(BRIDGE_KEY);
+    environmentService.getAppSecret.mockReturnValue(APP_KEY);
 
     const moduleRef = await Test.createTestingModule({
       providers: [
@@ -138,13 +138,13 @@ describe('AiTokenService', () => {
 
       await expect(
         jwtService.verifyAsync(token, {
-          secret: BRIDGE_SECRET,
+          secret: BRIDGE_KEY,
           algorithms: ['HS256'],
         }),
       ).resolves.toMatchObject({ sub: 'user-1' });
       await expect(
         jwtService.verifyAsync(token, {
-          secret: APP_SECRET,
+          secret: APP_KEY,
           algorithms: ['HS256'],
         }),
       ).rejects.toThrow('invalid signature');
@@ -253,7 +253,7 @@ describe('AiTokenService', () => {
           () => {
             const [header, , signature] = jwtService
               .sign(userClaims, {
-                secret: BRIDGE_SECRET,
+                secret: BRIDGE_KEY,
                 audience: 'ai-service',
                 expiresIn: 60,
               })
@@ -270,7 +270,7 @@ describe('AiTokenService', () => {
           'a token with another audience',
           () =>
             jwtService.sign(userClaims, {
-              secret: BRIDGE_SECRET,
+              secret: BRIDGE_KEY,
               audience: 'someone-else',
               expiresIn: 60,
             }),
@@ -279,7 +279,7 @@ describe('AiTokenService', () => {
           'a token without an audience',
           () =>
             jwtService.sign(userClaims, {
-              secret: BRIDGE_SECRET,
+              secret: BRIDGE_KEY,
               expiresIn: 60,
             }),
         ],
@@ -296,7 +296,7 @@ describe('AiTokenService', () => {
           'a token signed with HS512 and the bridge secret',
           () =>
             jwtService.sign(userClaims, {
-              secret: BRIDGE_SECRET,
+              secret: BRIDGE_KEY,
               algorithm: 'HS512',
               audience: 'ai-service',
               expiresIn: 60,
@@ -307,7 +307,7 @@ describe('AiTokenService', () => {
           () =>
             jwtService.sign(
               { sub: 'user-1', workspaceId: WORKSPACE_ID, type: 'access' },
-              { secret: APP_SECRET, expiresIn: '1h' },
+              { secret: APP_KEY, expiresIn: '1h' },
             ),
         ],
         [
@@ -315,14 +315,14 @@ describe('AiTokenService', () => {
           () =>
             jwtService.sign(
               { sub: 'user-1', workspaceId: WORKSPACE_ID, type: 'access' },
-              { secret: BRIDGE_SECRET, audience: 'ai-service', expiresIn: 60 },
+              { secret: BRIDGE_KEY, audience: 'ai-service', expiresIn: 60 },
             ),
         ],
         [
           'a token signed with another secret',
           () =>
             jwtService.sign(userClaims, {
-              secret: OTHER_SECRET,
+              secret: OTHER_KEY,
               audience: 'ai-service',
               expiresIn: 60,
             }),
@@ -332,7 +332,7 @@ describe('AiTokenService', () => {
           () =>
             jwtService.sign(
               { workspaceId: WORKSPACE_ID, type: 'user' },
-              { secret: BRIDGE_SECRET, audience: 'ai-service', expiresIn: 60 },
+              { secret: BRIDGE_KEY, audience: 'ai-service', expiresIn: 60 },
             ),
         ],
       ];
@@ -350,7 +350,7 @@ describe('AiTokenService', () => {
       environmentService.getAiBridgeSecret.mockReturnValue(undefined);
       const loginToken = jwtService.sign(
         { sub: 'user-1', workspaceId: WORKSPACE_ID, type: 'user' },
-        { secret: APP_SECRET, audience: 'ai-service', expiresIn: 60 },
+        { secret: APP_KEY, audience: 'ai-service', expiresIn: 60 },
       );
 
       await expectCode(

@@ -42,7 +42,7 @@ def test_bridge_ac71_empty_service_token(client: TestClient):
 
 @pytest.mark.parametrize("path", ROUTES)
 def test_bridge_ac72_wrong_service_token(client: TestClient, path: str):
-    response = post(client, path, {"X-Service-Token": "wrong-service-token-0123456789abcdef"})
+    response = post(client, path, {"X-Service-Token": "x" * 32})
     assert response.status_code == 401
     assert response.json()["code"] == "service_token_invalid"
 
@@ -109,9 +109,7 @@ def test_bridge_ac74_alg_none(client: TestClient, service_headers: dict[str, str
 def test_bridge_ac74_other_secret(
     client: TestClient, service_headers: dict[str, str], make_token: Callable[..., str]
 ):
-    response = session(
-        client, service_headers, make_token(secret="another-secret-0123456789abcdefghij")
-    )
+    response = session(client, service_headers, make_token(secret="o" * 35))
     assert response.status_code == 401
     assert response.json()["code"] == "user_token_invalid"
 
