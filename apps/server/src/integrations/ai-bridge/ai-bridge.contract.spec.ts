@@ -26,6 +26,7 @@ import { AI_BRIDGE_USER_TOKEN_KEY } from './decorators/ai-bridge-auth.decorator'
 import { AiInternalAuthGuard } from './guards/ai-internal-auth.guard';
 import { AiContentService } from './services/ai-content.service';
 import { AiPageAccessService } from './services/ai-page-access.service';
+import { AiPageListService } from './services/ai-page-list.service';
 import { AiServiceClient } from './services/ai-service.client';
 import { AiStatusService } from './services/ai-status.service';
 import { AiTokenService } from './services/ai-token.service';
@@ -179,6 +180,8 @@ const aiPageAccessService = {
   findViewablePage: jest.fn(),
 };
 const pageRepo = { findById: jest.fn() };
+const spaceRepo = { findById: jest.fn() };
+const aiPageListRepo = { listIndexablePages: jest.fn() };
 const attachmentRepo = { findById: jest.fn(), findPageAttachments: jest.fn() };
 const storageService = { readStream: jest.fn() };
 const searchService = { searchPage: jest.fn() };
@@ -199,6 +202,7 @@ const aiTokenService = new AiTokenService(
 );
 const aiContentService = new AiContentService(
   stub(pageRepo),
+  stub(spaceRepo),
   stub(attachmentRepo),
   stub(storageService),
   stub(searchService),
@@ -208,6 +212,7 @@ const internalController = new AiBridgeInternalController(
   stub<AiPageAccessService>(aiPageAccessService),
   aiTokenService,
   aiContentService,
+  new AiPageListService(stub(aiPageListRepo)),
 );
 
 const PAGE = stub<Page>({
@@ -252,6 +257,7 @@ const RESPONSE_BODIES: Record<string, () => Promise<unknown>> = {
     internalController.filterPages({ pageIds: [PAGE_ID] }, USER),
   '/api/ai-bridge/internal/task-token': () =>
     internalController.taskToken({ runId: 'run-1' }, USER),
+  '/api/ai-bridge/internal/pages': () => internalController.pages({}),
   '/api/ai-bridge/internal/page-content': () =>
     internalController.pageContent({ pageId: PAGE_ID }),
   '/api/ai-bridge/internal/tools/read-page': () =>
@@ -269,6 +275,11 @@ beforeEach(() => {
   aiPageAccessService.filterViewablePageIds.mockResolvedValue([PAGE_ID]);
   aiPageAccessService.findViewablePage.mockResolvedValue(PAGE);
   pageRepo.findById.mockResolvedValue(PAGE);
+  spaceRepo.findById.mockResolvedValue({ id: SPACE_ID, deletedAt: null });
+  aiPageListRepo.listIndexablePages.mockResolvedValue({
+    pages: [PAGE],
+    hasNextPage: true,
+  });
   attachmentRepo.findById.mockResolvedValue(PDF_ATTACHMENT);
   attachmentRepo.findPageAttachments.mockResolvedValue({
     items: [PDF_ATTACHMENT],

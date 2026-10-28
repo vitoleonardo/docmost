@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Readable } from 'node:stream';
 import { PageRepo } from '@docmost/db/repos/page/page.repo';
 import { AttachmentRepo } from '@docmost/db/repos/attachment/attachment.repo';
+import { SpaceRepo } from '@docmost/db/repos/space/space.repo';
 import { PaginationOptions } from '@docmost/db/pagination/pagination-options';
 import { Page, User } from '@docmost/db/types/entity.types';
 import { jsonToMarkdown } from '../../../collaboration/collaboration.util';
@@ -53,6 +54,7 @@ export interface AiSearchResults {
 export class AiContentService {
   constructor(
     private readonly pageRepo: PageRepo,
+    private readonly spaceRepo: SpaceRepo,
     private readonly attachmentRepo: AttachmentRepo,
     private readonly storageService: StorageService,
     private readonly searchService: SearchService,
@@ -62,13 +64,15 @@ export class AiContentService {
   async getPageContent(pageId: string): Promise<AiPageContent> {
     const page = await this.pageRepo.findById(pageId, { includeContent: true });
     if (!page || page.deletedAt) throw pageNotFound();
+    const space = await this.spaceRepo.findById(page.spaceId, page.workspaceId);
+    if (!space || space.deletedAt) throw pageNotFound();
 
     return {
       id: page.id,
       title: page.title,
       spaceId: page.spaceId,
       workspaceId: page.workspaceId,
-      updatedAt: new Date(page.updatedAt).toISOString(),
+      updatedAt: toIsoTimestamp(page.updatedAt),
       markdown: toMarkdown(page),
       attachments: await this.listPdfAttachments(page.id),
     };
@@ -202,6 +206,10 @@ export class AiContentService {
 
 function toMarkdown(page: Page): string {
   return page.content ? jsonToMarkdown(page.content) : '';
+}
+
+export function toIsoTimestamp(value: Date): string {
+  return new Date(value).toISOString();
 }
 
 function describeError(error: unknown): string {

@@ -19,6 +19,7 @@ import {
   AttachmentIdDto,
   FilterPagesDto,
   PageIdDto,
+  PageListDto,
   SearchToolDto,
   TaskTokenDto,
 } from './dto/ai-bridge-internal.dto';
@@ -31,6 +32,7 @@ import {
   AiSearchResults,
 } from './services/ai-content.service';
 import { AiPageAccessService } from './services/ai-page-access.service';
+import { AiPageList, AiPageListService } from './services/ai-page-list.service';
 import { AiTokenService } from './services/ai-token.service';
 
 @UseGuards(AiInternalAuthGuard)
@@ -41,6 +43,7 @@ export class AiBridgeInternalController {
     private readonly aiPageAccessService: AiPageAccessService,
     private readonly aiTokenService: AiTokenService,
     private readonly aiContentService: AiContentService,
+    private readonly aiPageListService: AiPageListService,
   ) {}
 
   @SkipTransform()
@@ -67,6 +70,13 @@ export class AiBridgeInternalController {
     @AiBridgeUser() user: User,
   ): Promise<{ taskToken: string; expiresAt: string }> {
     return this.aiTokenService.issueTaskToken(user, dto.runId);
+  }
+
+  @SkipTransform()
+  @HttpCode(HttpStatus.OK)
+  @Post('pages')
+  async pages(@Body() dto: PageListDto): Promise<AiPageList> {
+    return this.aiPageListService.listPages(dto.cursor);
   }
 
   @SkipTransform()

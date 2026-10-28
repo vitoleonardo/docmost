@@ -3,6 +3,7 @@ import {
   ArrayMaxSize,
   IsArray,
   IsNotEmpty,
+  IsOptional,
   IsString,
   IsUUID,
   MaxLength,
@@ -57,4 +58,11 @@ export class SearchToolDto {
   @MaxLength(MAX_SEARCH_QUERY_LENGTH)
   @Transform(trimString)
   query: string;
+}
+
+export class PageListDto {
+  @IsOptional()
+  @IsUUID()
+  @Transform(lowercaseString)
+  cursor?: string;
 }
