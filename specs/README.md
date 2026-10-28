@@ -7,4 +7,4 @@ Status values: `draft` (spec being written) · `approved` (spec approved) · `pl
 | Feature | Spec | Status | Branch | Open questions |
 |---|---|---|---|---|
 | Seed data | `seed-data.md` | in-review | m2-seed-data | 0 |
-| AI bridge | `ai-bridge.md` | planned | m3-ai-bridge | 0 |
+| AI bridge | `ai-bridge.md` | in-review | m3-ai-bridge | 0 |
