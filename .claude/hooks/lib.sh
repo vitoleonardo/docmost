@@ -6,10 +6,12 @@ cd "$KIT_ROOT" || exit 1
 
 # shellcheck source=../bin/conf.sh
 . "$(dirname -- "$0")/../bin/conf.sh"
+approval_from_environment=$(export -p | grep -E '^(export|declare -x) KIT_(APPROVAL|GATE_[A-Z]+)=')
 if [ -f .claude/kit.conf ]; then
   # shellcheck source=/dev/null
   . ./.claude/kit.conf
 fi
+eval "$approval_from_environment"
 
 # file_value <path relative to the root> <variable>: the variable from the config of the file's package.
 # In a monorepo a package's .claude/kit.conf decides its own source and test patterns.
@@ -59,4 +61,12 @@ relative_path() {
     /*) ;;
     *) printf '%s' "$1" ;;
   esac
+}
+
+kit_check() {
+  if [ "$1" = typecheck ] && [ -f .claude/baseline.tsv ]; then
+    .claude/bin/check --against-baseline typecheck
+  else
+    .claude/bin/check "$@"
+  fi
 }

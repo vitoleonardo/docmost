@@ -24,7 +24,7 @@ run() {
   if [ "$name" = spec-lint ]; then
     out=$(.claude/bin/spec-lint "$@" 2>&1)
   else
-    out=$(.claude/bin/check "$name" "$@" 2>&1)
+    out=$(kit_check "$name" "$@" 2>&1)
   fi
   code=$?
   seconds=$(($(date +%s) - started))

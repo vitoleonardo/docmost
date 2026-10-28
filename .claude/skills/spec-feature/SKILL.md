@@ -1,8 +1,7 @@
 ---
 name: spec-feature
-description: Write or extend a feature spec with numbered, testable acceptance criteria before any code is planned. Use when starting a feature or changing what an existing feature should do.
+description: Write or extend a feature spec with numbered, testable acceptance criteria before any code is planned. Use when the user asks to spec a feature, or to change what an existing feature should do.
 argument-hint: <feature idea or existing feature name>
-disable-model-invocation: true
 ---
 
 # Spec a feature
@@ -74,4 +73,9 @@ When you extend a spec, continue the numbering. Never renumber or reuse an ID. M
 
 ## 5. Status and approval
 
-Add or update the feature's row in `specs/README.md` with status `draft`. Show the spec and the reviewer's remaining points, and ask for approval. Only after the user approves, set the status to `approved`; spec-lint then also requires that no open questions remain. Do not plan or write code in this step.
+Add or update the feature's row in `specs/README.md` with status `draft`. Then run `.claude/bin/gate spec`.
+
+- `ask`: show the spec and the reviewer's remaining points, and ask for approval. Only after the user approves, set the status to `approved`.
+- `auto`: answer each open question yourself with a Decisions entry, set the status to `approved`, and log the approval (see "Decisions to review" in `CLAUDE.md`).
+
+spec-lint then also requires that no open questions remain. Do not plan or write code in this step.

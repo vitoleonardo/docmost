@@ -41,7 +41,7 @@ if [ -n "$red" ] && ! json_bool stop_hook_active; then
     if [ "$check" = spec-lint ]; then
       .claude/bin/spec-lint "$@" >/dev/null 2>&1
     else
-      .claude/bin/check "$check" "$@" >/dev/null 2>&1
+      kit_check "$check" "$@" >/dev/null 2>&1
     fi
     case $? in
       0 | 3) result=pass ;;

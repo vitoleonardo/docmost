@@ -2,7 +2,6 @@
 name: pr-description
 description: Write a pull request description from the diff, the spec, the verify log and the evidence pack - what, why, how it was tested, and how to review it in five minutes. Does not push or open the PR.
 argument-hint: [base branch, default main]
-disable-model-invocation: true
 ---
 
 # Write the PR description
@@ -45,4 +44,6 @@ Rules:
 - Without an evidence pack, the table has the columns Criterion, Test and Result, and the PR says that verify did not run.
 - The screenshots appear in CI's sticky comment; name the files here, do not try to attach them.
 
-Save it to `.work/<branch>-pr.md` and show it. Do not push or create the PR yourself. Offer the command `gh pr create --base <base> --title "<title>" --body-file .work/<branch>-pr.md` for the user to approve.
+If the state file has a Decisions to review section, copy it into the description under that heading, so the reviewer sees every decision no human approved.
+
+Save it to `.work/<branch>-pr.md` and show it. Then run `.claude/bin/gate push`. With `ask`, do not push or create the PR yourself: offer the command `gh pr create --base <base> --title "<title>" --body-file .work/<branch>-pr.md` for the user to approve. With `auto`, push the branch and run that command.
