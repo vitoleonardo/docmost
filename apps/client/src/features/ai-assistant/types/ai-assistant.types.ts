@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 export type AiAssistantStatus = "available" | "unavailable" | "disabled";
 
 export interface IAiAssistantStatus {
@@ -11,18 +13,18 @@ export interface IAskRequest {
   pageId?: string;
 }
 
-export interface IAskSource {
-  number: number;
-  pageId: string;
-  title: string;
-  spaceName: string;
-  headingPath: string[];
-  fileName: string | null;
-  pdfPage: number | null;
-  url: string;
-}
+const askSourceSchema = z.object({
+  number: z.number(),
+  pageId: z.string(),
+  title: z.string(),
+  spaceName: z.string(),
+  headingPath: z.array(z.string()),
+  fileName: z.string().nullable(),
+  pdfPage: z.number().nullable(),
+  url: z.string(),
+});
 
-type AskStreamErrorCode = "model_unavailable";
+export type IAskSource = z.infer<typeof askSourceSchema>;
 
 export type AskRequestErrorCode =
   | "invalid_request"
@@ -32,11 +34,14 @@ export type AskRequestErrorCode =
   | "assistant_unavailable"
   | "unauthorized";
 
-export type AskEvent =
-  | { type: "delta"; text: string }
-  | { type: "sources"; sources: IAskSource[] }
-  | { type: "no_source" }
-  | { type: "error"; code: AskStreamErrorCode };
+export const askEventSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("delta"), text: z.string() }),
+  z.object({ type: z.literal("sources"), sources: z.array(askSourceSchema) }),
+  z.object({ type: z.literal("no_source") }),
+  z.object({ type: z.literal("error"), code: z.enum(["model_unavailable"]) }),
+]);
+
+export type AskEvent = z.infer<typeof askEventSchema>;
 
 export type AskScope =
   | { kind: "all" }

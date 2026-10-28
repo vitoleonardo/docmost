@@ -1,5 +1,6 @@
 import api from "@/lib/api-client";
 import {
+  askEventSchema,
   AskEvent,
   AskRequestErrorCode,
   IAiAssistantStatus,
@@ -33,13 +34,21 @@ async function requestErrorFrom(response: Response): Promise<AskRequestError> {
   return new AskRequestError(code ?? "assistant_unavailable");
 }
 
+const MODEL_UNAVAILABLE: AskEvent = { type: "error", code: "model_unavailable" };
+
 function parseFrame(frame: string): AskEvent | null {
   const data = frame
     .split("\n")
     .filter((line) => line.startsWith("data:"))
     .map((line) => line.slice("data:".length).trimStart())
     .join("\n");
-  return data ? (JSON.parse(data) as AskEvent) : null;
+  if (!data) return null;
+  try {
+    const parsed = askEventSchema.safeParse(JSON.parse(data));
+    return parsed.success ? parsed.data : MODEL_UNAVAILABLE;
+  } catch {
+    return MODEL_UNAVAILABLE;
+  }
 }
 
 export async function askQuestion(
@@ -69,6 +78,7 @@ export async function askQuestion(
 
   const emitFrames = (frames: string[]) => {
     for (const frame of frames) {
+      if (finished) return;
       const event = parseFrame(frame);
       if (!event) continue;
       if (event.type !== "delta") finished = true;
@@ -86,5 +96,5 @@ export async function askQuestion(
     buffer = unfinished;
   }
 
-  if (!finished) onEvent({ type: "error", code: "model_unavailable" });
+  if (!finished) onEvent(MODEL_UNAVAILABLE);
 }

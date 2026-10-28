@@ -235,21 +235,29 @@ function headingAnchor(
   headingPath: string[],
 ): string | undefined {
   if (headingPath.length === 0) return undefined;
-  const nodes = (content as ProseMirrorNode | null)?.content ?? [];
   let stack: { level: number; title: string }[] = [];
-  for (const node of nodes) {
-    const level = node.type === 'heading' ? Number(node.attrs?.level) : NaN;
-    if (!Number.isInteger(level)) continue;
-    stack = [
-      ...stack.filter((entry) => entry.level < level),
-      { level, title: headingTitle(node) },
-    ];
-    const id = node.attrs?.id;
-    if (typeof id === 'string' && id && samePath(stack, headingPath)) {
-      return id;
+  const find = (nodes: ProseMirrorNode[]): string | undefined => {
+    for (const node of nodes) {
+      if (node.type === 'heading') {
+        const level = Number(node.attrs?.level);
+        if (!Number.isInteger(level)) continue;
+        stack = [
+          ...stack.filter((entry) => entry.level < level),
+          { level, title: headingTitle(node) },
+        ];
+        const id = node.attrs?.id;
+        if (typeof id === 'string' && id && samePath(stack, headingPath)) {
+          return id;
+        }
+        continue;
+      }
+      if (node.type === 'blockquote') continue;
+      const found = find(node.content ?? []);
+      if (found) return found;
     }
-  }
-  return undefined;
+    return undefined;
+  };
+  return find((content as ProseMirrorNode | null)?.content ?? []);
 }
 
 function headingTitle(node: ProseMirrorNode): string {

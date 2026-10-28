@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { askQuestion } from "@/features/ai-assistant/services/ai-assistant-service.ts";
+import { askEventSchema } from "@/features/ai-assistant/types/ai-assistant.types.ts";
 import type {
   AskEvent,
   AskRequestErrorCode,
@@ -150,6 +151,25 @@ describe("askQuestion", () => {
     expect(events).toEqual([{ type: "no_source" }]);
   });
 
+  it.each([
+    ["a delta without text", 'data: {"type":"delta"}\n\n'],
+    ["an unknown event type", 'data: {"type":"other"}\n\n'],
+    ["an error with an unknown code", 'data: {"type":"error","code":"x"}\n\n'],
+    ["a source with a missing field", 'data: {"type":"sources","sources":[{"number":1}]}\n\n'],
+    ["a frame that is not JSON", "data: {oops\n\n"],
+  ])("ASK-AC66: %s ends the stream as model_unavailable", async (_name, malformed) => {
+    const events = await collect([
+      frame({ type: "delta", text: "Teil" }),
+      malformed,
+      frame({ type: "delta", text: "danach" }),
+    ]);
+
+    expect(events).toEqual([
+      { type: "delta", text: "Teil" },
+      { type: "error", code: "model_unavailable" },
+    ]);
+  });
+
   it.each<[number, AskRequestErrorCode]>([
     [400, "invalid_request"],
     [404, "space_not_found"],
@@ -254,6 +274,34 @@ describe("contract", () => {
         .sort(),
     );
     expect(Object.keys(eventTypes).sort()).toEqual(Object.keys(ask.events).sort());
+  });
+
+  it("ASK-AC9: the event schema keys equal the contract's event fields", () => {
+    const shapes = Object.fromEntries(
+      askEventSchema.options.map((option) => [
+        option.shape.type.value,
+        option.shape as Record<string, any>,
+      ]),
+    );
+    const contractKeys = Object.fromEntries(
+      Object.entries(ask.events).map(([type, fields]) => [
+        type,
+        [...new Set(fields.map((field) => field.split("[]")[0]))].sort(),
+      ]),
+    );
+
+    expect(
+      Object.fromEntries(
+        Object.entries(shapes).map(([type, shape]) => [type, Object.keys(shape).sort()]),
+      ),
+    ).toEqual(contractKeys);
+    expect(Object.keys(shapes.sources.sources.element.shape).sort()).toEqual(
+      ask.events.sources
+        .filter((field) => field.startsWith("sources[]."))
+        .map((field) => field.slice("sources[].".length))
+        .sort(),
+    );
+    expect(shapes.error.code.options).toEqual(ask.values.errorCode);
   });
 
   it("ASK-AC66: client error codes cover the contract's errors", () => {

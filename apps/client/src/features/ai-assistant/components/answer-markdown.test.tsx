@@ -91,6 +91,22 @@ describe("AnswerMarkdown", () => {
     expect(container.textContent).toContain("[3]");
   });
 
+  it.each(["[1](https://evil.example)", "[[1]](https://evil.example)", "[1, 2](https://evil.example)"])(
+    "ASK-AC45: renders the citation-looking link %s as plain text",
+    (text) => {
+      const { container } = renderMarkdown(text, [source(1, "/s/a/p/x")]);
+      expect(container.querySelector("a")).toBeNull();
+      expect(container.textContent).toMatch(/1/);
+    },
+  );
+
+  it("ASK-AC45: keeps an https link whose text is a word", () => {
+    const { container } = renderMarkdown("[Handbuch 1](https://example.com)");
+    expect(container.querySelector("a")?.getAttribute("href")).toBe(
+      "https://example.com",
+    );
+  });
+
   it("renders paragraphs, lists, strong and code", () => {
     const { container } = renderMarkdown(
       "**wichtig** und `code`\n\n- eins\n- zwei",

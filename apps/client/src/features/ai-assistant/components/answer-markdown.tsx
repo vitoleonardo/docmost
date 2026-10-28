@@ -9,6 +9,7 @@ interface AnswerMarkdownProps {
 }
 
 const CITATION_PATTERN = /\[(\d+(?:\s*,\s*\d+)*)\]/g;
+const CITATION_LOOKALIKE = /^\[?\d+(?:\s*,\s*\d+)*\]?$/;
 const EXTERNAL_PROTOCOLS = ["http:", "https:"];
 
 function isExternalUrl(href: string): boolean {
@@ -90,6 +91,9 @@ function renderInline(tokens: Token[], sources: IAskSource[]): ReactNode[] {
         return <br key={index} />;
       case "link": {
         const link = token as Tokens.Link;
+        if (CITATION_LOOKALIKE.test(link.text.trim())) {
+          return <Fragment key={index}>{link.text}</Fragment>;
+        }
         const children = renderInline(link.tokens, sources);
         if (!isExternalUrl(link.href)) {
           return <Fragment key={index}>{children}</Fragment>;

@@ -83,9 +83,11 @@ export function useAskConversation() {
         await askQuestion(requestBodyOf(current, text), onEvent, controller.signal);
       } catch (error) {
         if (controller.signal.aborted) return;
-        const unavailable =
-          error instanceof AskRequestError && error.code === "assistant_unavailable";
-        if (!unavailable) return finishWith("error");
+        const code = error instanceof AskRequestError ? error.code : null;
+        if (code === "page_not_found" || code === "space_not_found") {
+          return finishWith("no_source");
+        }
+        if (code !== "assistant_unavailable") return finishWith("error");
         store.set(askConversationAtom, (latest) => ({
           ...latest,
           turns: latest.turns.filter((turn) => turn.id !== turnId),

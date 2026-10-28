@@ -174,6 +174,7 @@ test.describe("WS asks the wiki", () => {
     page,
   }, testInfo) => {
     const pages = await allgemeinPages(page);
+    await page.setViewportSize({ width: 1280, height: 360 });
     const source = await sourcePage(page, pages);
     const url = `/s/${SPACE_SLUG}/p/${source.slugId}#${source.headingId}`;
     await answerWith(page, citedAnswer(url, source.id), STREAMING_DELAY_MS);
@@ -251,15 +252,24 @@ test.describe("WS asks the wiki", () => {
     await answerWith(page, citedAnswer(url, source.id));
     await openPanelOnAnotherPage(page, pages);
     await page.getByText(EXAMPLE_QUESTION).click();
+    const heading = page.locator(
+      `[id="${source.headingId}"], [data-id="${source.headingId}"]`,
+    );
+    await expect(heading).toHaveCount(0);
 
     await page.getByRole("link", { name: `1. ${SOURCE_PAGE_TITLE}` }).click();
 
     await expect(page).toHaveURL(new RegExp(`#${source.headingId}$`));
-    const heading = page.locator(
-      `[id="${source.headingId}"], [data-id="${source.headingId}"]`,
-    );
     await expect(heading).toContainText(SOURCE_HEADING);
     await expect(heading).toBeInViewport();
+    const scrolledAncestors = await heading.evaluate((element) => {
+      let offsets = 0;
+      for (let node = element.parentElement; node; node = node.parentElement) {
+        offsets += node.scrollTop;
+      }
+      return offsets;
+    });
+    expect(scrolledAncestors).toBeGreaterThan(0);
     await screenshot(page, testInfo, "ASK-AC21", "heading-in-view");
   });
 });

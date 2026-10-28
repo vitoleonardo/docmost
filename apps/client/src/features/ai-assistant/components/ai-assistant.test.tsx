@@ -288,6 +288,23 @@ function renderPanel() {
   );
 }
 
+function renderAside() {
+  const store = createStore();
+  store.set(asideStateAtom, { tab: "ai-assistant", isAsideOpen: true });
+  render(
+    <MantineProvider>
+      <QueryClientProvider client={new QueryClient()}>
+        <Provider store={store}>
+          <MemoryRouter>
+            <Aside />
+          </MemoryRouter>
+        </Provider>
+      </QueryClientProvider>
+    </MantineProvider>,
+  );
+  return store;
+}
+
 const fetchMock = vi.fn();
 
 function questionInput() {
@@ -423,21 +440,65 @@ describe("ai assistant panel: ask", () => {
     expect(screen.queryByText(/Quellen/i)).toBeNull();
   });
 
-  it("ASK-AC49: Neue Unterhaltung returns to the empty state", async () => {
+  it("ASK-AC49: the Neue Unterhaltung icon button in the title row returns to the empty state", async () => {
     mockWiki("available");
     const stream = controlledStream();
     fetchMock.mockResolvedValue(stream.response);
-    renderPanel();
-    expect(
-      screen.queryByRole("button", { name: "Neue Unterhaltung" }),
-    ).toBeNull();
+    renderAside();
+    const newConversation = (await screen.findByRole("button", {
+      name: "Neue Unterhaltung",
+    })) as HTMLButtonElement;
+    expect(newConversation.disabled).toBe(true);
     type(await questionInput(), "Frage eins");
     fireEvent.click(screen.getByRole("button", { name: "Senden" }));
     stream.push({ type: "delta", text: "Antwort" });
     await screen.findByText("Antwort");
-    fireEvent.click(screen.getByRole("button", { name: "Neue Unterhaltung" }));
+    expect(newConversation.disabled).toBe(false);
+    expect(newConversation.textContent).toBe("");
+    fireEvent.click(newConversation);
     expect(await screen.findByText("Frag das Wiki")).toBeTruthy();
     expect(screen.queryByText("Frage eins")).toBeNull();
+    await waitFor(() => expect(newConversation.disabled).toBe(true));
+  });
+
+  it("ASK-AC49: the Neue Unterhaltung button is enabled while an answer streams", async () => {
+    mockWiki("available");
+    fetchMock.mockResolvedValue(controlledStream().response);
+    renderAside();
+    type(await questionInput(), "Frage eins");
+    fireEvent.click(screen.getByRole("button", { name: "Senden" }));
+    await screen.findByRole("button", { name: "Stoppen" });
+    const newConversation = screen.getByRole("button", {
+      name: "Neue Unterhaltung",
+    }) as HTMLButtonElement;
+    expect(newConversation.disabled).toBe(false);
+  });
+
+  it("ASK-AC49: shows no Neue Unterhaltung button while the assistant is unavailable", async () => {
+    mockWiki("unavailable");
+    renderAside();
+    await screen.findByText(UNAVAILABLE_TEXT);
+    expect(
+      screen.queryByRole("button", { name: "Neue Unterhaltung" }),
+    ).toBeNull();
+  });
+
+  it("ASK-AC49: shows no Neue Unterhaltung button on another aside tab", async () => {
+    mockWiki("available");
+    const store = createStore();
+    store.set(asideStateAtom, { tab: "details", isAsideOpen: true });
+    render(
+      <MantineProvider>
+        <QueryClientProvider client={new QueryClient()}>
+          <Provider store={store}>
+            <MemoryRouter>
+              <Aside />
+            </MemoryRouter>
+          </Provider>
+        </QueryClientProvider>
+      </MantineProvider>,
+    );
+    await screen.findByRole("button", { name: "Schließen" });
     expect(
       screen.queryByRole("button", { name: "Neue Unterhaltung" }),
     ).toBeNull();

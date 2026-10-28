@@ -166,7 +166,7 @@ describe("useAskConversation", () => {
   });
 
   it("ASK-AC66: other request errors mark the turn error", async () => {
-    askMock.mockRejectedValue(new AskRequestError("space_not_found"));
+    askMock.mockRejectedValue(new AskRequestError("invalid_request"));
     const { result } = setup();
 
     await act(async () => {
@@ -175,6 +175,23 @@ describe("useAskConversation", () => {
 
     expect(result.current.turns[0].status).toBe("error");
   });
+
+  it.each(["page_not_found", "space_not_found"] as const)(
+    "ASK-AC66: %s marks the turn no_source so nothing is revealed",
+    async (code) => {
+      askMock.mockRejectedValue(new AskRequestError(code));
+      const { result } = setup();
+
+      await act(async () => {
+        await result.current.send("Frage?");
+      });
+
+      expect(result.current.turns[0]).toMatchObject({
+        status: "no_source",
+        sources: [],
+      });
+    },
+  );
 
   it("ASK-AC11: a second send while the answer is streaming does nothing", async () => {
     mockStreamingAsk();

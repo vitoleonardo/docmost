@@ -41,6 +41,7 @@ const PAGE_NESTED = '1c2d3e4f-0000-4000-8000-000000000002';
 const PAGE_RESTRICTED = '1c2d3e4f-0000-4000-8000-000000000003';
 const PAGE_TRASHED = '1c2d3e4f-0000-4000-8000-000000000004';
 const PAGE_MISSING = '1c2d3e4f-0000-4000-8000-000000000005';
+const PAGE_CONTAINERS = '1c2d3e4f-0000-4000-8000-000000000006';
 const TURN_ID = '2d3e4f5a-0000-4000-8000-000000000001';
 const CONFIRM_PATH = '/v1/conversations/confirm';
 
@@ -76,6 +77,47 @@ const NESTED_CONTENT = {
     paragraph('Text'),
     heading(2, 'h-a-b', 'B'),
     heading(2, 'h-a-b-second', 'B'),
+  ],
+};
+
+const CONTAINER_CONTENT = {
+  type: 'doc',
+  content: [
+    heading(1, 'h-top', 'Oben'),
+    {
+      type: 'callout',
+      attrs: { type: 'info' },
+      content: [heading(2, 'h-callout', 'Im Hinweis')],
+    },
+    {
+      type: 'columns',
+      content: [
+        {
+          type: 'column',
+          content: [heading(2, 'h-column', 'In der Spalte')],
+        },
+      ],
+    },
+    {
+      type: 'details',
+      content: [
+        {
+          type: 'detailsSummary',
+          content: [{ type: 'text', text: 'Mehr' }],
+        },
+        {
+          type: 'detailsContent',
+          content: [heading(2, 'h-details', 'Im Detail')],
+        },
+      ],
+    },
+    heading(1, 'h-second', 'Zweitens'),
+    {
+      type: 'callout',
+      attrs: { type: 'info' },
+      content: [heading(2, 'h-first-twin', 'Zwilling')],
+    },
+    heading(2, 'h-second-twin', 'Zwilling'),
   ],
 };
 
@@ -306,6 +348,13 @@ describe('AiAskService', () => {
         title: 'Verschachtelt',
         slugId: 'nest1',
         content: NESTED_CONTENT,
+      },
+      {
+        id: PAGE_CONTAINERS,
+        spaceId: SPACE_ALLG,
+        title: 'Container',
+        slugId: 'cont1',
+        content: CONTAINER_CONTENT,
       },
       {
         id: PAGE_RESTRICTED,
@@ -675,6 +724,37 @@ describe('AiAskService', () => {
         type: 'sources',
         sources: [
           expect.objectContaining({ url: '/s/geschaeftsfuehrung/p/bands1' }),
+        ],
+      });
+    });
+
+    it.each([
+      ['a callout', ['Oben', 'Im Hinweis'], 'h-callout'],
+      ['a column', ['Oben', 'In der Spalte'], 'h-column'],
+      ['a details block', ['Oben', 'Im Detail'], 'h-details'],
+    ])(
+      'ASK-AC21: a heading inside %s gets its id as the anchor',
+      async (_container, headingPath, id) => {
+        answerCiting([citation(1, PAGE_CONTAINERS, headingPath)]);
+
+        expect(await finalEventOf()).toEqual({
+          type: 'sources',
+          sources: [
+            expect.objectContaining({ url: `/s/allgemein/p/cont1#${id}` }),
+          ],
+        });
+      },
+    );
+
+    it('ASK-AC21: the first heading in document order wins, also across containers', async () => {
+      answerCiting([citation(1, PAGE_CONTAINERS, ['Zweitens', 'Zwilling'])]);
+
+      expect(await finalEventOf()).toEqual({
+        type: 'sources',
+        sources: [
+          expect.objectContaining({
+            url: '/s/allgemein/p/cont1#h-first-twin',
+          }),
         ],
       });
     });

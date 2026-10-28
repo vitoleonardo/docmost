@@ -1,7 +1,6 @@
 import {
   Alert,
   Button,
-  Group,
   Loader,
   Paper,
   Stack,
@@ -9,7 +8,7 @@ import {
   Title,
   UnstyledButton,
 } from "@mantine/core";
-import { IconMessagePlus, IconSparkles } from "@tabler/icons-react";
+import { IconSparkles } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import AskAnswer from "@/features/ai-assistant/components/ask-answer.tsx";
 import AskInput from "@/features/ai-assistant/components/ask-input.tsx";
@@ -33,7 +32,6 @@ export default function AiAssistantPanel() {
     setScope,
     send,
     stop,
-    newConversation,
     isPending: isAnswering,
     isUnavailable,
     clearUnavailable,
@@ -53,18 +51,6 @@ export default function AiAssistantPanel() {
   if (data?.status === "available" && !isUnavailable) {
     return (
       <Stack gap="sm">
-        {turns.length > 0 && (
-          <Group justify="flex-end">
-            <Button
-              variant="subtle"
-              size="compact-xs"
-              leftSection={<IconMessagePlus size={14} />}
-              onClick={newConversation}
-            >
-              {t("New conversation")}
-            </Button>
-          </Group>
-        )}
         <AskScopeSelect scope={scope} onChange={setScope} />
         {turns.length === 0 ? (
           <Stack gap="xs" align="center" mt="md">
