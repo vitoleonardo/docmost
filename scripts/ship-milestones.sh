@@ -11,7 +11,7 @@ fi
 
 milestones="m3:ai-bridge m4:indexing m5:ask m6:leak-tests m7:extraction m8:agent m9:request-log m10:evals"
 first_base=m2-seed-data
-kit_branch=ai-v1
+foundation_branch=m2-seed-data
 max_session_seconds=$((4 * 3600))
 max_idle_seconds=$((20 * 60))
 max_identical_calls=6
@@ -113,6 +113,28 @@ session_metrics() {
   ' "$1"
 }
 
+usage_limit_reset() {
+  node -e '
+    let rejectedUntil = "";
+    for (const line of require("fs").readFileSync(process.argv[1], "utf8").split("\n")) {
+      if (!line.includes("\"rate_limit_event\"")) continue;
+      let event;
+      try { event = JSON.parse(line); } catch { continue; }
+      const info = event.rate_limit_info ?? {};
+      rejectedUntil = info.status === "rejected" ? String(info.resetsAt ?? "") : "";
+    }
+    console.log(rejectedUntil);
+  ' "$1"
+}
+
+wait_for_usage_reset() {
+  until_epoch=$1
+  log "WAIT $milestone: usage limit reached; resuming after $(date -r "$until_epoch" '+%d.%m.%Y %H:%M')"
+  notify "$milestone waits for the usage limit to reset"
+  remaining=$((until_epoch + 120 - $(date +%s)))
+  [ "$remaining" -gt 0 ] && sleep "$remaining"
+}
+
 record_session() {
   outcome=$1 file=$2 seconds=$3
   sessions=$run_dir/sessions.tsv
@@ -192,11 +214,13 @@ for entry in $milestones; do
     git checkout --quiet "$branch" || halt "$milestone: cannot check out $branch"
   else
     git checkout --quiet -b "$branch" "$base" || halt "$milestone: cannot create $branch off $base"
-    git merge --quiet --no-edit "$kit_branch" || { git merge --abort; halt "$milestone: merging $kit_branch into $branch conflicts"; }
+    git merge --quiet --no-edit "$foundation_branch" || { git merge --abort; halt "$milestone: merging $foundation_branch into $branch conflicts"; }
   fi
 
   log "START $milestone on $branch (base $base)"
-  for attempt in 1 2; do
+  sessions_counted=0
+  while [ "$sessions_counted" -lt 2 ]; do
+    attempt=$((sessions_counted + 1))
     [ -e "$run_dir/$milestone.$attempt.jsonl" ] && attempt=$attempt.$(date +%s)
     session_started=$(date +%s)
     run_session "$milestone" "$slug" "$base" "$branch" "$attempt" || log "$milestone: session $attempt exited with $?"
@@ -210,10 +234,17 @@ for entry in $milestones; do
       record_session questions "$file" "$session_seconds"
       halt "$milestone: questions in .work/$branch.md"
     fi
+    reset=$(usage_limit_reset "$file")
+    if [ -n "$reset" ]; then
+      record_session "usage limit" "$file" "$session_seconds"
+      wait_for_usage_reset "$reset"
+      continue
+    fi
+    sessions_counted=$((sessions_counted + 1))
     if [ -n "$limit_reason" ]; then
       record_session "limit: $limit_reason" "$file" "$session_seconds"
-      case $attempt in
-        1*) record_stop "$branch" "$limit_reason" "resumed by the orchestrator" ;;
+      case $sessions_counted in
+        1) record_stop "$branch" "$limit_reason" "resumed by the orchestrator" ;;
         *) record_stop "$branch" "$limit_reason" "chain halted" ;;
       esac
     else

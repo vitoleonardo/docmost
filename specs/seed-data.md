@@ -109,6 +109,7 @@ The seed data comes with three lists that later features read. Each refers to pa
 - Workspace admins other than the owner.
 - Comments, page history, non-PDF attachments, more than one workspace.
 - The page-restriction management UI (enterprise code); restrictions are written directly.
+- Rebuilding on S3 or Azure file storage; it comes later.
 
 ## Decisions
 - 28.10.2026: company "Ostmooimooi Anlagenbau GmbH", because web searches and the Handelsregister (checked by the user) found no company of that name and "Rheinwerk" is taken.
@@ -122,3 +123,4 @@ The seed data comes with three lists that later features read. Each refers to pa
 - 28.10.2026: a restricted page granted through a group with a restricted child page, because M3's filter must cover group grants and inheritance, and the other grants go only to space admins.
 - 28.10.2026: pages are identified by unique titles, because database ids change on every rebuild and the lists and golden set must stay valid.
 - 28.10.2026: non-local file storage is refused even with confirmation (SEED-AC36), because the S3 and Azure drivers cannot delete a folder, so a confirmed run would wipe the database and leave the old files behind.
+- 28.10.2026: the user approved SEED-AC36; the rebuild supports local file storage only, S3 and Azure come later.

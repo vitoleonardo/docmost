@@ -162,3 +162,13 @@ Stack on a separate database, so `docmost` stays untouched (fake values; ports 3
 3. Build the server (`pnpm --filter ./apps/server run build`). From a scratch directory shaped `<dir>/apps/server` (the local storage is then `<dir>/data/storage` and no environment file is read) run `node <repo>/apps/server/dist/integrations/seed/seed-main.js` with `DATABASE_URL`, `STORAGE_DRIVER=local`, `APP_SECRET`, `REDIS_URL=redis://127.0.0.1:6380/5`.
 4. Start the wiki from the same directory with `node <repo>/apps/server/dist/main` and `PORT=3100`, `APP_URL`, `AI_BRIDGE_SECRET`, `AI_SERVICE_TOKEN`, `AI_SERVICE_URL=http://127.0.0.1:8101` plus the variables of step 3. Start `python -m ai_service` (`AI_SERVICE_PORT=8101`) and `python -m ai_service.worker` (`AI_WIKI_URL=http://127.0.0.1:3100`) with the same secrets, `REDIS_URL` and the AI role's `AI_DATABASE_URL`. Wait for `Reconcile finished`, then run the stack tests.
 5. Stop the three processes, drop the database and the AI role, flush Redis db 5. Do not run another wiki server on the same Redis: it takes the `{ai-queue}` jobs.
+
+## Verify data runs and screenshots
+
+`/verify-feature` runs these through `.claude/bin/evidence data` and `.claude/bin/evidence screenshots` (commands in `.claude/kit.conf`).
+
+- Data runs: build `packages/*`, `pnpm seed` (prints `seed: <tree hash of the seed folder>`), then the server e2e suite.
+- Screenshots: `pnpm build`, `pnpm seed`, then Playwright starts `pnpm start` on `KIT_APP_URL` and runs `apps/client/e2e/*.screenshots.ts` on desktop and mobile. Images are named `<criterion>-<step>-<desktop|mobile>.png`.
+- Stop `pnpm dev` and `pnpm start` first: Playwright needs the port free and the seed needs the app stopped.
+- Without the evidence pack: `pnpm exec playwright test`; the images land in `test-results/`.
+- The base-branch run uses a fresh worktree without `.env`, so the app does not start there and base images are missing; the evidence pack records that as a warning.
