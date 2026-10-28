@@ -12,7 +12,7 @@ import jwt
 import pytest
 from redis import Redis
 
-from ai_service.ask import AskPipeline, AskRequest
+from ai_service.ask import AskPipeline, AskRequest, FilterPages
 from ai_service.conversations import ConversationStore
 from ai_service.index_store import SearchHit
 from ai_service.search import search_index
@@ -200,7 +200,7 @@ def run_pipeline(
     member: Member,
     question: str,
     redis: Redis,
-    filter_pages: Callable[[Sequence[str], str], list[str]] | None = None,
+    filter_pages: FilterPages | None = None,
 ) -> PipelineRun:
     candidates: list[SearchHit] = []
 
@@ -233,7 +233,9 @@ def sections_in_prompt(stack: Stack, run: PipelineRun, page_id: str) -> list[str
     ]
 
 
-def allow_every_page(page_ids: Sequence[str], user_token: str) -> list[str]:
+def allow_every_page(
+    page_ids: Sequence[str], user_token: str, space_id: str | None = None
+) -> list[str]:
     return list(page_ids)
 
 

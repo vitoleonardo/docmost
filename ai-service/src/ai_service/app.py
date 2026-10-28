@@ -19,6 +19,7 @@ from ai_service.auth import (
     require_service_token,
     require_user_session,
 )
+from ai_service.conversations import ConversationStore
 from ai_service.jobs import enqueue_job
 from ai_service.settings import Settings
 
@@ -54,6 +55,13 @@ class AskBody(BaseModel):
             space_id=None if self.spaceId is None else str(self.spaceId),
             page_id=None if self.pageId is None else str(self.pageId),
         )
+
+
+class ConfirmBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    conversationId: UUID
+    turnId: UUID
 
 
 class NdjsonResponse(StreamingResponse):
@@ -98,6 +106,7 @@ async def stream_until_closed(events: Generator[Event]) -> AsyncIterator[str]:
 def create_app(settings: Settings, redis: Redis, ask_pipeline: AskPipeline) -> FastAPI:
     app = FastAPI(docs_url=None, redoc_url=None)
     app.state.settings = settings
+    conversations = ConversationStore(redis)
     app.router.route_class = ServiceTokenFirstRoute
 
     @app.exception_handler(ApiError)
@@ -124,6 +133,12 @@ def create_app(settings: Settings, redis: Redis, ask_pipeline: AskPipeline) -> F
     ) -> NdjsonResponse:
         events = ask_pipeline.ask(body.to_request(), user.user_id, user.space_ids, user.token)
         return NdjsonResponse(stream_until_closed(events))
+
+    @app.post("/v1/conversations/confirm", status_code=204)
+    def confirm(
+        body: ConfirmBody, user: Annotated[UserSession, Depends(require_user_session)]
+    ) -> None:
+        conversations.confirm(user.user_id, str(body.conversationId), str(body.turnId))
 
     @app.post("/v1/jobs", status_code=202)
     def jobs(body: JobRequest) -> JobResponse:

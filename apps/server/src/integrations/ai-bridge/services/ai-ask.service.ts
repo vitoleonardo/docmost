@@ -62,7 +62,7 @@ export class AiAskService {
     user: User,
     dto: AiAskDto,
     signal: AbortSignal,
-  ): Promise<AsyncGenerator<AiAskEvent>> {
+  ): Promise<AsyncGenerator<AiAskEvent> | null> {
     if (!this.environmentService.isAiBridgeConfigured()) {
       throw new AiBridgeError(
         'assistant_disabled',
@@ -83,6 +83,7 @@ export class AiAskService {
         signal,
       )
       .catch((error: unknown) => {
+        if (signal.aborted) return null;
         if (!(error instanceof AiServiceUnreachableError)) throw error;
         this.logger.warn(`AI service refused the question: ${error.message}`);
         throw new AiBridgeError(
@@ -90,7 +91,8 @@ export class AiAskService {
           'The AI service is not available',
         );
       });
-    return this.relay(user, upstream, signal);
+    if (!upstream) return null;
+    return this.relay(user, dto.conversationId, upstream, signal);
   }
 
   private async checkScope(user: User, dto: AiAskDto): Promise<void> {
@@ -114,6 +116,7 @@ export class AiAskService {
 
   private async *relay(
     user: User,
+    conversationId: string,
     upstream: AsyncGenerator<AiServiceAskEvent>,
     signal: AbortSignal,
   ): AsyncGenerator<AiAskEvent> {
@@ -123,7 +126,15 @@ export class AiAskService {
           yield { type: 'delta', text: event.text };
           continue;
         }
-        yield await this.finalEvent(user, event);
+        const final = await this.finalEvent(user, event);
+        yield final;
+        if (
+          event.type === 'citations' &&
+          final.type === 'sources' &&
+          !signal.aborted
+        ) {
+          await this.confirmTurn(user, conversationId, event.turnId);
+        }
         return;
       }
       this.logger.warn('AI service ended the answer without a final event');
@@ -132,6 +143,24 @@ export class AiAskService {
       this.logger.warn(`Relaying the answer failed: ${describeError(error)}`);
     }
     yield MODEL_UNAVAILABLE;
+  }
+
+  private async confirmTurn(
+    user: User,
+    conversationId: string,
+    turnId: string,
+  ): Promise<void> {
+    try {
+      const userToken = await this.aiTokenService.issueUserToken(user);
+      await this.aiServiceClient.confirmTurn(userToken, {
+        conversationId,
+        turnId,
+      });
+    } catch (error) {
+      this.logger.warn(
+        `Keeping the answer out of the history, confirming it failed: ${describeError(error)}`,
+      );
+    }
   }
 
   private async finalEvent(

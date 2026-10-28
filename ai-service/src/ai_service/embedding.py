@@ -13,6 +13,12 @@ class EmbeddingModelError(RuntimeError):
         self.model_name = model_name
 
 
+class EmbeddingFailed(RuntimeError):
+    def __init__(self, model_name: str) -> None:
+        super().__init__(f"Embedding with the model failed: {model_name}")
+        self.model_name = model_name
+
+
 class Embedder(Protocol):
     model_name: str
 
@@ -30,4 +36,9 @@ class FastEmbedEmbedder:
             raise EmbeddingModelError(model_name) from error
 
     def embed(self, texts: Sequence[str]) -> list[list[float]]:
-        return [[float(component) for component in vector] for vector in self._model.embed(texts)]
+        try:
+            return [
+                [float(component) for component in vector] for vector in self._model.embed(texts)
+            ]
+        except Exception as error:
+            raise EmbeddingFailed(self.model_name) from error

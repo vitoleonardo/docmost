@@ -5,20 +5,24 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
 
+import psycopg
+
 from ai_service.bridge_client import BridgeError
 from ai_service.citations import CitationFilter
 from ai_service.conversations import ConversationStore, Turn
+from ai_service.embedding import EmbeddingFailed
 from ai_service.index_store import SearchHit
 from ai_service.inference import ChatModel, ModelUnavailable
 from ai_service.prompt import MAX_HISTORY_TURNS, build_messages
 
 SEARCH_LIMIT = 20
 MAX_SOURCES = 8
+SEARCH_ERRORS = (psycopg.Error, EmbeddingFailed)
 LOGGER = logging.getLogger("ai_service.ask")
 
 Event = dict[str, Any]
 SearchSections = Callable[[str, Sequence[str], str | None, int], list[SearchHit]]
-FilterPages = Callable[[Sequence[str], str], list[str]]
+FilterPages = Callable[[Sequence[str], str, str | None], list[str]]
 
 
 class Outcome(StrEnum):
@@ -138,9 +142,14 @@ class AskPipeline:
             yield no_source()
             return
         history = self._conversations.load(user_id, request.conversation_id)[-MAX_HISTORY_TURNS:]
-        candidates = self._search(
-            search_text(history, request.question), space_ids, request.page_id, SEARCH_LIMIT
-        )
+        try:
+            candidates = self._search(
+                search_text(history, request.question), space_ids, request.page_id, SEARCH_LIMIT
+            )
+        except SEARCH_ERRORS:
+            run.outcome = Outcome.MODEL_FAILED
+            yield model_unavailable()
+            return
         run.candidates = len(candidates)
         relevant = [
             hit
@@ -151,12 +160,12 @@ class AskPipeline:
             run.outcome = Outcome.NO_SOURCE
             yield no_source()
             return
-        page_ids = unique(
-            [hit.page_id for hit in relevant]
-            + [page for turn in history for page in turn.source_page_ids]
-        )
+        candidate_page_ids = unique(hit.page_id for hit in relevant)
+        history_page_ids = unique(page for turn in history for page in turn.source_page_ids)
         try:
-            passing = set(self._filter_pages(page_ids, user_token))
+            passing, history_passing = self._passing_pages(
+                candidate_page_ids, history_page_ids, request.space_id, user_token
+            )
         except BridgeError:
             run.outcome = Outcome.FILTER_FAILED
             yield model_unavailable()
@@ -172,8 +181,24 @@ class AskPipeline:
             yield no_source()
             return
         yield from self._generate(
-            run, request, user_id, sources[:MAX_SOURCES], visible_history(history, passing)
+            run, request, user_id, sources[:MAX_SOURCES], visible_history(history, history_passing)
         )
+
+    def _passing_pages(
+        self,
+        candidate_page_ids: list[str],
+        history_page_ids: list[str],
+        space_id: str | None,
+        user_token: str,
+    ) -> tuple[set[str], set[str]]:
+        if space_id is None:
+            passing = set(
+                self._filter_pages(unique(candidate_page_ids + history_page_ids), user_token, None)
+            )
+            return passing, passing
+        in_scope_space = set(self._filter_pages(candidate_page_ids, user_token, space_id))
+        viewable_history = set(self._filter_pages(history_page_ids, user_token, None))
+        return in_scope_space, viewable_history
 
     def _generate(
         self,
@@ -209,10 +234,11 @@ class AskPipeline:
             yield no_source()
             return
         turn = Turn(request.question, "".join(shown), unique(hit.page_id for hit in sources))
-        self._conversations.append(user_id, request.conversation_id, turn)
+        turn_id = self._conversations.append(user_id, request.conversation_id, turn)
         run.outcome = Outcome.ANSWERED
         yield {
             "type": "citations",
+            "turnId": turn_id,
             "citations": [
                 citation(number, sources[model_number - 1])
                 for number, model_number in enumerate(cited, start=1)

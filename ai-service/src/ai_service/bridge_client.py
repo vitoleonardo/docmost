@@ -131,16 +131,17 @@ class BridgeClient:
     def attachment(self, attachment_id: str) -> bytes:
         return self._post(ATTACHMENT_PATH, {"attachmentId": attachment_id}).content
 
-    def filter_pages(self, page_ids: Sequence[str], user_token: str) -> list[str]:
+    def filter_pages(
+        self, page_ids: Sequence[str], user_token: str, space_id: str | None = None
+    ) -> list[str]:
         if len(page_ids) > MAX_FILTER_PAGE_IDS:
             raise ValueError(f"filter_pages takes at most {MAX_FILTER_PAGE_IDS} page ids")
         if not page_ids:
             return []
-        response = self._post(
-            FILTER_PAGES_PATH,
-            {"pageIds": list(page_ids)},
-            {USER_TOKEN_HEADER: user_token},
-        )
+        body: dict[str, Any] = {"pageIds": list(page_ids)}
+        if space_id is not None:
+            body["spaceId"] = space_id
+        response = self._post(FILTER_PAGES_PATH, body, {USER_TOKEN_HEADER: user_token})
         try:
             data = response.json()
         except ValueError as error:

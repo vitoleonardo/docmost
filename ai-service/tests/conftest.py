@@ -55,7 +55,7 @@ def make_ask_settings(**overrides: Any) -> AskSettings:
 def idle_ask_pipeline(redis: Redis) -> AskPipeline:
     return AskPipeline(
         search=lambda text, space_ids, page_id, limit: [],
-        filter_pages=lambda page_ids, user_token: [],
+        filter_pages=lambda page_ids, user_token, space_id: [],
         model=ChatModel("http://127.0.0.1:1/v1", "unused"),
         conversations=ConversationStore(redis),
         threshold=0.45,

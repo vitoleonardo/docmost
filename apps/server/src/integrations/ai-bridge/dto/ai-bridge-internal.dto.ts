@@ -29,6 +29,11 @@ export class FilterPagesDto {
       : value,
   )
   pageIds: string[];
+
+  @IsOptional()
+  @IsUUID()
+  @Transform(lowercaseString)
+  spaceId?: string;
 }
 
 export class TaskTokenDto {

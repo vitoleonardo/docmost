@@ -78,7 +78,7 @@
       "path": "/api/ai-bridge/internal/filter-pages",
       "auth": ["service", "user"],
       "acceptsTaskToken": true,
-      "request": ["pageIds"],
+      "request": ["pageIds", "spaceId"],
       "response": ["pageIds"],
       "status": 200,
       "errors": [
@@ -258,6 +258,7 @@
         "delta": ["type", "text"],
         "citations": [
           "type",
+          "turnId",
           "citations[].number",
           "citations[].pageId",
           "citations[].headingPath",
@@ -273,6 +274,23 @@
       },
       "maxQuestionLength": 2000,
       "status": 200,
+      "errors": [
+        "service_token_missing",
+        "service_token_invalid",
+        "user_token_missing",
+        "user_token_expired",
+        "user_token_invalid",
+        "invalid_request"
+      ]
+    },
+    {
+      "side": "ai-service",
+      "method": "POST",
+      "path": "/v1/conversations/confirm",
+      "auth": ["service", "user"],
+      "request": ["conversationId", "turnId"],
+      "response": [],
+      "status": 204,
       "errors": [
         "service_token_missing",
         "service_token_invalid",

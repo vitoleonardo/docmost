@@ -9,6 +9,7 @@ import {
 import { AddressInfo } from 'node:net';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
+import { Logger } from '@nestjs/common';
 import { FastifyReply } from 'fastify';
 import { SpaceMemberRepo } from '@docmost/db/repos/space/space-member.repo';
 import { SpaceRepo } from '@docmost/db/repos/space/space.repo';
@@ -40,6 +41,8 @@ const PAGE_NESTED = '1c2d3e4f-0000-4000-8000-000000000002';
 const PAGE_RESTRICTED = '1c2d3e4f-0000-4000-8000-000000000003';
 const PAGE_TRASHED = '1c2d3e4f-0000-4000-8000-000000000004';
 const PAGE_MISSING = '1c2d3e4f-0000-4000-8000-000000000005';
+const TURN_ID = '2d3e4f5a-0000-4000-8000-000000000001';
+const CONFIRM_PATH = '/v1/conversations/confirm';
 
 type Json = Record<string, unknown>;
 
@@ -133,6 +136,7 @@ describe('AiAskService', () => {
   let spaces: StoredSpace[];
   let pages: StoredPage[];
   let restrictedPageIds: Set<string>;
+  let confirmStatus: number;
 
   const spaceMemberRepo = {
     getUserSpaceIds: async () => [...memberSpaceIds],
@@ -258,6 +262,11 @@ describe('AiAskService', () => {
         res.on('close', () => {
           recorded.closedEarly = !res.writableFinished;
         });
+        if (req.url === CONFIRM_PATH) {
+          res.writeHead(confirmStatus);
+          res.end();
+          return;
+        }
         upstream(req, res, recorded);
       });
     });
@@ -315,8 +324,16 @@ describe('AiAskService', () => {
       },
     ];
     restrictedPageIds = new Set([PAGE_RESTRICTED]);
+    confirmStatus = 204;
     upstream = answerWith(ndjson({ type: 'no_source' }));
   });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  const confirmRequests = () =>
+    requests.filter((request) => request.url === CONFIRM_PATH);
 
   describe('request validation', () => {
     const errorsFor = (body: Json) =>
@@ -577,7 +594,7 @@ describe('AiAskService', () => {
       upstream = answerWith(
         ndjson(
           { type: 'delta', text: 'Antwort [1]' },
-          { type: 'citations', citations },
+          { type: 'citations', turnId: TURN_ID, citations },
         ),
         beforeEnd,
       );
@@ -758,9 +775,101 @@ describe('AiAskService', () => {
           type: 'error',
           code: 'model_unavailable',
         });
+        expect(confirmRequests()).toEqual([]);
       } finally {
         pagePermissionRepo.filterAccessiblePageIds = original;
       }
+    });
+
+    describe('history confirmation', () => {
+      it('ASK-AC56: confirms the turn with both tokens only after the sources event was taken', async () => {
+        answerCiting([citation(1, PAGE_BANDS, ['Bänder'])]);
+        const iterator = (await ask())[Symbol.asyncIterator]();
+
+        expect((await iterator.next()).value).toMatchObject({ type: 'delta' });
+        expect((await iterator.next()).value).toMatchObject({
+          type: 'sources',
+        });
+        expect(confirmRequests()).toEqual([]);
+        expect((await iterator.next()).done).toBe(true);
+
+        const [confirm] = confirmRequests();
+        expect(JSON.parse(confirm.body)).toEqual({
+          conversationId: CONVERSATION_ID,
+          turnId: TURN_ID,
+        });
+        expect(confirm.headers['x-service-token']).toBe(SERVICE_CREDENTIAL);
+        expect(confirm.headers['x-user-token']).toBe(USER_CREDENTIAL);
+      });
+
+      it('ASK-AC56: an answer withdrawn by the final check is not confirmed', async () => {
+        answerCiting([citation(1, PAGE_RESTRICTED, [])]);
+
+        expect(await finalEventOf()).toEqual({ type: 'no_source' });
+        expect(confirmRequests()).toEqual([]);
+      });
+
+      it('ASK-AC56: an upstream error or no_source is not confirmed', async () => {
+        upstream = answerWith(
+          ndjson(
+            { type: 'delta', text: 'Teil' },
+            { type: 'error', code: 'model_unavailable' },
+          ),
+        );
+        await askAndCollect();
+        upstream = answerWith(ndjson({ type: 'no_source' }));
+        await askAndCollect();
+
+        expect(confirmRequests()).toEqual([]);
+      });
+
+      it('ASK-AC56: a client that stops before the sources event leaves the turn unconfirmed', async () => {
+        const abort = new AbortController();
+        answerCiting([citation(1, PAGE_BANDS, [])]);
+        const iterator = (await ask({}, abort.signal))[Symbol.asyncIterator]();
+
+        expect((await iterator.next()).value).toMatchObject({ type: 'delta' });
+        abort.abort();
+        while (!(await iterator.next()).done);
+
+        expect(confirmRequests()).toEqual([]);
+      });
+
+      it('ASK-AC56: a failed confirm keeps the shown answer and logs no answer text', async () => {
+        confirmStatus = 500;
+        const warn = jest.spyOn(Logger.prototype, 'warn');
+        answerCiting([citation(1, PAGE_BANDS, [])]);
+
+        const events = await askAndCollect();
+
+        expect(events.map((event) => event.type)).toEqual(['delta', 'sources']);
+        expect(confirmRequests()).toHaveLength(1);
+        expect(warn).toHaveBeenCalledTimes(1);
+        expect(String(warn.mock.calls[0][0])).not.toContain('Antwort');
+      });
+    });
+  });
+
+  describe('failures that are not the answer', () => {
+    it('ASK-AC75: a line that is not JSON is logged without its content', async () => {
+      const warn = jest.spyOn(Logger.prototype, 'warn');
+      upstream = answerWith(
+        `${ndjson({ type: 'delta', text: 'Teil' })}Geheimer Antworttext\n`,
+      );
+
+      expect((await askAndCollect()).slice(-1)).toEqual([
+        { type: 'error', code: 'model_unavailable' },
+      ]);
+      const logged = warn.mock.calls.map((call) => call.join(' ')).join('\n');
+      expect(logged).not.toContain('Geheim');
+      expect(logged).toContain('not JSON');
+    });
+
+    it('ASK-AC13: a client that leaves before the AI service answers ends quietly', async () => {
+      const abort = new AbortController();
+      upstream = () => abort.abort();
+
+      await expect(ask({}, abort.signal)).resolves.toBeNull();
     });
   });
 });
@@ -830,6 +939,20 @@ describe('AiBridgeController.ask', () => {
     await controller.ask(DTO, USER, reply);
 
     expect(seen?.aborted).toBe(true);
+  });
+
+  it('ASK-AC13: a client that left before the stream gets nothing written', async () => {
+    const { raw, reply } = sseReply();
+    const controller = new AiBridgeController(
+      stub<AiStatusService>({}),
+      stub<AiAskService>({ ask: async () => null }),
+    );
+
+    await controller.ask(DTO, USER, reply);
+
+    expect(raw.writeHead).not.toHaveBeenCalled();
+    expect(raw.write).not.toHaveBeenCalled();
+    expect(raw.end).not.toHaveBeenCalled();
   });
 
   it('ASK-AC65: an error before the stream is thrown before any header is written', async () => {

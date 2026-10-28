@@ -21,7 +21,7 @@ from ai_service.auth import UserSession, decode_user_token
 from ai_service.embedding import EmbeddingModelError
 from tests.conftest import BRIDGE_KEY, SERVICE_CREDENTIAL, USER_ID, make_settings
 from tests.index_db import SPACE_A, page_id
-from tests.test_ask import CONVERSATION_ID, Harness, hit
+from tests.test_ask import CONVERSATION_ID, OTHER_USER_ID, Harness, hit
 
 PATH = "/v1/ask"
 QUESTION = "Wie lautet die Regel?"
@@ -66,11 +66,13 @@ def test_ask_ac9_the_response_is_ndjson_with_one_event_per_line_in_order(
 
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("application/x-ndjson")
-    assert lines(response) == [
+    received = lines(response)
+    assert received == [
         {"type": "delta", "text": "Die Regel "},
         {"type": "delta", "text": "steht hier [1]."},
         {
             "type": "citations",
+            "turnId": received[-1]["turnId"],
             "citations": [
                 {
                     "number": 1,
@@ -93,7 +95,6 @@ def test_ask_ac9_the_session_scope_and_token_reach_the_pipeline(
     assert lines(response)[-1]["type"] == "citations"
     assert harness.search.calls == [(QUESTION, [USER_SPACE], page_id(1), 20)]
     assert harness.bridge.user_tokens == [headers["X-User-Token"]]
-    assert [turn.question for turn in harness.stored()] == [QUESTION]
 
 
 def test_ask_ac9_no_source_is_one_line(harness: Harness, headers: dict[str, str]):
@@ -405,6 +406,109 @@ def test_ask_ac71_the_session_route_still_answers_user_and_workspace(
 
     assert response.status_code == 200
     assert set(response.json()) == {"userId", "workspaceId"}
+
+
+CONFIRM_PATH = "/v1/conversations/confirm"
+
+
+def shared_client(harness: Harness) -> TestClient:
+    return TestClient(create_app(make_settings(), harness.redis, harness.pipeline()))
+
+
+def answered_turn_id(client: TestClient, headers: dict[str, str]) -> str:
+    return lines(ask(client, headers))[-1]["turnId"]
+
+
+def confirm(client: TestClient, headers: dict[str, str], body: dict[str, Any]) -> httpx.Response:
+    return client.post(CONFIRM_PATH, headers=headers, json=body)
+
+
+def test_ask_ac56_confirm_answers_204_and_puts_the_turn_in_the_history(
+    harness: Harness, headers: dict[str, str]
+):
+    client = shared_client(harness)
+    turn_id = answered_turn_id(client, headers)
+    assert harness.stored() == []
+
+    response = confirm(client, headers, {"conversationId": CONVERSATION_ID, "turnId": turn_id})
+
+    assert response.status_code == 204
+    assert response.content == b""
+    assert [turn.question for turn in harness.stored()] == [QUESTION]
+
+
+def test_ask_ac54_confirm_with_another_users_token_leaves_the_turn_pending(
+    harness: Harness,
+    headers: dict[str, str],
+    service_headers: dict[str, str],
+    make_token: Callable[..., str],
+):
+    client = shared_client(harness)
+    turn_id = answered_turn_id(client, headers)
+    other = {**service_headers, "X-User-Token": make_token(sub=OTHER_USER_ID)}
+
+    response = confirm(client, other, {"conversationId": CONVERSATION_ID, "turnId": turn_id})
+
+    assert response.status_code == 204
+    assert harness.stored() == []
+    assert harness.stored(OTHER_USER_ID) == []
+
+
+@pytest.mark.parametrize(
+    ("header_names", "code"),
+    [
+        ((), "service_token_missing"),
+        (("wrong-service",), "service_token_invalid"),
+        (("service",), "user_token_missing"),
+        (("service", "expired-user"), "user_token_expired"),
+        (("service", "malformed-user"), "user_token_invalid"),
+    ],
+)
+def test_ask_ac56_confirm_without_valid_tokens_is_401(
+    harness: Harness,
+    headers: dict[str, str],
+    make_token: Callable[..., str],
+    header_names: tuple[str, ...],
+    code: str,
+):
+    client = shared_client(harness)
+    turn_id = answered_turn_id(client, headers)
+    now = int(time.time())
+    available = {
+        "service": {"X-Service-Token": SERVICE_CREDENTIAL},
+        "wrong-service": {"X-Service-Token": "x" * 32, "X-User-Token": make_token()},
+        "expired-user": {"X-User-Token": make_token(iat=now - 120, exp=now - 60)},
+        "malformed-user": {"X-User-Token": "not.a.jwt"},
+    }
+    request_headers = {k: v for name in header_names for k, v in available[name].items()}
+
+    response = confirm(
+        client, request_headers, {"conversationId": CONVERSATION_ID, "turnId": turn_id}
+    )
+
+    assert response.status_code == 401
+    assert response.json()["code"] == code
+    assert harness.stored() == []
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"conversationId": CONVERSATION_ID},
+        {"turnId": CONVERSATION_ID},
+        {"conversationId": "not-a-uuid", "turnId": CONVERSATION_ID},
+        {"conversationId": CONVERSATION_ID, "turnId": "turn-1"},
+        {"conversationId": CONVERSATION_ID, "turnId": CONVERSATION_ID, "userId": USER_ID},
+    ],
+    ids=["no-turn", "no-conversation", "bad-conversation", "bad-turn", "unknown-field-userId"],
+)
+def test_ask_ac56_confirm_with_an_invalid_body_is_400_invalid_request(
+    harness: Harness, headers: dict[str, str], body: dict[str, Any]
+):
+    response = confirm(shared_client(harness), headers, body)
+
+    assert response.status_code == 400
+    assert response.json()["code"] == "invalid_request"
 
 
 def settings_environment(**overrides: str) -> dict[str, str]:

@@ -83,6 +83,10 @@ def test_bridge_ac35_success_status_and_response_fields_equal_the_contract(
     success = [status for status in operation(endpoint)["responses"] if status.startswith("2")]
 
     assert success == [str(endpoint["status"])]
+    if endpoint["status"] == 204:
+        assert "content" not in operation(endpoint)["responses"][success[0]]
+        assert endpoint["response"] == []
+        return
     content = operation(endpoint)["responses"][success[0]]["content"]
     if endpoint.get("responseType") == "ndjson":
         assert list(content) == [endpoint["responseContentType"]]

@@ -9,6 +9,7 @@ import pytest
 
 from ai_service.bridge_client import (
     ATTACHMENT_PATH,
+    FILTER_PAGES_PATH,
     PAGE_CONTENT_PATH,
     PAGES_PATH,
     AttachmentNotFound,
@@ -228,6 +229,8 @@ def request_fields(path: str, call: Callable[[BridgeClient], object]) -> set[str
             return httpx.Response(200, json=PAGES_BODY)
         if path == PAGE_CONTENT_PATH:
             return httpx.Response(200, json=CONTENT_BODY)
+        if path == FILTER_PAGES_PATH:
+            return httpx.Response(200, json={"pageIds": [PAGE_ID]})
         return httpx.Response(200, content=b"x")
 
     call(client_for(handler))
@@ -243,6 +246,10 @@ def test_index_bridge_client_request_fields_equal_the_contract() -> None:
         ),
         ATTACHMENT_PATH: request_fields(
             ATTACHMENT_PATH, lambda client: client.attachment(ATTACHMENT_ID)
+        ),
+        FILTER_PAGES_PATH: request_fields(
+            FILTER_PAGES_PATH,
+            lambda client: client.filter_pages([PAGE_ID], "test-user-token", PAGE_ID),
         ),
     }
     for path, fields in sent.items():

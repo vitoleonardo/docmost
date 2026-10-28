@@ -32,6 +32,7 @@ export class AiPageAccessService {
   async filterViewablePageIds(
     user: User,
     pageIds: string[],
+    spaceId?: string,
   ): Promise<string[]> {
     const uniquePageIds = [...new Set(pageIds)];
     if (uniquePageIds.length === 0) return [];
@@ -39,6 +40,7 @@ export class AiPageAccessService {
     const pageIdsBySpace = await this.groupReadablePageIdsBySpace(
       user,
       uniquePageIds,
+      spaceId,
     );
     const viewablePageIds = new Set<string>();
     for (const [spaceId, spacePageIds] of pageIdsBySpace) {
@@ -64,6 +66,7 @@ export class AiPageAccessService {
   private async groupReadablePageIdsBySpace(
     user: User,
     pageIds: string[],
+    spaceId?: string,
   ): Promise<Map<string, string[]>> {
     const pages = await this.pageRepo.findManyByIds(pageIds, {
       workspaceId: user.workspaceId,
@@ -76,6 +79,7 @@ export class AiPageAccessService {
     );
     for (const page of pages) {
       if (!readableSpaceIds.has(page.spaceId)) continue;
+      if (spaceId && page.spaceId !== spaceId) continue;
       pageIdsBySpace.set(page.spaceId, [
         ...(pageIdsBySpace.get(page.spaceId) ?? []),
         page.id,

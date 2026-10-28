@@ -21,9 +21,14 @@ export interface AiServiceCitation {
   pdfPage: number | null;
 }
 
+interface AiServiceTurnConfirmation {
+  conversationId: string;
+  turnId: string;
+}
+
 export type AiServiceAskEvent =
   | { type: 'delta'; text: string }
-  | { type: 'citations'; citations: AiServiceCitation[] }
+  | { type: 'citations'; turnId: string; citations: AiServiceCitation[] }
   | { type: 'no_source' }
   | { type: 'error'; code: string };
 
@@ -96,6 +101,20 @@ export class AiServiceClient {
       throw error;
     } finally {
       clearTimeout(headTimeout);
+    }
+  }
+
+  async confirmTurn(
+    userToken: string,
+    confirmation: AiServiceTurnConfirmation,
+  ): Promise<void> {
+    const response = await this.post(
+      '/v1/conversations/confirm',
+      { 'content-type': 'application/json', 'x-user-token': userToken },
+      JSON.stringify(confirmation),
+    );
+    if (response.status !== 204) {
+      throw new Error(`AI service answered HTTP ${response.status}`);
     }
   }
 
@@ -178,7 +197,12 @@ async function* readAskEvents(
 }
 
 function parseAskEvent(line: string): AiServiceAskEvent {
-  const event: unknown = JSON.parse(line);
+  let event: unknown;
+  try {
+    event = JSON.parse(line);
+  } catch {
+    throw new Error('AI service sent a line that is not JSON');
+  }
   if (!isAskEvent(event)) {
     throw new Error('AI service sent a malformed ask event');
   }
@@ -219,7 +243,9 @@ function isAskEvent(value: unknown): value is AiServiceAskEvent {
       return isString(value.text);
     case 'citations':
       return (
-        Array.isArray(value.citations) && value.citations.every(isCitation)
+        isString(value.turnId) &&
+        Array.isArray(value.citations) &&
+        value.citations.every(isCitation)
       );
     case 'no_source':
       return true;

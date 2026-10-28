@@ -57,6 +57,7 @@ export class AiBridgeInternalController {
     const pageIds = await this.aiPageAccessService.filterViewablePageIds(
       user,
       dto.pageIds,
+      dto.spaceId,
     );
     return { pageIds };
   }

@@ -487,7 +487,10 @@ describe('ask endpoint', () => {
     const askService = new AiAskService(
       stub<EnvironmentService>({ isAiBridgeConfigured: () => true }),
       stub<AiTokenService>({ issueUserToken: async () => 'user-token' }),
-      stub<AiServiceClient>({ ask: async () => streamOf(upstream) }),
+      stub<AiServiceClient>({
+        ask: async () => streamOf(upstream),
+        confirmTurn: async () => undefined,
+      }),
       stub<AiPageAccessService>(aiPageAccessService),
       stub(spaceRepo),
     );
@@ -532,7 +535,7 @@ describe('ask endpoint', () => {
     const runs = await Promise.all([
       answer([
         { type: 'delta', text: 'Antwort [1]' },
-        { type: 'citations', citations: [CITATION] },
+        { type: 'citations', turnId: 'turn-1', citations: [CITATION] },
       ]),
       answer([{ type: 'no_source' }]),
       answer([{ type: 'error', code: 'model_unavailable' }]),
@@ -668,6 +671,61 @@ describe('AI service calls of the bridge', () => {
     expect(sorted(Object.keys(JSON.parse(init.body)))).toEqual(
       sorted(endpoint.request),
     );
+  });
+
+  it('ASK-AC56: the turn confirmation posts the contract request fields with both token headers', async () => {
+    const endpoint = endpointAt('/v1/conversations/confirm');
+    fetchSpy.mockResolvedValue(new Response(null, { status: endpoint.status }));
+
+    await client.confirmTurn('user-token', {
+      conversationId: 'conversation-1',
+      turnId: 'turn-1',
+    });
+
+    const { url, init } = lastRequest();
+    expect(url.pathname).toBe(endpoint.path);
+    expect(init.method).toBe(endpoint.method);
+    expect(
+      init.headers[CONTRACT.headers.serviceTokenHeader.toLowerCase()],
+    ).toBe(SERVICE_CREDENTIAL);
+    expect(init.headers[CONTRACT.headers.userTokenHeader.toLowerCase()]).toBe(
+      'user-token',
+    );
+    expect(sorted(Object.keys(JSON.parse(init.body)))).toEqual(
+      sorted(endpoint.request),
+    );
+  });
+
+  it('ASK-AC56: a turn confirmation answered with another status fails', async () => {
+    const endpoint = endpointAt('/v1/conversations/confirm');
+    fetchSpy.mockResolvedValue(new Response('{}', { status: 200 }));
+
+    await expect(
+      client.confirmTurn('user-token', {
+        conversationId: 'conversation-1',
+        turnId: 'turn-1',
+      }),
+    ).rejects.toThrow('AI service answered HTTP 200');
+    expect(endpoint.status).toBe(204);
+  });
+
+  it('ASK-AC56: a citations event without the contract turn id is malformed', async () => {
+    const endpoint = endpointAt('/v1/ask');
+    expect(endpoint.events!.citations).toContain('turnId');
+    fetchSpy.mockResolvedValue(
+      new Response(
+        `${JSON.stringify({ type: 'citations', citations: [] })}\n`,
+        { status: endpoint.status },
+      ),
+    );
+
+    const events = await client.ask(
+      'user-token',
+      { question: 'Frage', conversationId: 'conversation-1' },
+      new AbortController().signal,
+    );
+
+    await expect(events.next()).rejects.toThrow('malformed ask event');
   });
 
   it('BRIDGE-AC35: any other status than the contract status is a failed forward', async () => {

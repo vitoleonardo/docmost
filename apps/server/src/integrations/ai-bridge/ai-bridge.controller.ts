@@ -45,6 +45,7 @@ export class AiBridgeController {
     const clientGone = new AbortController();
     reply.raw.on('close', () => clientGone.abort());
     const events = await this.aiAskService.ask(user, dto, clientGone.signal);
+    if (!events) return;
 
     reply.hijack();
     for (const [name, value] of Object.entries(reply.getHeaders())) {

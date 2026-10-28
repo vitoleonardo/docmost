@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 import httpx
+import psycopg
 import pytest
 from redis import Redis
 
@@ -20,6 +21,7 @@ from ai_service.bridge_client import (
     BridgeUnavailable,
 )
 from ai_service.conversations import ConversationStore, Turn
+from ai_service.embedding import EmbeddingFailed
 from ai_service.index_store import IndexStore, SearchHit, StoredSection
 from ai_service.inference import ChatModel, ModelUnavailable
 from ai_service.search import search_index
@@ -78,12 +80,15 @@ def hit(
 class FakeSearch:
     hits: list[SearchHit] = field(default_factory=list)
     by_text: Callable[[str], list[SearchHit]] | None = None
+    failure: Exception | None = None
     calls: list[tuple[str, list[str], str | None, int]] = field(default_factory=list)
 
     def __call__(
         self, text: str, space_ids: Sequence[str], page_id: str | None, limit: int
     ) -> list[SearchHit]:
         self.calls.append((text, list(space_ids), page_id, limit))
+        if self.failure is not None:
+            raise self.failure
         if self.by_text is not None:
             return self.by_text(text)
         return list(self.hits)
@@ -199,6 +204,17 @@ def final(events: list[dict[str, Any]]) -> dict[str, Any]:
     return events[-1]
 
 
+def remember(harness: Harness, turn: Turn, user_id: str = USER_ID) -> None:
+    conversations = harness.conversations
+    conversations.confirm(
+        user_id, CONVERSATION_ID, conversations.append(user_id, CONVERSATION_ID, turn)
+    )
+
+
+def confirm_answer(harness: Harness, events: list[dict[str, Any]]) -> None:
+    harness.conversations.confirm(USER_ID, CONVERSATION_ID, final(events)["turnId"])
+
+
 def page_ids_in_prompt(harness: Harness, numbers: Sequence[int]) -> set[int]:
     prompt = harness.prompt()
     return {number for number in numbers if f"Abschnittstext der Seite {number}." in prompt}
@@ -217,9 +233,7 @@ def test_ask_ac29_only_sections_of_pages_that_pass_the_filter_reach_the_prompt(h
 def test_ask_ac29_one_filter_call_with_candidates_and_history_pages_and_the_user_token(
     harness: Harness,
 ):
-    harness.conversations.append(
-        USER_ID, CONVERSATION_ID, Turn("Erste?", "Antwort [1]", [page_id(7), page_id(1)])
-    )
+    remember(harness, Turn("Erste?", "Antwort [1]", [page_id(7), page_id(1)]))
     harness.search.hits = [hit(1), hit(2), hit(1, text="Zweiter Abschnitt der Seite 1.")]
     harness.bridge.viewable = {page_id(1), page_id(2), page_id(7)}
 
@@ -244,11 +258,51 @@ def test_ask_ac29_hits_outside_the_token_spaces_are_dropped_even_if_the_search_r
 def test_ask_ac30_space_scope_searches_that_space_and_keeps_only_its_sections(harness: Harness):
     harness.search.hits = [hit(1, SPACE_A), hit(2, SPACE_B)]
     harness.bridge.viewable = {page_id(1), page_id(2)}
+    harness.bridge.current_spaces = {page_id(1): SPACE_A, page_id(2): SPACE_B}
 
     harness.run(space_ids=[SPACE_A, SPACE_B], space_id=SPACE_B)
 
     assert harness.search.calls[0][1] == [SPACE_B]
     assert page_ids_in_prompt(harness, [1, 2]) == {2}
+
+
+def test_ask_ac30_a_page_indexed_in_the_scope_but_now_in_another_space_is_not_in_the_prompt(
+    harness: Harness,
+):
+    harness.search.hits = [hit(1, SPACE_A, score=0.9), hit(2, SPACE_A, score=0.6)]
+    harness.bridge.viewable = {page_id(1), page_id(2)}
+    harness.bridge.current_spaces = {page_id(1): SPACE_B, page_id(2): SPACE_A}
+
+    events = harness.run(space_ids=[SPACE_A, SPACE_B], space_id=SPACE_A)
+
+    assert final(events)["type"] == "citations"
+    assert page_ids_in_prompt(harness, [1, 2]) == {2}
+    assert harness.bridge.requests == [[page_id(1), page_id(2)]]
+    assert harness.bridge.space_ids == [SPACE_A]
+
+
+def test_ask_ac30_history_pages_are_filtered_without_the_space_scope(harness: Harness):
+    remember(harness, Turn("Erste?", "Antwort aus Bereich B [1]", [page_id(3)]))
+    harness.search.hits = [hit(1, SPACE_A)]
+    harness.bridge.viewable = {page_id(1), page_id(3)}
+    harness.bridge.current_spaces = {page_id(1): SPACE_A, page_id(3): SPACE_B}
+
+    harness.run(space_ids=[SPACE_A, SPACE_B], space_id=SPACE_A)
+
+    assert harness.bridge.requests == [[page_id(1)], [page_id(3)]]
+    assert harness.bridge.space_ids == [SPACE_A, None]
+    assert {"role": "assistant", "content": "Antwort aus Bereich B [1]"} in harness.model.calls[0]
+
+
+def test_ask_ac29_without_a_space_scope_one_filter_call_has_no_space_id(harness: Harness):
+    remember(harness, Turn("Erste?", "Antwort [1]", [page_id(3)]))
+    harness.search.hits = [hit(1, SPACE_A)]
+    harness.bridge.viewable = {page_id(1), page_id(3)}
+
+    harness.run(space_ids=[SPACE_A, SPACE_B])
+
+    assert harness.bridge.requests == [[page_id(1), page_id(3)]]
+    assert harness.bridge.space_ids == [None]
 
 
 def test_ask_ac30_space_scope_outside_the_token_spaces_is_no_source_without_search(
@@ -482,7 +536,7 @@ def test_ask_ac48_the_search_uses_the_previous_question_and_the_current_one(harn
     harness.search.by_text = lambda text: [section_of_p] if "Kilometerpauschale" in text else []
     harness.bridge.viewable = {page_id(5)}
 
-    harness.run(question=first)
+    confirm_answer(harness, harness.run(question=first))
     harness.run(question=follow_up)
 
     assert harness.search.calls[0][0] == first
@@ -497,7 +551,7 @@ def test_ask_ac46_the_second_prompt_holds_the_first_question_and_its_answer(harn
     harness.bridge.viewable = {page_id(1)}
     harness.model.deltas = ["Erste ", "Antwort [1]."]
 
-    harness.run(question="Erste Frage?")
+    confirm_answer(harness, harness.run(question="Erste Frage?"))
     harness.run(question="Zweite Frage?")
 
     second = harness.model.calls[1]
@@ -519,8 +573,10 @@ def test_ask_ac16_an_answered_question_ends_with_citations_and_is_stored(
     events = harness.run(question="Was gilt?")
 
     assert [event["text"] for event in events[:-1]] == ["Erst ", "[1], dann [2] und ."]
+    turn_id = final(events)["turnId"]
     assert final(events) == {
         "type": "citations",
+        "turnId": turn_id,
         "citations": [
             {
                 "number": 1,
@@ -540,6 +596,8 @@ def test_ask_ac16_an_answered_question_ends_with_citations_and_is_stored(
             },
         ],
     }
+    assert harness.stored() == []
+    harness.conversations.confirm(USER_ID, CONVERSATION_ID, turn_id)
     assert harness.stored() == [
         Turn("Was gilt?", "Erst [1], dann [2] und .", [page_id(1), page_id(2), page_id(3)])
     ]
@@ -547,20 +605,31 @@ def test_ask_ac16_an_answered_question_ends_with_citations_and_is_stored(
     assert line["outcome"] == "answered"
 
 
+def test_ask_ac56_an_answer_the_wiki_did_not_confirm_is_not_in_the_next_prompt(
+    harness: Harness,
+):
+    harness.search.hits = [hit(1)]
+    harness.bridge.viewable = {page_id(1)}
+    harness.model.deltas = ["Zurückgezogene Antwort [1]."]
+    harness.run(question="Erste Frage?")
+    harness.model.deltas = ["Bestätigte Antwort [1]."]
+    confirm_answer(harness, harness.run(question="Zweite Frage?"))
+
+    harness.run(question="Dritte Frage?")
+
+    prompt = harness.prompt()
+    assert "Zurückgezogene Antwort" not in prompt
+    assert "Erste Frage?" not in prompt
+    assert {"role": "user", "content": "Zweite Frage?"} in harness.model.calls[-1]
+    assert {"role": "assistant", "content": "Bestätigte Antwort [1]."} in harness.model.calls[-1]
+
+
 def test_ask_ac55_a_history_answer_whose_source_page_fails_is_dropped_and_its_question_kept(
     harness: Harness,
 ):
-    harness.conversations.append(
-        USER_ID, CONVERSATION_ID, Turn("Alte Frage?", "Geheime Antwort [1]", [page_id(1)])
-    )
-    harness.conversations.append(
-        USER_ID,
-        CONVERSATION_ID,
-        Turn("Zweite Frage?", "Offene Antwort [1]", [page_id(2), page_id(1)]),
-    )
-    harness.conversations.append(
-        USER_ID, CONVERSATION_ID, Turn("Dritte Frage?", "Erlaubte Antwort [1]", [page_id(2)])
-    )
+    remember(harness, Turn("Alte Frage?", "Geheime Antwort [1]", [page_id(1)]))
+    remember(harness, Turn("Zweite Frage?", "Offene Antwort [1]", [page_id(2), page_id(1)]))
+    remember(harness, Turn("Dritte Frage?", "Erlaubte Antwort [1]", [page_id(2)]))
     harness.search.hits = [hit(2)]
     harness.bridge.viewable = {page_id(2)}
 
@@ -584,9 +653,7 @@ def test_ask_ac55_a_history_answer_whose_source_page_fails_is_dropped_and_its_qu
 
 
 def test_ask_ac55_history_of_another_user_is_not_loaded(harness: Harness):
-    harness.conversations.append(
-        OTHER_USER_ID, CONVERSATION_ID, Turn("Fremde Frage?", "Fremde Antwort [1]", [page_id(1)])
-    )
+    remember(harness, Turn("Fremde Frage?", "Fremde Antwort [1]", [page_id(1)]), OTHER_USER_ID)
     harness.search.hits = [hit(1)]
     harness.bridge.viewable = {page_id(1)}
 
@@ -671,6 +738,29 @@ def test_ask_ac70_a_failing_filter_gives_model_unavailable_without_calling_the_m
     assert harness.stored() == []
     [line] = ask_lines(ask_log)
     assert (line["candidates"], line["passing"], line["outcome"]) == ("1", "0", "filter_failed")
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [
+        psycopg.OperationalError("connection to server lost"),
+        psycopg.errors.UndefinedTable("relation does not exist"),
+        EmbeddingFailed("stub-embedding-model"),
+    ],
+    ids=["lost-database", "database-error", "embedding"],
+)
+def test_ask_ac74_a_failing_search_gives_model_unavailable_and_logs_model_failed(
+    harness: Harness, ask_log: pytest.LogCaptureFixture, failure: Exception
+):
+    harness.search.failure = failure
+
+    events = harness.run()
+
+    assert events == [{"type": "error", "code": "model_unavailable"}]
+    assert harness.bridge.requests == []
+    assert harness.model.calls == []
+    [line] = ask_lines(ask_log)
+    assert (line["candidates"], line["passing"], line["outcome"]) == ("0", "0", "model_failed")
 
 
 def test_ask_ac13_closing_the_events_after_the_first_delta_closes_the_model_stream(
@@ -787,6 +877,20 @@ def test_ask_ac29_filter_pages_posts_the_page_ids_with_both_tokens():
     assert USER_TOKEN_HEADER == "X-User-Token"
     assert request.headers["X-Service-Token"]
     assert json.loads(request.content) == {"pageIds": [page_id(1), page_id(2)]}
+
+
+def test_ask_ac30_filter_pages_sends_the_space_id_only_when_given():
+    bodies: list[dict[str, Any]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        bodies.append(json.loads(request.content))
+        return httpx.Response(200, json={"pageIds": []})
+
+    client = mock_client(handler)
+    client.filter_pages([page_id(1)], USER_TOKEN, SPACE_B)
+    client.filter_pages([page_id(1)], USER_TOKEN)
+
+    assert bodies == [{"pageIds": [page_id(1)], "spaceId": SPACE_B}, {"pageIds": [page_id(1)]}]
 
 
 def test_ask_ac29_filter_pages_without_ids_sends_no_request():

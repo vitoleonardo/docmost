@@ -340,24 +340,66 @@ describe('AI bridge page access (e2e)', () => {
     const filterAs = async (token: string, pageIds: unknown[]) =>
       post('filter-pages', { pageIds }, asUser(token));
 
+    const whileMovedToGeschaeftsfuehrung = async (
+      id: string,
+      check: () => Promise<void>,
+    ) => {
+      await bridge.pageRepo.updatePage(
+        { spaceId: spaceId('Geschäftsführung') },
+        id,
+      );
+      try {
+        await check();
+      } finally {
+        await bridge.pageRepo.updatePage({ spaceId: spaceId('Allgemein') }, id);
+      }
+    };
+
     it('BRIDGE-AC14: a page moved into Geschäftsführung is dropped for WS and kept for GF', async () => {
       const id = await pageId('Willkommen bei Ostmooimooi');
       const wsToken = await userToken('WS');
       const gfToken = await userToken('GF');
       expect((await filterAs(wsToken, [id])).json()).toEqual({ pageIds: [id] });
 
-      await bridge.pageRepo.updatePage(
-        { spaceId: spaceId('Geschäftsführung') },
-        id,
-      );
-      try {
+      await whileMovedToGeschaeftsfuehrung(id, async () => {
         expect((await filterAs(wsToken, [id])).json()).toEqual({ pageIds: [] });
         expect((await filterAs(gfToken, [id])).json()).toEqual({
           pageIds: [id],
         });
-      } finally {
-        await bridge.pageRepo.updatePage({ spaceId: spaceId('Allgemein') }, id);
-      }
+      });
+    });
+
+    it('ASK-AC30: with a spaceId, filter-pages keeps a viewable page only while it is in that space', async () => {
+      const id = await pageId('Willkommen bei Ostmooimooi');
+      const gfToken = await userToken('GF');
+      const filterIn = async (space: string) =>
+        (
+          await post(
+            'filter-pages',
+            { pageIds: [id], spaceId: spaceId(space) },
+            asUser(gfToken),
+          )
+        ).json();
+      expect(await filterIn('Allgemein')).toEqual({ pageIds: [id] });
+
+      await whileMovedToGeschaeftsfuehrung(id, async () => {
+        expect(await filterIn('Allgemein')).toEqual({ pageIds: [] });
+        expect(await filterIn('Geschäftsführung')).toEqual({ pageIds: [id] });
+        expect((await filterAs(gfToken, [id])).json()).toEqual({
+          pageIds: [id],
+        });
+      });
+    });
+
+    it('ASK-AC30: a malformed spaceId answers 400 invalid_request', async () => {
+      const response = await post(
+        'filter-pages',
+        { pageIds: [], spaceId: 'space-1' },
+        asUser(await userToken('GF')),
+      );
+
+      expect(response.statusCode).toBe(400);
+      expect(response.json().code).toBe('invalid_request');
     });
 
     it('BRIDGE-AC14: a forged spaceIds claim grants nothing', async () => {
@@ -1468,6 +1510,15 @@ describe('AI bridge page access (e2e)', () => {
             void fakeAsk(res);
             return;
           }
+          if (
+            req.url === '/v1/conversations/confirm' &&
+            fakeMode === 'ok' &&
+            accepted
+          ) {
+            res.writeHead(204);
+            res.end();
+            return;
+          }
           const status =
             fakeMode === 'error'
               ? 500
@@ -1607,6 +1658,7 @@ describe('AI bridge page access (e2e)', () => {
 
     describe('ask endpoint', () => {
       const CONVERSATION_ID = '0f8fad5b-d9cb-469f-a165-70867728950e';
+      const TURN_ID = '7c9e6679-7425-40de-944b-e07fc1f90ae7';
       const sessions: Partial<Record<SeedUserKey, Record<string, string>>> = {};
 
       const loginAddress = `203.0.113.${Math.floor(Math.random() * 254) + 1}`;
@@ -1633,6 +1685,7 @@ describe('AI bridge page access (e2e)', () => {
           { type: 'delta', text: 'Antwort [1]' },
           { type: 'no_source' },
         ]);
+        expect(confirmRequests()).toEqual([]);
       };
 
       const expectModelUnavailableAfterText = async (
@@ -1645,6 +1698,7 @@ describe('AI bridge page access (e2e)', () => {
           { type: 'delta', text: 'Teil' },
           { type: 'error', code: 'model_unavailable' },
         ]);
+        expect(confirmRequests()).toEqual([]);
       };
 
       const ndjson = (...events: object[]) =>
@@ -1667,12 +1721,19 @@ describe('AI bridge page access (e2e)', () => {
           response.writeHead(200, { 'content-type': 'application/x-ndjson' });
           response.write(ndjson({ type: 'delta', text: 'Antwort [1]' }));
           await beforeCitations();
-          response.end(ndjson({ type: 'citations', citations }));
+          response.end(
+            ndjson({ type: 'citations', turnId: TURN_ID, citations }),
+          );
         };
       };
 
       const askRequests = () =>
         fakeRequests.filter((request) => request.url === '/v1/ask');
+
+      const confirmRequests = () =>
+        fakeRequests.filter(
+          (request) => request.url === '/v1/conversations/confirm',
+        );
 
       it('ASK-AC64: a question without a session answers 401 and calls nothing', async () => {
         const response = await ask({ question: 'Frage' });
@@ -1870,6 +1931,15 @@ describe('AI bridge page access (e2e)', () => {
         expect(
           `${response.body}${JSON.stringify(response.headers)}`,
         ).not.toMatch(JWT_PATTERN);
+        const [confirmed] = confirmRequests();
+        expect(JSON.parse(confirmed.body)).toEqual({
+          conversationId: CONVERSATION_ID,
+          turnId: TURN_ID,
+        });
+        expect(confirmed.headers['x-service-token']).toBe(
+          TEST_AI_SERVICE_CREDENTIAL,
+        );
+        expect(String(confirmed.headers['x-user-token'])).toMatch(JWT_PATTERN);
       });
 
       it('ASK-AC20: a PDF source gets the file name and page and links the page top', async () => {

@@ -4,7 +4,8 @@ from collections.abc import Callable, Iterator
 import httpx
 import pytest
 
-from ai_service.inference import ChatModel, ModelUnavailable
+from ai_service.inference import FIRST_TEXT_DEADLINE_SECONDS, ChatModel, ModelUnavailable
+from tests.conftest import FakeClock
 
 BASE_URL = "http://127.0.0.1:11434/v1"
 MESSAGES = [{"role": "user", "content": "Wie viele Urlaubstage?"}]
@@ -18,9 +19,14 @@ def sse(*deltas: str) -> bytes:
     return "".join(lines + ["data: [DONE]\n\n"]).encode()
 
 
-def chat_model(handler: Callable[[httpx.Request], httpx.Response]) -> ChatModel:
+def chat_model(
+    handler: Callable[[httpx.Request], httpx.Response], clock: FakeClock | None = None
+) -> ChatModel:
     return ChatModel(
-        BASE_URL, "qwen3:8b", http=httpx.Client(transport=httpx.MockTransport(handler))
+        BASE_URL,
+        "qwen3:8b",
+        http=httpx.Client(transport=httpx.MockTransport(handler)),
+        **({} if clock is None else {"clock": clock}),
     )
 
 
@@ -106,6 +112,55 @@ def test_ask_ac68_default_client_waits_60_seconds_to_read_and_10_to_connect():
     timeout = ChatModel(BASE_URL, "qwen3:8b").http.timeout
     assert timeout.read == 60
     assert timeout.connect == 10
+
+
+ROLE_ONLY_CHUNK = b'data: {"choices": [{"delta": {"role": "assistant", "content": ""}}]}\n\n'
+
+
+class Trickling(httpx.SyncByteStream):
+    def __init__(self, clock: FakeClock, seconds_per_chunk: float, first_text_at: int | None):
+        self.clock = clock
+        self.seconds_per_chunk = seconds_per_chunk
+        self.first_text_at = first_text_at
+        self.sent = 0
+        self.closed = False
+
+    def __iter__(self) -> Iterator[bytes]:
+        while self.sent < 1000:
+            self.clock.now += self.seconds_per_chunk
+            self.sent += 1
+            if self.first_text_at is not None and self.sent >= self.first_text_at:
+                yield sse("Text")[: -len(b"data: [DONE]\n\n")]
+                self.clock.now += self.seconds_per_chunk
+                yield sse("mehr")
+                return
+            yield ROLE_ONLY_CHUNK
+
+    def close(self) -> None:
+        self.closed = True
+
+
+def test_ask_ac68_a_model_that_sends_only_empty_chunks_past_60_seconds_fails_and_closes():
+    clock = FakeClock()
+    body = Trickling(clock, seconds_per_chunk=15, first_text_at=None)
+    model = chat_model(lambda request: httpx.Response(200, stream=body), clock)
+
+    with pytest.raises(ModelUnavailable) as error:
+        list(model.stream(MESSAGES))
+
+    assert FIRST_TEXT_DEADLINE_SECONDS == 60
+    assert "no answer text within 60 s" in error.value.cause
+    assert body.sent == 5
+    assert body.closed
+
+
+def test_ask_ac68_text_that_starts_within_60_seconds_may_continue_past_them():
+    clock = FakeClock()
+    body = Trickling(clock, seconds_per_chunk=59, first_text_at=1)
+    model = chat_model(lambda request: httpx.Response(200, stream=body), clock)
+
+    assert list(model.stream(MESSAGES)) == ["Text", "mehr"]
+    assert clock.now == 118
 
 
 def test_ask_ac69_error_after_first_delta_keeps_the_text_then_raises():
