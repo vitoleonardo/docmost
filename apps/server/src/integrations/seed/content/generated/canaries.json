@@ -1,0 +1,77 @@
+[
+  {
+    "canary": "CANARY-3F9A21C7",
+    "space": "Allgemein",
+    "title": "Umstrukturierung 2027",
+    "deniedUsers": [
+      "PL",
+      "VT",
+      "WS"
+    ]
+  },
+  {
+    "canary": "CANARY-8B04D6E2",
+    "space": "Projekte",
+    "title": "Angebot Kalkulation Kläranlage Nordhafen",
+    "deniedUsers": [
+      "VT",
+      "WS"
+    ]
+  },
+  {
+    "canary": "CANARY-D1E59A47",
+    "space": "Projekte",
+    "title": "Baustelle Nordhafen intern",
+    "deniedUsers": [
+      "VT"
+    ]
+  },
+  {
+    "canary": "CANARY-5A7C3B90",
+    "space": "Projekte",
+    "title": "Baustelle Nordhafen Zugangscodes",
+    "deniedUsers": [
+      "VT"
+    ]
+  },
+  {
+    "canary": "CANARY-C2F18E05",
+    "space": "Geschäftsführung",
+    "title": "Strategie 2027 bis 2030",
+    "deniedUsers": [
+      "PL",
+      "VT",
+      "WS"
+    ]
+  },
+  {
+    "canary": "CANARY-9E40B7A3",
+    "space": "Geschäftsführung",
+    "title": "Beratervertrag Unternehmensentwicklung",
+    "deniedUsers": [
+      "PL",
+      "VT",
+      "WS"
+    ]
+  },
+  {
+    "canary": "CANARY-61D3FA88",
+    "space": "Geschäftsführung",
+    "title": "Gehaltsbänder Führungsebene",
+    "deniedUsers": [
+      "PL",
+      "VT",
+      "WS"
+    ]
+  },
+  {
+    "canary": "CANARY-A7B25C14",
+    "space": "Geschäftsführung",
+    "title": "Liquiditätsplanung 2026",
+    "deniedUsers": [
+      "PL",
+      "VT",
+      "WS"
+    ]
+  }
+]
