@@ -6,4 +6,4 @@ Status values: `draft` (spec being written) · `approved` (spec approved) · `pl
 
 | Feature | Spec | Status | Branch | Open questions |
 |---|---|---|---|---|
-| Seed data | `seed-data.md` | planned | m2-seed-data | 0 |
+| Seed data | `seed-data.md` | building | m2-seed-data | 0 |
