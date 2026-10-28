@@ -9,6 +9,7 @@ import type { AddressInfo } from 'node:net';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { Redis } from 'ioredis';
 import { Kysely } from 'kysely';
 import { DB } from '@docmost/db/types/db';
 import type { User } from '@docmost/db/types/entity.types';
@@ -52,6 +53,15 @@ const TEST_DATABASE = 'docmost_ai_bridge_test';
 const TEST_DATABASE_URL = `${TEST_POSTGRES_SERVER}/${TEST_DATABASE}`;
 
 const TEST_REDIS_URL = 'redis://127.0.0.1:6380/14';
+
+async function flushTestRedis() {
+  const redis = new Redis(TEST_REDIS_URL);
+  try {
+    await redis.flushdb();
+  } finally {
+    redis.disconnect();
+  }
+}
 
 const TEST_AI_BRIDGE_KEY = 'test-ai-bridge-secret-0123456789abcdef';
 const TEST_AI_SERVICE_CREDENTIAL = 'test-ai-service-token-0123456789abcdef';
@@ -188,6 +198,7 @@ describe('AI bridge page access (e2e)', () => {
   };
 
   beforeAll(async () => {
+    await flushTestRedis();
     ({ admin, db } = await createMigratedTestDatabase(TEST_DATABASE));
 
     storageRoot = await mkdtemp(join(tmpdir(), 'ai-bridge-storage-'));
@@ -2079,12 +2090,14 @@ describe('AI bridge page access (e2e)', () => {
     });
 
     describe('with the AI service down', () => {
+      const offlineAddress = `192.0.2.${Math.floor(Math.random() * 254) + 1}`;
+
       beforeEach(async () => {
         pointAiServiceAt(await closedUrl());
       });
 
       it('BRIDGE-AC8: login, page create, content update and reload still work', async () => {
-        const headers = await login('GF');
+        const headers = await login('GF', offlineAddress);
         const id = await createPage(headers, 'Offline AC8');
 
         const update = await api(
@@ -2122,7 +2135,7 @@ describe('AI bridge page access (e2e)', () => {
           Reflect.get(bridge.aiQueueProcessor, 'logger') as Logger,
           'warn',
         );
-        const headers = await login('GF');
+        const headers = await login('GF', offlineAddress);
 
         const id = await createPage(headers, 'Offline AC68');
 
