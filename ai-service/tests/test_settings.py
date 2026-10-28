@@ -4,7 +4,7 @@ import pytest
 from pydantic import ValidationError
 
 import ai_service.__main__ as entry
-from ai_service.settings import WorkerSettings
+from ai_service.settings import AskSettings, WorkerSettings
 from tests.conftest import (
     BRIDGE_KEY,
     SERVICE_CREDENTIAL,
@@ -91,4 +91,26 @@ def test_index_ac76_worker_settings_read_wiki_url_and_default_model(
     monkeypatch.setenv("AI_WIKI_URL", "http://127.0.0.1:3000")
     settings = IsolatedWorkerSettings()  # pyright: ignore[reportCallIssue]
     assert settings.ai_wiki_url == "http://127.0.0.1:3000"
+    assert settings.ai_embedding_model == "jinaai/jina-embeddings-v2-base-de"
+
+
+class IsolatedAskSettings(AskSettings):
+    model_config = IsolatedSettings.model_config
+
+
+@pytest.mark.usefixtures("api_environment")
+def test_ask_ac67_ask_settings_require_ai_wiki_url():
+    with pytest.raises(ValidationError) as error:
+        IsolatedAskSettings()  # pyright: ignore[reportCallIssue]
+    assert "ai_wiki_url" in str(error.value)
+
+
+@pytest.mark.usefixtures("api_environment")
+def test_ask_ac67_ask_settings_defaults(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("AI_WIKI_URL", "http://127.0.0.1:3000")
+    settings = IsolatedAskSettings()  # pyright: ignore[reportCallIssue]
+    assert settings.ai_relevance_threshold == 0.45
+    assert settings.ai_inference_mode == "local"
+    assert settings.ai_llm_model == "qwen3:8b"
+    assert settings.ai_llm_base_url == "http://127.0.0.1:11434/v1"
     assert settings.ai_embedding_model == "jinaai/jina-embeddings-v2-base-de"
