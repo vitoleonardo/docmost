@@ -10,3 +10,4 @@ Status values: `draft` (spec being written) · `approved` (spec approved) · `pl
 | AI bridge | `ai-bridge.md` | in-review | m3-ai-bridge | 0 |
 | Indexing | `indexing.md` | in-review | m4-indexing | 0 |
 | Ask | `ask.md` | in-review | m5-ask | 0 |
+| Leak tests | `leak-tests.md` | planned | m6-leak-tests | 0 |
