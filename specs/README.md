@@ -11,4 +11,4 @@ Status values: `draft` (spec being written) · `approved` (spec approved) · `pl
 | Indexing | `indexing.md` | in-review | m4-indexing | 0 |
 | Ask | `ask.md` | in-review | m5-ask | 0 |
 | Leak tests | `leak-tests.md` | in-review | m6-leak-tests | 0 |
-| Contract extraction | `extraction.md` | planned | m7-extraction | 0 |
+| Contract extraction | `extraction.md` | in-review | m7-extraction | 0 |
