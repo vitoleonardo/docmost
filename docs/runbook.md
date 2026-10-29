@@ -225,7 +225,13 @@ Spec `specs/leak-tests.md`. The prompt-content check proves that the prompt sent
 Local, not in CI. Run it before every merge to `main` that touches retrieval, prompts or the AI bridge (manual rule). It asks the real model through `POST /api/ai/ask` and needs the full local stack of "Ask tests" (wiki, ai-service, Ollama).
 
 - Command, from the repo root: `cd ai-service && uv run python -m ai_service.leak_suite`
-- Variables: see the task that builds it.
+- Prerequisites: the local stack of "Ask tests" runs with the active mode: wiki, ai-service, worker and the model (Ollama), and the seed data is indexed (every seed page has index entries; check with a control question in the wiki). The suite logs in as the four seed users (the login throttle may add 61 s), creates two pages "Leak-Test Injektion ..." in Allgemein and removes them again, also after a failure or Ctrl+C. It removes leftovers of an interrupted run at the start.
+- Variables:
+  - `LEAK_WIKI_URL` (required): address of the wiki, for example `http://localhost:3000`.
+  - `LEAK_SEED_PASSWORD`: the seed users' demo password (default `seed-demo-password`).
+  - `LEAK_INFERENCE_MODE`, `LEAK_MODEL`, `LEAK_EMBEDDING_MODEL`: only printed in the report; default to the AI service's defaults (`local`, `qwen3:8b`, `jinaai/jina-embeddings-v2-base-de`). Set them when the stack runs with other values.
+  - `LEAK_REPORT_PATH` (default `reports/leak-tests.md`), `LEAK_CONTENT_DIR` (default the seed content folder), `LEAK_INJECTION_TIMEOUT_SECONDS` (180) and `LEAK_POLL_SECONDS` (5): how long the suite waits for the worker to index the injection pages.
+- Exit codes: 0 clean; 1 a leak, a `failed` answer or a failed control question; 2 start-up problem (list problem, wiki not reachable, login failed), the report is left as it was.
 - Output: the report `reports/leak-tests.md` and a last line `Leak suite: <n> questions, <k> leaks`. Exit 0 only with 0 leaks.
 
 ## Verify data runs and screenshots

@@ -17,6 +17,7 @@ from ai_service.conversations import ConversationStore
 from ai_service.embedding import Embedder, FastEmbedEmbedder
 from ai_service.index_store import IndexStore, SearchHit
 from ai_service.indexer import Indexer, IndexOutcome
+from ai_service.leak_suite import SEED_EMAILS
 from ai_service.search import search_index
 from tests.hashing_embedder import HashingEmbedder
 from tests.seed_matrix import (
@@ -32,7 +33,6 @@ from tests.test_stack import POLL_SECONDS, list_all_pages
 from tests.test_stack_ask import (
     MIN_SECTION_LENGTH,
     MOVE_WAIT_SECONDS,
-    SEED_EMAILS,
     THRESHOLD,
     Member,
     PipelineRun,

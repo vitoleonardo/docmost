@@ -15,6 +15,7 @@ from redis import Redis
 from ai_service.ask import AskPipeline, AskRequest, FilterPages
 from ai_service.conversations import ConversationStore
 from ai_service.index_store import SearchHit
+from ai_service.leak_suite import LOGIN_THROTTLE_SECONDS, SEED_EMAILS
 from ai_service.search import search_index
 from ai_service.settings import AskSettings
 from tests.test_ask import StubModel
@@ -34,13 +35,6 @@ pytestmark = [pytest.mark.integration, pytest.mark.stack]
 
 BRIDGE_SECRET_VARIABLE = "STACK_BRIDGE_SECRET"
 SEED_PASSWORD = os.environ.get("STACK_SEED_PASSWORD", "seed-demo-password")
-SEED_EMAILS = {
-    "GF": "joerg.ostmoor@ostmooimooi.example.com",
-    "PL": "sabine.kettler@ostmooimooi.example.com",
-    "VT": "tobias.renner@ostmooimooi.example.com",
-    "WS": "lukas.brehm@ostmooimooi.example.com",
-}
-LOGIN_THROTTLE_SECONDS = 61
 THRESHOLD = float(AskSettings.model_fields["ai_relevance_threshold"].default)
 FIRST_TEXT_LIMIT_SECONDS = 10
 MOVE_WAIT_SECONDS = 30

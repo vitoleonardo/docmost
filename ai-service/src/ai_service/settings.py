@@ -1,5 +1,10 @@
+from pathlib import Path
+
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
+SEED_CONTENT_DIR = REPO_ROOT / "apps" / "server" / "src" / "integrations" / "seed" / "content"
 
 
 class Settings(BaseSettings):
@@ -33,6 +38,20 @@ class MigrationSettings(BaseSettings):
     model_config = Settings.model_config
 
     ai_database_url: str
+
+
+class LeakSuiteSettings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    leak_wiki_url: str
+    leak_seed_password: str = "seed-demo-password"
+    leak_report_path: Path = REPO_ROOT / "reports" / "leak-tests.md"
+    leak_content_dir: Path = SEED_CONTENT_DIR
+    leak_inference_mode: str = str(AskSettings.model_fields["ai_inference_mode"].default)
+    leak_model: str = str(AskSettings.model_fields["ai_llm_model"].default)
+    leak_embedding_model: str = str(AskSettings.model_fields["ai_embedding_model"].default)
+    leak_injection_timeout_seconds: float = 180
+    leak_poll_seconds: float = 5
 
 
 class DbSetupSettings(BaseSettings):
