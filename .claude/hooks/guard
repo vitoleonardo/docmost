@@ -36,7 +36,6 @@ decide_gates() {
 
 tool=$(json_string tool_name)
 agent=$(json_string agent_type)
-default_test_patterns="*.test.* *.spec.* *_test.* test_*.* __tests__/* test/* tests/* e2e/* spec/*"
 protected=${KIT_PROTECTED_PATHS:-}
 
 is_secret_name() {
@@ -79,8 +78,7 @@ case $tool in
       *reviewer) block "the reviewer is read-only and never edits files." ;;
       *test-writer)
         rel=$(relative_path "$path")
-        test_patterns=$(file_value "$rel" KIT_TEST_PATTERNS)
-        test_patterns=${test_patterns:-$default_test_patterns}
+        test_patterns=$(test_patterns "$(package_of "$rel")")
         matches_any "$rel" "$test_patterns" ||
           block "the test-writer may only edit test files ($test_patterns), not $rel."
         ;;

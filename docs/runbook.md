@@ -51,7 +51,7 @@ Who sees what: the space and page matrices in `specs/seed-data.md`.
 ### Tests
 
 - Data, PDF and preflight tests: `.claude/bin/check test-related apps/server/src/integrations/seed/<file>`.
-- Database tests: `pnpm --filter ./apps/server run build`, then `pnpm --filter ./apps/server run test:e2e -- seed-data`. They create and drop `docmost_seed_test` on the dev Postgres and never touch `docmost`. CI does not run them yet.
+- Database tests: `pnpm --filter ./apps/server run build`, then `pnpm --filter ./apps/server run test:e2e -- seed-data`. They create and drop `docmost_seed_test` on the dev Postgres and never touch `docmost`. CI does not run them; it runs only the leak check.
 
 ## AI bridge and ai-service
 
@@ -116,7 +116,7 @@ To switch the assistant off, unset `AI_BRIDGE_SECRET` and restart the wiki serve
 - ai-service fast tests, CI: `cd ai-service && uv run pytest -m "not integration"`
 - ai-service integration, local only: `cd ai-service && uv run pytest -m "integration and not stack"`. It uses Redis db 15 and creates and drops the database `docmost_ai_role_test` and the role `docmost_ai_test`.
 - Contract: `docs/contracts/ai-bridge.json`. Both sides test against it: `apps/server/src/integrations/ai-bridge/ai-bridge.contract.spec.ts` and `ai-service/tests/test_contract.py`.
-- CI does not run the e2e and integration suites.
+- CI runs the leak check (step "Leak check") but not the other e2e and integration suites.
 
 ## Indexing
 
@@ -205,6 +205,35 @@ Install Ollama, run `ollama pull qwen3:8b` once and keep `ollama serve` running.
 
   Covers ASK-AC32 to ASK-AC35 (prompt content with the real bridge, index and embedder and a recording model), ASK-AC39 to ASK-AC41 and ASK-AC57 (through `POST /api/ai/ask` of the wiki, real model). It logs in as the four seed users once (the login throttle may add 61 s), creates two throwaway pages in "Allgemein" (one moved to "Geschäftsführung", one trashed, both put back into the index as stale entries) and removes them again. It prints `ASK-AC57 first text: <seconds> s` (limit 10 s). Run it on a freshly seeded stack: Ollama caches prompts, so a repeated run measures less than a first run.
 - Screenshots of A1 to A4 and the source click: `apps/client/e2e/ask.screenshots.ts`, run as in "Verify data runs and screenshots". It mocks `POST /api/ai/ask` and `POST /api/ai/status` (answers must be the same on every run), switches the seed user WS to German for each test and back afterwards. The source click uses the real heading id of "Bürozeiten und Erreichbarkeit". ai-service must run so the real status is `available` (A4 mocks the status); the model need not run.
+
+## Leak tests
+
+Spec `specs/leak-tests.md`. The prompt-content check proves that the prompt sent to the model never holds a section the asking user may not view: every seed user, every leak question, every scope, with the real wiki filter, a recording model and an index built from the seed. It also covers revoked membership, a stale index entry and a restored page.
+
+### Leak check
+
+- Run from the repo root: `scripts/run-leak-check.sh [pytest args]`, for example `scripts/run-leak-check.sh -q`.
+- Needs the dev Postgres and Redis of `docker-compose.dev.yml` (ports 5433 and 6380), `psql` on PATH, `uv sync` done in `ai-service/`. It builds the server when `apps/server/dist/main.js` is missing; run `pnpm --filter ./apps/server run build` after server changes.
+- It uses its own database `docmost_leak` and the role `docmost_ai_leak`, recreated on every run. It never touches the dev database `docmost`. It seeds the database, starts the wiki on port 3100, runs `uv run pytest -m leak` and stops the wiki on exit. A run that collects no tests fails.
+- `LEAK_EMBEDDING_MODEL=jinaai/jina-embeddings-v2-base-de`: index with the real model instead of the hashing embedder (LEAK-AC10).
+- `LEAK_WORKER_RUNNING=1`: set it when a worker indexes the same database, so the tests wait for the worker's update.
+- Secrets (app secret, service token, bridge secret, AI role password) are generated per run with `openssl rand -hex 32`; set `LEAK_APP_SECRET`, `LEAK_SERVICE_TOKEN`, `LEAK_BRIDGE_SECRET` or `LEAK_AI_PASSWORD` to pin them. `LEAK_SEED_PASSWORD` is passed on only when set; otherwise the tests use the seed's demo password.
+- Other variables: `LEAK_DATABASE` (must start with `docmost_leak`), `LEAK_PG_ADMIN_URL`, `LEAK_REDIS_URL`, `LEAK_WIKI_PORT`, `LEAK_HEALTH_TIMEOUT`.
+- CI runs it in the job "Quality gates" on every pull request, on its own Postgres and Redis services. Any failure blocks the merge.
+
+### Canary suite
+
+Local, not in CI. Run it before every merge to `main` that touches retrieval, prompts or the AI bridge (manual rule). It asks the real model through `POST /api/ai/ask` and needs the full local stack of "Ask tests" (wiki, ai-service, Ollama).
+
+- Command, from the repo root: `cd ai-service && uv run python -m ai_service.leak_suite`
+- Prerequisites: the local stack of "Ask tests" runs with the active mode: wiki, ai-service, worker and the model (Ollama), and the seed data is indexed (every seed page has index entries; check with a control question in the wiki). The suite logs in as the four seed users (the login throttle may add 61 s), creates two pages "Leak-Test Injektion ..." in Allgemein and removes them again, also after a failure or Ctrl+C. It removes leftovers of an interrupted run at the start.
+- Variables:
+  - `LEAK_WIKI_URL` (required): address of the wiki, for example `http://localhost:3000`.
+  - `LEAK_SEED_PASSWORD`: the seed users' demo password (default `seed-demo-password`).
+  - `LEAK_INFERENCE_MODE`, `LEAK_MODEL`, `LEAK_EMBEDDING_MODEL`: only printed in the report; default to the AI service's defaults (`local`, `qwen3:8b`, `jinaai/jina-embeddings-v2-base-de`). Set them when the stack runs with other values.
+  - `LEAK_REPORT_PATH` (default `reports/leak-tests.md`), `LEAK_CONTENT_DIR` (default the seed content folder), `LEAK_INJECTION_TIMEOUT_SECONDS` (180) and `LEAK_POLL_SECONDS` (5): how long the suite waits for the worker to index the injection pages.
+- Exit codes: 0 clean; 1 a leak, a `failed` answer or a failed control question; 2 start-up problem (list problem, wiki not reachable, login failed), the report is left as it was.
+- Output: the report `reports/leak-tests.md` and a last line `Leak suite: <n> questions, <k> leaks`. Exit 0 only with 0 leaks.
 
 ## Verify data runs and screenshots
 

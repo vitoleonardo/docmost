@@ -1,4 +1,3 @@
-import json
 import os
 import time
 import uuid
@@ -15,6 +14,8 @@ from redis import Redis
 from ai_service.ask import AskPipeline, AskRequest, FilterPages
 from ai_service.conversations import ConversationStore
 from ai_service.index_store import SearchHit
+from ai_service.leak_suite import SEED_EMAILS, parse_sse_events
+from ai_service.leak_suite import log_in as log_in_with_retry
 from ai_service.search import search_index
 from ai_service.settings import AskSettings
 from tests.test_ask import StubModel
@@ -34,13 +35,6 @@ pytestmark = [pytest.mark.integration, pytest.mark.stack]
 
 BRIDGE_SECRET_VARIABLE = "STACK_BRIDGE_SECRET"
 SEED_PASSWORD = os.environ.get("STACK_SEED_PASSWORD", "seed-demo-password")
-SEED_EMAILS = {
-    "GF": "joerg.ostmoor@ostmooimooi.example.com",
-    "PL": "sabine.kettler@ostmooimooi.example.com",
-    "VT": "tobias.renner@ostmooimooi.example.com",
-    "WS": "lukas.brehm@ostmooimooi.example.com",
-}
-LOGIN_THROTTLE_SECONDS = 61
 THRESHOLD = float(AskSettings.model_fields["ai_relevance_threshold"].default)
 FIRST_TEXT_LIMIT_SECONDS = 10
 MOVE_WAIT_SECONDS = 30
@@ -61,6 +55,25 @@ ONBOARDING_QUESTIONS = (
 )
 
 
+def sign_user_token(
+    user_id: str, workspace_id: str, space_ids: Sequence[str], bridge_secret: str
+) -> str:
+    now = int(time.time())
+    return jwt.encode(
+        {
+            "sub": user_id,
+            "workspaceId": workspace_id,
+            "spaceIds": list(space_ids),
+            "aud": "ai-service",
+            "type": "user",
+            "iat": now,
+            "exp": now + 300,
+        },
+        bridge_secret,
+        algorithm="HS256",
+    )
+
+
 @dataclass(frozen=True)
 class Member:
     key: str
@@ -72,20 +85,7 @@ class Member:
 
     @property
     def token(self) -> str:
-        now = int(time.time())
-        return jwt.encode(
-            {
-                "sub": self.user_id,
-                "workspaceId": self.workspace_id,
-                "spaceIds": self.space_ids,
-                "aud": "ai-service",
-                "type": "user",
-                "iat": now,
-                "exp": now + 300,
-            },
-            self.bridge_secret,
-            algorithm="HS256",
-        )
+        return sign_user_token(self.user_id, self.workspace_id, self.space_ids, self.bridge_secret)
 
     def may_view(self, page_id: str) -> bool:
         response = self.session.post("/api/pages/info", json={"pageId": page_id})
@@ -130,15 +130,11 @@ class StatePages:
     trashed_sentence: str
 
 
-def log_in(wiki_url: str, key: str, bridge_secret: str) -> Member:
+def log_in(wiki_url: str, key: str, bridge_secret: str, password: str = SEED_PASSWORD) -> Member:
     session = httpx.Client(
         base_url=wiki_url, timeout=httpx.Timeout(180, connect=10), follow_redirects=False
     )
-    credentials = {"email": SEED_EMAILS[key], "password": SEED_PASSWORD}
-    response = session.post("/api/auth/login", json=credentials)
-    if response.status_code == 429:
-        time.sleep(LOGIN_THROTTLE_SECONDS)
-        response = session.post("/api/auth/login", json=credentials)
+    response = log_in_with_retry(session, SEED_EMAILS[key], password, time.sleep)
     assert response.status_code == 200, response.text
     user = session.post("/api/users/me").json()["data"]["user"]
     spaces = session.post("/api/spaces", json={}).json()["data"]["items"]
@@ -185,10 +181,7 @@ def ask_wiki(member: Member, question: str) -> WikiAnswer:
     body = {"question": question, "conversationId": str(uuid.uuid4())}
     with member.session.stream("POST", "/api/ai/ask", json=body) as response:
         assert response.status_code == 200, response.read()
-        for line in response.iter_lines():
-            if not line.startswith("data:"):
-                continue
-            event = json.loads(line.removeprefix("data:").strip())
+        for event in parse_sse_events(response.iter_lines()):
             if event["type"] == "delta" and first_text is None:
                 first_text = time.monotonic() - started
             events.append(event)
