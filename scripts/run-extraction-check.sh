@@ -26,24 +26,20 @@ case "$EXTRACT_DATABASE" in
     exit 1
     ;;
 esac
-case "$EXTRACT_REDIS_URL" in
-  *[?#]*)
-    echo "Refusing to flush Redis in $EXTRACT_REDIS_URL: no query string or fragment, use a dedicated database number from 1 to 15" >&2
-    exit 1
-    ;;
-  redis*://*/[1-9] | redis*://*/1[0-5]) ;;
-  *)
-    echo "Refusing to flush Redis in $EXTRACT_REDIS_URL: use a dedicated database number from 1 to 15 as the last path segment" >&2
-    exit 1
-    ;;
-esac
-
 for tool in psql openssl curl uv node; do
   if ! command -v "$tool" >/dev/null 2>&1; then
     echo "$tool is required" >&2
     exit 1
   fi
 done
+
+if ! (cd "$root/ai-service" && REDIS_URL="$EXTRACT_REDIS_URL" uv run python -c \
+  "import os, sys, redis
+db = redis.Redis.from_url(os.environ['REDIS_URL']).connection_pool.connection_kwargs.get('db', 0)
+sys.exit(0 if isinstance(db, int) and 1 <= db <= 15 else 1)" >/dev/null 2>&1); then
+  echo "Refusing to flush Redis in $EXTRACT_REDIS_URL: redis-py must select a dedicated database number from 1 to 15" >&2
+  exit 1
+fi
 
 EXTRACT_APP_SECRET=${EXTRACT_APP_SECRET:-$(openssl rand -hex 32)}
 EXTRACT_SERVICE_TOKEN=${EXTRACT_SERVICE_TOKEN:-$(openssl rand -hex 32)}
