@@ -13,9 +13,9 @@ const MAX_FILTER_PAGE_IDS = 500;
 const MAX_SEARCH_QUERY_LENGTH = 200;
 const MAX_PAGE_LIST_CURSOR_LENGTH = 200;
 
-const lowercaseString = ({ value }: { value: unknown }) =>
+export const lowercaseString = ({ value }: { value: unknown }) =>
   typeof value === 'string' ? value.toLowerCase() : value;
-const trimString = ({ value }: { value: unknown }) =>
+export const trimString = ({ value }: { value: unknown }) =>
   typeof value === 'string' ? value.trim() : value;
 export const TOO_MANY_PAGE_IDS_MESSAGE = `pageIds must contain at most ${MAX_FILTER_PAGE_IDS} ids`;
 
@@ -29,6 +29,11 @@ export class FilterPagesDto {
       : value,
   )
   pageIds: string[];
+
+  @IsOptional()
+  @IsUUID()
+  @Transform(lowercaseString)
+  spaceId?: string;
 }
 
 export class TaskTokenDto {

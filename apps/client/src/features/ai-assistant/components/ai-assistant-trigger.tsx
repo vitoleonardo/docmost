@@ -1,6 +1,9 @@
-import { ActionIcon, Tooltip } from "@mantine/core";
+import { ActionIcon, Menu, Tooltip } from "@mantine/core";
 import { IconSparkles } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
+import { useSetAtom } from "jotai";
+import { asideStateAtom } from "@/components/layouts/global/hooks/atoms/sidebar-atom.ts";
+import { useAskConversation } from "@/features/ai-assistant/hooks/use-ask-conversation.ts";
 import { useAsideTriggerProps } from "@/hooks/use-toggle-aside.tsx";
 import { useAiAssistantStatusQuery } from "@/features/ai-assistant/queries/ai-assistant-query.ts";
 
@@ -24,5 +27,27 @@ export default function AiAssistantTrigger() {
         <IconSparkles size={20} stroke={2} />
       </ActionIcon>
     </Tooltip>
+  );
+}
+
+export function AskAboutPageMenuItem({ pageId }: { pageId: string }) {
+  const { t } = useTranslation();
+  const { data, isPending } = useAiAssistantStatusQuery();
+  const { setScope } = useAskConversation();
+  const setAsideState = useSetAtom(asideStateAtom);
+
+  if (isPending || data?.status === "disabled") {
+    return null;
+  }
+
+  const handleClick = () => {
+    setScope({ kind: "page", pageId });
+    setAsideState({ tab: "ai-assistant", isAsideOpen: true });
+  };
+
+  return (
+    <Menu.Item leftSection={<IconSparkles size={16} />} onClick={handleClick}>
+      {t("Ask about this page")}
+    </Menu.Item>
   );
 }

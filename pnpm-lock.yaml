@@ -365,6 +365,9 @@ importers:
       mantine-form-zod-resolver:
         specifier: 1.3.0
         version: 1.3.0(@mantine/form@9.3.2(react@19.2.7))(zod@4.3.6)
+      marked:
+        specifier: 17.0.5
+        version: 17.0.5
       mermaid:
         specifier: 11.16.1
         version: 11.16.1

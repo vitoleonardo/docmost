@@ -50,6 +50,7 @@ class RefusingStore(IndexStore):
         space_ids: Sequence[str],
         embedding_model: str,
         limit: int,
+        page_id: str | None = None,
     ) -> list[SearchHit]:
         raise AssertionError("the store must not be searched")
 
@@ -102,6 +103,7 @@ def test_index_ac16_space_ids_in_upper_case_are_accepted():
             space_ids: Sequence[str],
             embedding_model: str,
             limit: int,
+            page_id: str | None = None,
         ) -> list[SearchHit]:
             return []
 

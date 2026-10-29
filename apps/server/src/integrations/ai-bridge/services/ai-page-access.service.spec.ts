@@ -1,9 +1,12 @@
 import { Test } from '@nestjs/testing';
+import { plainToInstance } from 'class-transformer';
+import { validate } from 'class-validator';
 import { SpaceMemberRepo } from '@docmost/db/repos/space/space-member.repo';
 import { SpaceRepo } from '@docmost/db/repos/space/space.repo';
 import { PageRepo } from '@docmost/db/repos/page/page.repo';
 import { PagePermissionRepo } from '@docmost/db/repos/page/page-permission.repo';
 import { Page, Space, User } from '@docmost/db/types/entity.types';
+import { FilterPagesDto } from '../dto/ai-bridge-internal.dto';
 import { AiPageAccessService } from './ai-page-access.service';
 
 const WORKSPACE_ID = 'workspace-1';
@@ -251,6 +254,68 @@ describe('AiPageAccessService', () => {
       ).resolves.toEqual([]);
       expect(pagePermissionRepo.filterAccessiblePageIds).not.toHaveBeenCalled();
     });
+  });
+
+  describe('filterViewablePageIds with a space', () => {
+    it('ASK-AC30: keeps only viewable pages that are in that space now', async () => {
+      pages = pages.map((page) =>
+        page.id === 'page-a1' ? { ...page, spaceId: 'space-b' } : page,
+      );
+
+      await expect(
+        service.filterViewablePageIds(
+          USER,
+          ['page-a1', 'page-a2', 'page-b1'],
+          'space-a',
+        ),
+      ).resolves.toEqual(['page-a2']);
+    });
+
+    it('ASK-AC30: a restricted page in that space is still dropped', async () => {
+      restrictedPageIds = new Set(['page-a2']);
+
+      await expect(
+        service.filterViewablePageIds(USER, ['page-a1', 'page-a2'], 'space-a'),
+      ).resolves.toEqual(['page-a1']);
+    });
+
+    it('ASK-AC30: a space the user is not a member of passes nothing', async () => {
+      await expect(
+        service.filterViewablePageIds(USER, ['page-gf', 'page-a1'], 'space-gf'),
+      ).resolves.toEqual([]);
+    });
+  });
+
+  describe('FilterPagesDto', () => {
+    const PAGE_ID = '1c2d3e4f-0000-4000-8000-000000000001';
+    const SPACE_ID = '0B7C5E8A-0000-4000-8000-000000000001';
+    const parse = async (body: object) => {
+      const dto = plainToInstance(FilterPagesDto, body);
+      return { dto, errors: await validate(dto) };
+    };
+
+    it('ASK-AC30: accepts page ids without a space', async () => {
+      expect((await parse({ pageIds: [PAGE_ID] })).errors).toEqual([]);
+    });
+
+    it('ASK-AC30: accepts a space id and lowercases it', async () => {
+      const { dto, errors } = await parse({
+        pageIds: [PAGE_ID],
+        spaceId: SPACE_ID,
+      });
+
+      expect(errors).toEqual([]);
+      expect(dto.spaceId).toBe(SPACE_ID.toLowerCase());
+    });
+
+    it.each([['space-1'], [42], ['']])(
+      'ASK-AC30: rejects the malformed space id %p',
+      async (spaceId) => {
+        expect(
+          (await parse({ pageIds: [PAGE_ID], spaceId })).errors,
+        ).not.toEqual([]);
+      },
+    );
   });
 
   describe('findViewablePage', () => {

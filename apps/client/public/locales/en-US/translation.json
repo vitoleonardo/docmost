@@ -1578,5 +1578,18 @@
   "Assistant": "Assistant",
   "Ask the wiki": "Ask the wiki",
   "Answers rely only on pages you are allowed to see and name their sources.": "Answers rely only on pages you are allowed to see and name their sources.",
-  "The assistant is currently unavailable. The wiki keeps working as usual.": "The assistant is currently unavailable. The wiki keeps working as usual."
+  "The assistant is currently unavailable. The wiki keeps working as usual.": "The assistant is currently unavailable. The wiki keeps working as usual.",
+  "This page": "This page",
+  "Ask a question …": "Ask a question …",
+  "Who answers questions about travel expense reports?": "Who answers questions about travel expense reports?",
+  "When is the core working time?": "When is the core working time?",
+  "Send": "Send",
+  "Stop": "Stop",
+  "At most 2,000 characters": "At most 2,000 characters",
+  "New conversation": "New conversation",
+  "I found no matching source in the pages you can access. Rephrase the question or contact the responsible department.": "I found no matching source in the pages you can access. Rephrase the question or contact the responsible department.",
+  "The language model is not answering right now. Try again later.": "The language model is not answering right now. Try again later.",
+  "Page {{page}}": "Page {{page}}",
+  "Stopped": "Stopped",
+  "Ask about this page": "Ask about this page"
 }

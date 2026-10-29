@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -9,6 +10,9 @@ SERVICE_TOKEN_HEADER = "X-Service-Token"
 PAGES_PATH = "/api/ai-bridge/internal/pages"
 PAGE_CONTENT_PATH = "/api/ai-bridge/internal/page-content"
 ATTACHMENT_PATH = "/api/ai-bridge/internal/attachment"
+FILTER_PAGES_PATH = "/api/ai-bridge/internal/filter-pages"
+USER_TOKEN_HEADER = "X-User-Token"
+MAX_FILTER_PAGE_IDS = 500
 REFUSING_CODES = {"assistant_disabled", "service_token_missing", "service_token_invalid"}
 
 
@@ -127,9 +131,32 @@ class BridgeClient:
     def attachment(self, attachment_id: str) -> bytes:
         return self._post(ATTACHMENT_PATH, {"attachmentId": attachment_id}).content
 
-    def _post(self, path: str, body: dict[str, Any]) -> httpx.Response:
+    def filter_pages(
+        self, page_ids: Sequence[str], user_token: str, space_id: str | None = None
+    ) -> list[str]:
+        if len(page_ids) > MAX_FILTER_PAGE_IDS:
+            raise ValueError(f"filter_pages takes at most {MAX_FILTER_PAGE_IDS} page ids")
+        if not page_ids:
+            return []
+        body: dict[str, Any] = {"pageIds": list(page_ids)}
+        if space_id is not None:
+            body["spaceId"] = space_id
+        response = self._post(FILTER_PAGES_PATH, body, {USER_TOKEN_HEADER: user_token})
         try:
-            response = self._http.post(path, json=body, headers=self._headers)
+            data = response.json()
+        except ValueError as error:
+            raise BridgeError("bridge answered a filter response that is not JSON") from error
+        passing = data.get("pageIds") if isinstance(data, dict) else None
+        if not isinstance(passing, list) or not all(isinstance(item, str) for item in passing):
+            raise BridgeError("bridge answered a malformed filter response")
+        return passing
+
+    def _post(
+        self, path: str, body: dict[str, Any], extra_headers: dict[str, str] | None = None
+    ) -> httpx.Response:
+        headers = {**self._headers, **(extra_headers or {})}
+        try:
+            response = self._http.post(path, json=body, headers=headers)
         except httpx.TimeoutException as error:
             raise BridgeUnreachable("bridge did not answer in time") from error
         except httpx.TransportError as error:

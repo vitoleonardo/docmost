@@ -11,7 +11,7 @@ USER_TOKEN_ALGORITHM = "HS256"
 USER_TOKEN_AUDIENCE = "ai-service"
 USER_TOKEN_TYPE = "user"
 USER_TOKEN_REGISTERED_CLAIMS = ("sub", "aud", "iat", "exp")
-USER_TOKEN_CUSTOM_CLAIMS = ("workspaceId", "type")
+USER_TOKEN_CUSTOM_CLAIMS = ("workspaceId", "spaceIds", "type")
 
 ERROR_STATUS = {
     "service_token_missing": 401,
@@ -35,6 +35,8 @@ class ApiError(Exception):
 class UserSession:
     user_id: str
     workspace_id: str
+    space_ids: tuple[str, ...]
+    token: str
 
 
 def get_settings(request: Request) -> Settings:
@@ -60,7 +62,12 @@ def require_user_session(
     if not x_user_token:
         raise ApiError("user_token_missing", "The user token header is missing.")
     claims = decode_user_token(x_user_token, settings.ai_bridge_secret)
-    return UserSession(user_id=claims["sub"], workspace_id=claims["workspaceId"])
+    return UserSession(
+        user_id=claims["sub"],
+        workspace_id=claims["workspaceId"],
+        space_ids=tuple(claims["spaceIds"]),
+        token=x_user_token,
+    )
 
 
 def decode_user_token(token: str, secret: str) -> dict[str, Any]:
@@ -80,6 +87,7 @@ def decode_user_token(token: str, secret: str) -> dict[str, Any]:
         claims.get("type") != USER_TOKEN_TYPE
         or not _is_text(claims.get("workspaceId"))
         or not _is_text(claims["sub"])
+        or not _is_text_list(claims.get("spaceIds"))
     ):
         raise ApiError("user_token_invalid", "The user token is not valid.")
     return claims
@@ -87,3 +95,7 @@ def decode_user_token(token: str, secret: str) -> dict[str, Any]:
 
 def _is_text(value: object) -> bool:
     return isinstance(value, str) and value != ""
+
+
+def _is_text_list(value: object) -> bool:
+    return isinstance(value, list) and all(isinstance(item, str) for item in value)

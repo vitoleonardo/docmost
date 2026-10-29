@@ -193,6 +193,7 @@ class IndexStore:
         space_ids: Sequence[str],
         embedding_model: str,
         limit: int,
+        page_id: str | None = None,
     ) -> list[SearchHit]:
         with self._conn.transaction():
             rows = self._conn.execute(
@@ -204,6 +205,7 @@ class IndexStore:
                     JOIN ai.indexed_pages p ON p.page_id = s.page_id
                     WHERE p.space_id = ANY(%s::uuid[])
                       AND p.embedding_model = %s
+                      AND (%s::uuid IS NULL OR p.page_id = %s::uuid)
                 ),
                 scored AS (
                     SELECT a.*, a.embedding OPERATOR(ai.<=>) %s::ai.vector AS distance
@@ -216,7 +218,14 @@ class IndexStore:
                 ORDER BY score DESC, scored.page_id, scored.position
                 LIMIT %s
                 """,
-                (list(space_ids), embedding_model, vector_literal(query_vector), limit),
+                (
+                    list(space_ids),
+                    embedding_model,
+                    page_id,
+                    page_id,
+                    vector_literal(query_vector),
+                    limit,
+                ),
             ).fetchall()
         return [SearchHit(*row) for row in rows]
 
