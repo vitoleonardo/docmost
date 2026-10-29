@@ -1,0 +1,12 @@
+typecheck	pass	16	typecheck in .: clean;typecheck in apps/client: clean;typecheck in apps/server: 1 errors outside the changed files (baseline 1);
+lint	pass	18	lint in apps/client: 95 errors outside the changed files (baseline 95);lint in apps/server: 5 errors outside the changed files (baseline 5);
+build	pass	1	check: 'build' is not configured in apps/client/.claude/kit.conf.;check: 'build' is not configured in apps/server/.claude/kit.conf.;
+test	pass	31	tests in apps/client: 432 run, 0 failing (0 legacy, not blocking), 0 flaky, 0 removed by the diff;tests in apps/server: 992 run, 15 failing (15 legacy, not blocking), 0 flaky, 0 removed by the diff;  legacy, not blocking: AuthController should be defined::AuthController should be defined;
+coverage	pass	85	coverage in apps/client: 0% of the lines in the changed files are covered; at least 70% is required.;coverage in apps/client: 10.69% overall (baseline 10.69%, tolerance 0.5 points);coverage in apps/server: 28.32% overall (baseline 25.27%, tolerance 1 points);
+duplicates	pass	2	
+structure	pass	1	structure: 21 new source files, all in their homes.
+focus	pass	0	no .only, .skip or skip markers added
+dependencies	pass	0	no new dependency outside the plan's approved list (pdf-lib  pdf-parse  @playwright/test)
+protected	pass	0	no protected path changed (apps/server/src/ee apps/client/src/ee packages/ee)
+secrets	pass	0	pattern scan, gitleaks not installed: nothing found (fake values assigned in test files or listed in .claude/secrets-allow.tsv are not flagged; key formats are)
+size	fail	0	5871 changed lines, more than twice the limit of 400; split the change

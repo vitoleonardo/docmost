@@ -1,0 +1,91 @@
+SEED-AC1	happy path	SEED-AC1: creates the owner workspace, 4 users, 2 groups and 6 spaces from the definition	pass
+SEED-AC1	no extra rows	n/a: e2e only, "SEED-AC1: seeds exactly 1 workspace, 4 users, 2 groups and the 6 spaces"	n/a
+SEED-AC1	default space	SEED-AC1: renames the default space to Allgemein and keeps it open	pass
+SEED-AC1	space created open	SEED-AC1: makes new spaces private when they are created open	pass
+SEED-AC1	error path signup	SEED-AC1: propagates a failing signup	pass
+SEED-AC1	error path repo	SEED-AC1: propagates a failing repo call and does not report a result	pass
+SEED-AC2	login per user	n/a: e2e only, "SEED-AC2: %s logs in with the demo password and gets an auth cookie"	n/a
+SEED-AC2	wrong password	n/a: e2e only, "SEED-AC2: a wrong password fails without an auth cookie"	n/a
+SEED-AC3	matrix written	SEED-AC3: writes the space memberships of the matrix	pass
+SEED-AC3	duplicate membership same role	SEED-AC3: skips a membership that already exists with the same role	pass
+SEED-AC3	duplicate membership other role	SEED-AC3: fails on a membership that exists with a different role	pass
+SEED-AC3	per user	n/a: e2e only, "SEED-AC3: %s has exactly the spaces and roles of the space matrix"	n/a
+SEED-AC4	WS only through group	SEED-AC4: gives WS no direct Projekte membership, only the group one	pass
+SEED-AC5	default group membership removed	SEED-AC5: removes the default group from the default space	pass
+SEED-AC5	empty data	SEED-AC5: does not remove anything when the default group has no space membership	pass
+SEED-AC6	grants written	SEED-AC6: restricts the listed pages and grants the defined users and groups	pass
+SEED-AC6	inherited child	SEED-AC6: a restricted page without grants gets no page access of its own	pass
+SEED-AC6	manifest matches definition	SEED-AC6: manifest restricted pages equal the definition and no other page sits below one	pass
+SEED-AC6	view matrix 4 x 4	n/a: e2e only, "SEED-AC6: only the granted users can view"	n/a
+SEED-AC6	missing permission, admin	SEED-AC13: a space admin gets no bypass on a restricted page	pass
+SEED-AC7	group reader	SEED-AC7: grants a group reader access on the internal construction page	pass
+SEED-AC7	edit matrix 4 x 4	n/a: e2e only, "SEED-AC7: only the users with view and edit can edit"	n/a
+SEED-AC7	grant rows	n/a: e2e only, "SEED-AC7: every grant of the page matrix is a row and the child has none"	n/a
+SEED-AC8	limits	SEED-AC8: has 28 to 34 pages and at least 3 per space	pass
+SEED-AC9	unique titles	SEED-AC9: every title occurs once	pass
+SEED-AC9	duplicates	SEED-AC9: findDuplicateTitles reports a duplicated title	pass
+SEED-AC10	headings	SEED-AC10: at least 10 pages have 2 or more headings	pass
+SEED-AC11	one canary per page	SEED-AC11: restricted and Geschäftsführung pages hold exactly one canary, others none	pass
+SEED-AC12	canary in one page	SEED-AC12: every canary occurs in exactly one page	pass
+SEED-AC12	canary in PDFs	SEED-AC12: the GF canary occurs once in the GF contract and no other canary occurs in any PDF or ground-truth record	pass
+SEED-AC13	GF pages	SEED-AC13: denies PL, VT and WS on an unrestricted Geschäftsführung page	pass
+SEED-AC13	restricted page	SEED-AC13: denies PL, VT and WS on Umstrukturierung 2027	pass
+SEED-AC13	group grant	SEED-AC13: a group grant counts as view for WS	pass
+SEED-AC13	inheritance	SEED-AC13: the child page inherits the denied users of its parent	pass
+SEED-AC13	no space role	SEED-AC13: denies users without a space role on an unrestricted page	pass
+SEED-AC13	committed list	SEED-AC13 (list): canaries.json matches the generator	pass
+SEED-AC13	against PageAccessService	n/a: e2e only, "SEED-AC13: the users denied" by PageAccessService	n/a
+SEED-AC14	contradictions	SEED-AC14: has 3 contradiction pairs with verbatim values on existing pages	pass
+SEED-AC15	writer and reader	SEED-AC15: a pair has both pages unrestricted in a space with a writer and a reader	pass
+SEED-AC16	outdated pages	SEED-AC16: has 2 outdated pages with verbatim statements	pass
+SEED-AC17	content derivation	SEED-AC17: derives content, text content and ydoc from the page markdown	pass
+SEED-AC17	empty text	SEED-AC17: every page has text content and a distinct slug id	pass
+SEED-AC17	first paragraph	SEED-AC17: bodies start with a paragraph and have no H1	pass
+SEED-AC17	error path insert	SEED-AC17: propagates a failing page insert	pass
+SEED-AC17	error path storage	SEED-AC17: fails and attaches nothing when the storage upload fails	pass
+SEED-AC17	reload twice	n/a: e2e only, "SEED-AC17: every page loads twice with its title and first paragraph and stays unchanged"	n/a
+SEED-AC18	unique word search	n/a: e2e only, "SEED-AC18: GF finds the one page containing"	n/a
+SEED-AC19	9 PDFs generated	SEED-AC19: generates exactly the 9 PDFs named in the page manifest	pass
+SEED-AC19	duplicates	SEED-AC19: 9 unique PDFs are attached to existing pages	pass
+SEED-AC19	kinds	SEED-AC19: PDF kinds and placement match the documents section	pass
+SEED-AC19	stored and attached	SEED-AC19: stores each PDF and attaches it to its named page as application/pdf	pass
+SEED-AC19	node in content	SEED-AC19: embeds an attachment node for the PDF in the page content	pass
+SEED-AC19	in DB and storage	n/a: e2e only, "SEED-AC19: exactly 9 PDFs hang on their named pages and are stored with their size"	n/a
+SEED-AC20	limits	SEED-AC20: every PDF has at most 5 pages and at most 1 MB	pass
+SEED-AC21	quotes verbatim	SEED-AC21: every field quote occurs verbatim on its PDF page	pass
+SEED-AC22	missing field	SEED-AC22: only the renewal-less contract has a missing field, and it is renewal	pass
+SEED-AC23	forbidden terms	SEED-AC23: the renewal-less contract contains none of the renewal terms	pass
+SEED-AC24	empty text layer	SEED-AC24: the scanned contract has no text layer and yields only whitespace	pass
+SEED-AC25	determinism	SEED-AC25: generating twice yields identical extracted text per PDF	pass
+SEED-AC25	drift	SEED-AC25: the committed ground truth, canary list and PDF text equal a fresh generation	pass
+SEED-AC26	summary format	SEED-AC26: prints the one-line summary	pass
+SEED-AC26	built command	n/a: e2e only, "SEED-AC26: the built rebuild command ends with the summary line"	n/a
+SEED-AC27	parents and order	SEED-AC27: nests child pages under their parent and orders siblings by position	pass
+SEED-AC27	rebuild over changes	n/a: e2e only, "SEED-AC27: a rebuild removes an added page and a changed membership and equals a fresh seed"	n/a
+SEED-AC28	migrations kept, ai emptied	n/a: e2e only, "SEED-AC28: the reset keeps the migration records in public and ai and empties both schemas"	n/a
+SEED-AC28	only own storage folders	n/a: e2e only, "SEED-AC28: the reset removes only the stored folders of existing workspaces"	n/a
+SEED-AC28	error path storage delete	n/a: e2e only, "SEED-AC28: a failed storage delete leaves the database and the workspace ids for the next run"	n/a
+SEED-AC29	local hosts	SEED-AC29: treats 127.0.0.1 as a local database host	pass
+SEED-AC29	non-local host	SEED-AC29: refuses the non-local database host db.internal	pass
+SEED-AC29	non-local IP	SEED-AC29: refuses the non-local database host 10.0.0.5	pass
+SEED-AC29	before connecting	SEED-AC29: refuses a non-local database before connecting	pass
+SEED-AC29	invalid input	SEED-AC29: a DATABASE_URL without a host fails with "DATABASE_URL has no host"	pass
+SEED-AC29	command level	n/a: e2e only, "SEED-AC29: the command refuses the non-local host 0.0.0.0 without the flag and changes no data"	n/a
+SEED-AC30	s3 and azure	SEED-AC30: refuses the storage driver azure	pass
+SEED-AC30	empty driver	SEED-AC30: treats storage driver "" as local	pass
+SEED-AC30	command level	n/a: e2e only, "SEED-AC30: the command refuses non-local storage without the flag and changes no data"	n/a
+SEED-AC31	flag allows host	SEED-AC31: the confirmation flag lets a non-local database pass	pass
+SEED-AC31	flag parsing	SEED-AC31: reads the confirmation flag and the environment	pass
+SEED-AC31	invalid input with flag	SEED-AC31: the confirmation flag does not skip the check of DATABASE_URL ""	pass
+SEED-AC31	seeds non-local host	n/a: e2e only, "SEED-AC31: the command seeds the non-local host 0.0.0.0 with --confirm-non-local"	n/a
+SEED-AC31	pnpm seed passes flag	n/a: e2e only, "SEED-AC31: pnpm seed passes --confirm-non-local through to the rebuild entry"	n/a
+SEED-AC32	host in message	SEED-AC32: rejects with a message naming the database host	pass
+SEED-AC32	no secret in message	SEED-AC32: does not print the database password	pass
+SEED-AC32	command level	n/a: e2e only, "SEED-AC32: the command names the host of an unreachable database"	n/a
+SEED-AC33	pending migrations	n/a: e2e only, "SEED-AC33: the command refuses a database without migrations"	n/a
+SEED-AC34	concurrent run	n/a: e2e only, "SEED-AC34: a held lock fails with \"Another rebuild is running\" and changes nothing"	n/a
+SEED-AC34	lock release	n/a: e2e only, "SEED-AC34: the lock is held until release and free afterwards"	n/a
+SEED-AC35	offline	n/a: e2e only, "SEED-AC35: the rebuild runs without AI settings and connects only to loopback hosts"	n/a
+SEED-AC36	confirmed s3 and azure	SEED-AC36: a confirmed run with the storage driver azure fails because its files cannot be removed	pass
+SEED-AC36	before connecting	SEED-AC36: a confirmed run with non-local storage fails before connecting	pass
+SEED-AC36	command level	n/a: e2e only, "SEED-AC36: the command refuses non-local storage with the flag, because its files cannot be removed"	n/a
