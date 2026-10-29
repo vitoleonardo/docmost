@@ -1421,6 +1421,13 @@ describe('AI bridge page access (e2e)', () => {
   describe('assistant status and job forwarding', () => {
     const clientAddress = `198.51.100.${Math.floor(Math.random() * 254) + 1}`;
     const JWT_PATTERN = /eyJ[\w-]+\.[\w-]+\.[\w-]+/;
+    const FAKE_EXTRACT_RESULT = {
+      outcome: 'refused',
+      reason: 'too_many_pages',
+      pageCount: 11,
+      fileSize: null,
+      characterCount: null,
+    };
 
     interface FakeRequest {
       method?: string;
@@ -1518,6 +1525,11 @@ describe('AI bridge page access (e2e)', () => {
           const sessionOk =
             req.url !== '/v1/session' || JWT_PATTERN.test(userToken);
           const accepted = serviceTokenOk && sessionOk;
+          if (req.url === '/v1/extract' && fakeMode === 'ok' && accepted) {
+            res.writeHead(200, { 'content-type': 'application/json' });
+            res.end(JSON.stringify(FAKE_EXTRACT_RESULT));
+            return;
+          }
           if (req.url === '/v1/ask' && fakeMode === 'ok' && accepted) {
             void fakeAsk(res);
             return;
@@ -2086,6 +2098,107 @@ describe('AI bridge page access (e2e)', () => {
         };
 
         await expectModelUnavailableAfterText(headers);
+      });
+    });
+
+    describe('extract endpoint', () => {
+      const LICENSE_PAGE = 'Softwarelizenzvertrag Planungssoftware';
+      const LICENSE_PDF = 'softwarelizenzvertrag-planungssoftware.pdf';
+      const extractAddress = `198.18.0.${Math.floor(Math.random() * 254) + 1}`;
+      const sessions: Partial<Record<SeedUserKey, Record<string, string>>> = {};
+
+      const session = async (key: SeedUserKey) =>
+        (sessions[key] ??= await login(key, extractAddress));
+
+      const licensePdf = async () =>
+        db
+          .selectFrom('attachments')
+          .select(['id', 'fileSize'])
+          .where('fileName', '=', LICENSE_PDF)
+          .executeTakeFirstOrThrow();
+
+      const extract = (body: object, headers: Record<string, string> = {}) =>
+        api('ai/extract', body, headers);
+
+      const licenseBody = async () => ({
+        pageId: await pageId(LICENSE_PAGE),
+        attachmentId: (await licensePdf()).id,
+      });
+
+      const extractRequests = () =>
+        fakeRequests.filter((request) => request.url === '/v1/extract');
+
+      it('EXTRACT-AC48: an extraction without a session answers 401 and calls nothing', async () => {
+        const response = await extract(await licenseBody());
+
+        expect(response.statusCode).toBe(401);
+        expect(fakeRequests).toHaveLength(0);
+      });
+
+      it('EXTRACT-AC47: a missing or malformed page or attachment id answers 400 invalid_request', async () => {
+        const headers = await session('GF');
+        const valid = await licenseBody();
+        const bodies = [
+          {},
+          { pageId: valid.pageId },
+          { attachmentId: valid.attachmentId },
+          { ...valid, pageId: 'page-1' },
+          { ...valid, attachmentId: 'att-1' },
+          { ...valid, attachmentId: 42 },
+        ];
+
+        for (const body of bodies) {
+          expectError(await extract(body, headers), 400, 'invalid_request');
+        }
+        expect(extractRequests()).toHaveLength(0);
+      });
+
+      it('EXTRACT-AC44: a reader of the space answers 403 page_not_editable and calls nothing', async () => {
+        expectError(
+          await extract(await licenseBody(), await session('WS')),
+          403,
+          'page_not_editable',
+        );
+        expect(extractRequests()).toHaveLength(0);
+      });
+
+      it('EXTRACT-AC45: a user who may not view the page answers 404 page_not_found', async () => {
+        expectError(
+          await extract(await licenseBody(), await session('VT')),
+          404,
+          'page_not_found',
+        );
+        expect(extractRequests()).toHaveLength(0);
+      });
+
+      it('EXTRACT-AC46: the PDF of another page answers 404 attachment_not_found and calls nothing', async () => {
+        const { attachmentId } = await licenseBody();
+
+        expectError(
+          await extract(
+            { pageId: await pageId('Wartung Serverraum'), attachmentId },
+            await session('GF'),
+          ),
+          404,
+          'attachment_not_found',
+        );
+        expect(extractRequests()).toHaveLength(0);
+      });
+
+      it('EXTRACT-AC42: an editor gets the result and the AI service gets only attachment id and file size', async () => {
+        const body = await licenseBody();
+
+        const response = await extract(body, await session('GF'));
+
+        expect(response.statusCode).toBe(200);
+        expect(response.json()).toEqual(FAKE_EXTRACT_RESULT);
+        expect(extractRequests()).toHaveLength(1);
+        const [sent] = extractRequests();
+        expect(sent.headers['x-user-token']).toMatch(JWT_PATTERN);
+        expect(JSON.parse(sent.body)).toEqual({
+          attachmentId: body.attachmentId,
+          fileSize: Number((await licensePdf()).fileSize),
+        });
       });
     });
 

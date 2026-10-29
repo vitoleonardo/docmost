@@ -11,7 +11,7 @@ import { StorageService } from '../../storage/storage.service';
 import { AiBridgeError } from '../ai-bridge.errors';
 import { AiPageAccessService } from './ai-page-access.service';
 
-const PDF_MIME_TYPE = 'application/pdf';
+export const PDF_MIME_TYPE = 'application/pdf';
 const ATTACHMENT_PAGE_SIZE = 100;
 const MAX_SEARCH_RESULTS = 20;
 const SEARCH_WINDOW_SIZE = 100;

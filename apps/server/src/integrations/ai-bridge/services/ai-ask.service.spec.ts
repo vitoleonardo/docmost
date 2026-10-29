@@ -16,11 +16,13 @@ import { SpaceRepo } from '@docmost/db/repos/space/space.repo';
 import { PageRepo } from '@docmost/db/repos/page/page.repo';
 import { PagePermissionRepo } from '@docmost/db/repos/page/page-permission.repo';
 import { Page, Space, User } from '@docmost/db/types/entity.types';
+import { PageAccessService } from '../../../core/page/page-access/page-access.service';
 import { EnvironmentService } from '../../environment/environment.service';
 import { AiBridgeController } from '../ai-bridge.controller';
 import { AiBridgeError } from '../ai-bridge.errors';
 import { AiAskDto } from '../dto/ai-ask.dto';
 import { AiAskEvent, AiAskService } from './ai-ask.service';
+import { AiExtractService } from './ai-extract.service';
 import { AiPageAccessService } from './ai-page-access.service';
 import { AiServiceClient } from './ai-service.client';
 import { AiStatusService } from './ai-status.service';
@@ -227,6 +229,7 @@ describe('AiAskService', () => {
     stub<SpaceRepo>(spaceRepo),
     stub<PageRepo>(pageRepo),
     stub<PagePermissionRepo>(pagePermissionRepo),
+    stub<PageAccessService>({}),
   );
   const environmentService = stub<EnvironmentService>({
     isAiBridgeConfigured: () => configured,
@@ -977,7 +980,11 @@ describe('AiBridgeController.ask', () => {
       ask: async (_user: User, _dto: AiAskDto, signal: AbortSignal) =>
         open(signal),
     });
-    return new AiBridgeController(stub<AiStatusService>({}), askService);
+    return new AiBridgeController(
+      stub<AiStatusService>({}),
+      askService,
+      stub<AiExtractService>({}),
+    );
   };
 
   const DTO = { question: 'Frage', conversationId: CONVERSATION_ID };
@@ -1026,6 +1033,7 @@ describe('AiBridgeController.ask', () => {
     const controller = new AiBridgeController(
       stub<AiStatusService>({}),
       stub<AiAskService>({ ask: async () => null }),
+      stub<AiExtractService>({}),
     );
 
     await controller.ask(DTO, USER, reply);
@@ -1044,6 +1052,7 @@ describe('AiBridgeController.ask', () => {
           throw new AiBridgeError('assistant_disabled', 'off');
         },
       }),
+      stub<AiExtractService>({}),
     );
 
     await expect(controller.ask(DTO, USER, reply)).rejects.toMatchObject({
