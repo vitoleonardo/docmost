@@ -27,8 +27,13 @@ case "$EXTRACT_DATABASE" in
     ;;
 esac
 case "$EXTRACT_REDIS_URL" in
-  */0 | */)
-    echo "Refusing to flush Redis database 0 in $EXTRACT_REDIS_URL: use a dedicated database number" >&2
+  *[?#]*)
+    echo "Refusing to flush Redis in $EXTRACT_REDIS_URL: no query string or fragment, use a dedicated database number from 1 to 15" >&2
+    exit 1
+    ;;
+  redis*://*/[1-9] | redis*://*/1[0-5]) ;;
+  *)
+    echo "Refusing to flush Redis in $EXTRACT_REDIS_URL: use a dedicated database number from 1 to 15 as the last path segment" >&2
     exit 1
     ;;
 esac
