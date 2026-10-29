@@ -33,6 +33,7 @@ markers = [
     "integration: needs the Redis and Postgres from docker-compose.dev.yml",
     "model: loads the real embedding model (downloads it on first use); always also integration",
     "stack: needs the running seeded wiki, worker and real model (STACK_* variables); always also integration",
+    "leak: prompt-content leak check against a running seeded wiki (LEAK_* variables); always also integration",
 ]
 
 [tool.ruff]
