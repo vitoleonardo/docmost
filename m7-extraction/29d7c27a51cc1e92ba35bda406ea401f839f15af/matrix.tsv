@@ -1,0 +1,132 @@
+EXTRACT-AC1	happy path	EXTRACT-AC1: hovering a PDF attachment shows the button in its toolbar	pass
+EXTRACT-AC1	status and editable	EXTRACT-AC1: shows the button when the assistant is available and the editor is editable	pass
+EXTRACT-AC1	click	EXTRACT-AC1: a click opens the dialog titled with the file name	pass
+EXTRACT-AC1	browser	n/a: Playwright, apps/client/e2e/extraction.screenshots.ts `EXTRACT-AC1: E1 offers Daten extrahieren on the PDF attachment`, 14 passed at 2b1916df (after pnpm seed), screenshots in the pack	n/a
+EXTRACT-AC2	selected embedded PDF	EXTRACT-AC2: a selected embedded PDF shows the button in its menu next to its other actions	pass
+EXTRACT-AC2	status unavailable	EXTRACT-AC2: the embedded PDF shows no button while the assistant is unavailable	pass
+EXTRACT-AC2	keyboard selection	n/a: Playwright `EXTRACT-AC2: the selected embedded PDF shows Daten extrahieren without hover`, 14 passed at 2b1916df (after pnpm seed)	n/a
+EXTRACT-AC3	missing permission	EXTRACT-AC3: shows no button for a viewer whose editor is not editable	pass
+EXTRACT-AC4	read mode	EXTRACT-AC4: the button disappears when the page switches to read mode	pass
+EXTRACT-AC5	unavailable / disabled	EXTRACT-AC5: shows no button while the assistant is un	pass
+EXTRACT-AC5	disabled	EXTRACT-AC5: shows no button while the assistant is di	pass
+EXTRACT-AC5	loading	EXTRACT-AC5: shows no button while the status is still loading	pass
+EXTRACT-AC6	wrong type	EXTRACT-AC6: a text/plain attachment named x.pdf offers no button	pass
+EXTRACT-AC7	loading	EXTRACT-AC7: shows the title, the reading text and Abbrechen while the service works	pass
+EXTRACT-AC7	replaced request	EXTRACT-AC7: replacing the request while the review is open shows the new file's extraction	pass
+EXTRACT-AC8	cancel	EXTRACT-AC8: Abbrechen aborts the request, closes and ignores a late answer	pass
+EXTRACT-AC8	abort rejection	EXTRACT-AC8: an aborted request that rejects shows no error	pass
+EXTRACT-AC8	service abort	EXTRACT-AC8: rethrows the abort instead of mapping it	pass
+EXTRACT-AC9	happy path	EXTRACT-AC9: lists the five fields in order with value, quote and page, and no missing-source line	pass
+EXTRACT-AC9	service	EXTRACT-AC9: posts page and attachment id with the signal and parses an extracted result	pass
+EXTRACT-AC10	rounding	EXTRACT-AC10: rounds the seconds from the start to the answer up (17.2 s gives 18)	pass
+EXTRACT-AC11	page from text	test_extract_ac11_page_number_comes_from_where_the_quote_is_found	pass
+EXTRACT-AC12	duplicate quote	test_extract_ac12_quote_on_two_pages_gets_the_first_page	pass
+EXTRACT-AC13	line break	test_extract_ac13_line_break_in_the_pdf_matches_a_space_in_the_quote	pass
+EXTRACT-AC14	quote nowhere	test_extract_ac14_quote_found_nowhere_drops_the_value	pass
+EXTRACT-AC14	dialog	EXTRACT-AC14: a field not found shows an empty input with placeholder, badge and no-source text	pass
+EXTRACT-AC15	empty data	test_extract_ac15_empty_or_missing_quote_is_not_found	pass
+EXTRACT-AC15	absent key	test_extract_ac15_absent_quote_key_is_not_found	pass
+EXTRACT-AC16	empty data	test_extract_ac16_empty_or_missing_value_is_not_found	pass
+EXTRACT-AC17	limit	test_extract_ac17_quote_of_14_characters_is_not_found_and_15_is_found	pass
+EXTRACT-AC17	normalisation	test_extract_ac17_length_counts_after_whitespace_normalisation	pass
+EXTRACT-AC18	one missing	EXTRACT-AC18: one field without source reads '1 Feld ohne Quelle'	pass
+EXTRACT-AC19	three missing	EXTRACT-AC19: three fields without source read '3 Felder ohne Quelle'	pass
+EXTRACT-AC20	cancel review	EXTRACT-AC20: Abbrechen in the review closes and does not insert	pass
+EXTRACT-AC69	limits: minimum width	EXTRACT-AC69: every Wert input keeps a minimum width of 140 px	pass
+EXTRACT-AC69	limits: phone width	n/a: Playwright `EXTRACT-AC69: every Wert input stays readable beside long quotes` (project mobile), 14 passed at 2b1916df (after pnpm seed); red before the fix: 111.5 px	n/a
+EXTRACT-AC69	desktop unchanged	n/a: same Playwright test, project desktop, 14 passed at 2b1916df	n/a
+EXTRACT-AC21	table content	EXTRACT-AC21: builds heading, line and table with exact texts	pass
+EXTRACT-AC21	position	EXTRACT-AC21: inserts heading, line and table directly after the attachment	pass
+EXTRACT-AC21	reviewer and date	EXTRACT-AC21: inserting writes the reviewer name and today's date directly after the attachment and closes the dialog	pass
+EXTRACT-AC21	pointer leaves	EXTRACT-AC21: the review stays open when the pointer leaves the attachment	pass
+EXTRACT-AC21	page change	EXTRACT-AC21: unmounting the host with a review open clears the request and aborts it	pass
+EXTRACT-AC22	embedded PDF	EXTRACT-AC22: inserting from the embedded PDF's menu puts the table directly after it	pass
+EXTRACT-AC22	builder	EXTRACT-AC22: inserts after a pdf node	pass
+EXTRACT-AC23	manual value	EXTRACT-AC23: typed value for a missing field gets the manual marker	pass
+EXTRACT-AC24	changed value	EXTRACT-AC24: changed found value gets the marker and keeps the source	pass
+EXTRACT-AC25	empty data	EXTRACT-AC25: empty or whitespace value reads Nicht gefunden	pass
+EXTRACT-AC26	unchanged	EXTRACT-AC26: unchanged values carry no marker	pass
+EXTRACT-AC26	whitespace	EXTRACT-AC26: an unchanged extracted value with surrounding whitespace carries no marker	pass
+EXTRACT-AC27	concurrent edits	n/a: Playwright `EXTRACT-AC21, EXTRACT-AC27: E4 inserts the table and a second browser sees it without reload`, 14 passed at 2b1916df (after pnpm seed)	n/a
+EXTRACT-AC28	double submit	EXTRACT-AC28: a double click on Als Tabelle einfügen inserts once, with the edited values	pass
+EXTRACT-AC29	concurrent removal	EXTRACT-AC29: with the attachment removed during the review, inserting appends the table at the end of the page	pass
+EXTRACT-AC29	builder	EXTRACT-AC29: appends at the end when the attachment is gone	pass
+EXTRACT-AC30	permission lost	EXTRACT-AC30: Als Tabelle einfügen is disabled when the editor is not editable	pass
+EXTRACT-AC30	runtime change	EXTRACT-AC30: the review stays with Als Tabelle einfügen disabled when the editor stops being editable	pass
+EXTRACT-AC31	undo	EXTRACT-AC31: one undo removes heading, line and table	pass
+EXTRACT-AC32	no text layer	test_extract_ac32_pdf_without_text_is_refused_and_the_model_is_not_called	pass
+EXTRACT-AC32	whitespace pages	test_extract_ac32_pages_of_whitespace_only_count_as_no_text	pass
+EXTRACT-AC32	dialog	EXTRACT-AC32, EXTRACT-AC43: shows the text	pass
+EXTRACT-AC33	limit	test_extract_ac33_eleven_pages_are_refused_with_the_count	pass
+EXTRACT-AC33	limit	test_extract_ac33_pdf_beyond_the_indexing_page_limit_is_refused_with_its_count	pass
+EXTRACT-AC33	dialog	EXTRACT-AC33, EXTRACT-AC43: shows the text	pass
+EXTRACT-AC34	limit	test_extract_ac34_ten_pages_are_extracted	pass
+EXTRACT-AC35	limit	test_extract_ac35_ac65_oversize_file_is_refused_before_the_file_is_requested	pass
+EXTRACT-AC35	endpoint	test_extract_ac35_a_too_large_file_is_refused_without_a_fetch	pass
+EXTRACT-AC35	dialog	EXTRACT-AC35, EXTRACT-AC43: shows the text	pass
+EXTRACT-AC36	limit	test_extract_ac36_file_of_exactly_10_mb_is_fetched	pass
+EXTRACT-AC37	invalid input	test_extract_ac37_bytes_that_are_no_pdf_are_unreadable	pass
+EXTRACT-AC37	dialog	EXTRACT-AC37, EXTRACT-AC43: shows the text	pass
+EXTRACT-AC38	external call error	test_extract_ac38_connection_refused_raises_model_unavailable	pass
+EXTRACT-AC38	external call error	test_extract_ac38_server_error_raises_model_unavailable	pass
+EXTRACT-AC38	pipeline	test_extract_ac38_model_unavailable_is_a_failed_result	pass
+EXTRACT-AC38	dialog	EXTRACT-AC38, EXTRACT-AC43: shows the text	pass
+EXTRACT-AC39	timeout	test_extract_ac39_read_timeout_raises_model_unavailable	pass
+EXTRACT-AC39	timeout	test_extract_ac39_answer_arriving_after_the_deadline_raises_model_unavailable	pass
+EXTRACT-AC39	limit	test_extract_ac39_answer_within_the_deadline_is_returned	pass
+EXTRACT-AC40	invalid model output	test_extract_ac40_answer_outside_the_schema_is_a_model_failure	pass
+EXTRACT-AC40	invalid field	test_extract_ac40_field_that_is_present_but_not_an_object_is_a_model_failure	pass
+EXTRACT-AC40	envelope	test_extract_ac40_malformed_envelope_raises_model_unavailable	pass
+EXTRACT-AC40	client	EXTRACT-AC40: rejects four fields as a model error	pass
+EXTRACT-AC41	external call error	EXTRACT-AC41: a refused connection answers 503 assistant_unavailable	pass
+EXTRACT-AC41	client	EXTRACT-AC41: maps a network error without response to unreachable	pass
+EXTRACT-AC41	dialog	EXTRACT-AC41, EXTRACT-AC43: shows the text	pass
+EXTRACT-AC42	permission lost	EXTRACT-AC42: a user who lost the edit right after the button was shown gets 403 page_not_editable	pass
+EXTRACT-AC42	client	EXTRACT-AC42: maps HTTP 403 page_not_editable to not_available	pass
+EXTRACT-AC42	dialog	EXTRACT-AC42, EXTRACT-AC43: shows the text	pass
+EXTRACT-AC43	close	EXTRACT-AC43: shows the text and only Schließen, which closes without inserting	pass
+EXTRACT-AC44	missing permission	EXTRACT-AC44: a page the user may view but not edit answers 403 page_not_editable and calls nothing	pass
+EXTRACT-AC44	error path	EXTRACT-AC44: an error of the edit check that is not a denial is not turned into 403	pass
+EXTRACT-AC45	missing permission	EXTRACT-AC45: a page the user may not view answers 404 page_not_found and calls nothing	pass
+EXTRACT-AC45	trash	EXTRACT-AC45: a page in the trash answers 404 page_not_found and calls nothing	pass
+EXTRACT-AC45	unknown	EXTRACT-AC45: a page id that does not exist answers 404 page_not_found and calls nothing	pass
+EXTRACT-AC46	unknown	EXTRACT-AC46: an attachment that does not exist answers 404 attachment_not_found and calls nothing	pass
+EXTRACT-AC46	other page	EXTRACT-AC46: an attachment of another page answers 404 attachment_not_found and calls nothing	pass
+EXTRACT-AC46	wrong type	EXTRACT-AC46: an attachment of type image/png answers 404 attachment_not_found and calls nothing	pass
+EXTRACT-AC47	invalid input	EXTRACT-AC47: rejects a malformed page id	pass
+EXTRACT-AC47	invalid input	EXTRACT-AC47: rejects a missing attachment id	pass
+EXTRACT-AC48	no session	n/a: server e2e apps/server/test/ai-bridge.e2e-spec.ts `EXTRACT-AC48: an extraction without a session answers 401 and calls nothing`, 92 passed (data run)	n/a
+EXTRACT-AC49	switched off	EXTRACT-AC49: a switched-off assistant answers 503 assistant_disabled and calls nothing	pass
+EXTRACT-AC50	missing token	test_extract_ac50_a_missing_or_wrong_service_token_is_401	pass
+EXTRACT-AC50	missing user token	test_extract_ac50_a_missing_user_token_is_401	pass
+EXTRACT-AC50	expired	test_extract_ac50_an_expired_user_token_is_401	pass
+EXTRACT-AC51	invalid input	test_extract_ac51_an_invalid_body_is_400_invalid_request	pass
+EXTRACT-AC51	limit	test_extract_ac51_a_zero_file_size_is_accepted	pass
+EXTRACT-AC52	nothing stored	test_extract_ac52_nothing_is_stored_and_values_are_not_logged	pass
+EXTRACT-AC52	stack	n/a: local stack test ai-service/tests/test_stack_extract.py `test_extract_ac52_no_value_or_quote_is_left_in_the_ai_database_or_redis`, 5 passed (task 8b)	n/a
+EXTRACT-AC53	each outcome	test_extract_ac53_one_log_line_per_outcome	pass
+EXTRACT-AC53	bridge error	test_extract_ac53_a_bridge_error_propagates_without_an_extraction_log_line	pass
+EXTRACT-AC53	unexpected error	test_extract_ac53_an_unexpected_error_logs_its_class_without_content_and_propagates	pass
+EXTRACT-AC54	no content	test_extract_ac54_log_lines_hold_no_pdf_text_value_or_quote	pass
+EXTRACT-AC54	bridge error	test_extract_ac54_a_bridge_error_logs_one_warning_without_content	pass
+EXTRACT-AC55	local model	n/a: local model only, test_stack_extract.py `test_extract_ac55_the_customer_contract_value_is_found_with_the_local_model`, passed with qwen3:8b	n/a
+EXTRACT-AC56	local model	n/a: local model only, `test_extract_ac56_the_subcontractor_contract_renewal_is_not_found`, passed with qwen3:8b	n/a
+EXTRACT-AC57	limit	n/a: local model only, `test_extract_ac57_each_text_contract_is_extracted_through_the_wiki_in_40_seconds`, 18.0–27.7 s	n/a
+EXTRACT-AC58	empty page	test_extract_ac58_text_only_on_page_one_gives_no_field_on_page_two	pass
+EXTRACT-AC59	extra keys	test_extract_ac59_extra_keys_are_ignored	pass
+EXTRACT-AC60	injection	EXTRACT-AC60: markup in values stays literal text without marks	pass
+EXTRACT-AC61	invalid token	test_extract_ac61_an_invalid_user_token_is_user_token_invalid	pass
+EXTRACT-AC61	malformed token	test_extract_ac61_a_malformed_user_token_is_user_token_invalid	pass
+EXTRACT-AC62	missing field	test_extract_ac62_missing_field_is_not_found	pass
+EXTRACT-AC63	unicode	test_extract_ac63_nfd_quote_matches_nfc_page	pass
+EXTRACT-AC63	soft hyphen	test_extract_ac63_soft_hyphens_are_removed_before_matching	pass
+EXTRACT-AC64	limit	test_extract_ac64_30001_characters_are_refused_and_30000_are_extracted	pass
+EXTRACT-AC64	dialog	EXTRACT-AC64: 30,001 characters get a dot as thousands separator	pass
+EXTRACT-AC65	limit	test_extract_ac35_ac65_oversize_file_is_refused_before_the_file_is_requested[10485761]	pass
+EXTRACT-AC65	dialog	EXTRACT-AC65: a file of exactly 10 MB plus one byte rounds up to 10,1 MB, not 10,0 MB	pass
+EXTRACT-AC66	cut-off input	test_extract_ac66_prompt_tokens_below_a_quarter_of_the_characters_fail	pass
+EXTRACT-AC66	boundary	test_extract_ac66_prompt_tokens_at_a_quarter_of_the_characters_pass	pass
+EXTRACT-AC66	no usage	test_extract_ac66_missing_or_non_integer_prompt_tokens_are_none	pass
+EXTRACT-AC67	timeout	EXTRACT-AC67: an AI service slower than 200 s gives the model failure result	pass
+EXTRACT-AC67	boundary	EXTRACT-AC67: an AI service that has not answered after 200 s times out, not earlier	pass
+EXTRACT-AC68	local model	n/a: local model only, `test_extract_ac68_a_ten_page_pdf_of_five_contracts_names_the_customer_as_party`, 19.4 s; at 4,096 context it fails as context_too_small	n/a
