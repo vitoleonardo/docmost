@@ -5,7 +5,7 @@ const SPACE_SLUG = "projekte";
 const CONTRACT_PAGE_TITLE = "Liefervertrag Pumpen Fiktivwerk";
 const CONTRACT_FILE = "liefervertrag-pumpen-fiktivwerk.pdf";
 const REVIEWER_NAME = "Jörg Ostmoor";
-const TYPED_VALUE = "48.000 EUR";
+const CONTRACT_VALUE = "1.200.000,00 EUR netto";
 const PAGE_LOAD_TIMEOUT_MS = 30_000;
 
 const EXTRACTED_FIELDS = [
@@ -29,7 +29,12 @@ const EXTRACTED_FIELDS = [
       "Jede Partei kann den Vertrag mit einer Kündigungsfrist von 30 Tagen zum Monatsende schriftlich kündigen.",
     pdfPage: 1,
   },
-  { key: "value", value: null, quote: null, pdfPage: null },
+  {
+    key: "value",
+    value: CONTRACT_VALUE,
+    quote: `Der Gesamtauftragswert beträgt ${CONTRACT_VALUE}.`,
+    pdfPage: 1,
+  },
   {
     key: "renewal",
     value: "einmaligen Verlängerung um 12 Monate",
@@ -39,7 +44,16 @@ const EXTRACTED_FIELDS = [
   },
 ];
 
-const EXTRACTED_RESULT = { outcome: "extracted", fields: EXTRACTED_FIELDS };
+const ALL_FOUND_RESULT = { outcome: "extracted", fields: EXTRACTED_FIELDS };
+
+const RENEWAL_NOT_FOUND_RESULT = {
+  outcome: "extracted",
+  fields: EXTRACTED_FIELDS.map((field) =>
+    field.key === "renewal"
+      ? { key: field.key, value: null, quote: null, pdfPage: null }
+      : field,
+  ),
+};
 
 const NO_TEXT_LAYER_RESULT = {
   outcome: "refused",
@@ -143,7 +157,8 @@ async function expectInsertedTable(page: Page) {
     ),
   ).toBeVisible();
   const row = page.getByRole("row").filter({ hasText: "Vertragswert" });
-  await expect(row).toContainText(`${TYPED_VALUE} (manuell)`);
+  await expect(row).toContainText(CONTRACT_VALUE);
+  await expect(row).not.toContainText("(manuell)");
 }
 
 async function secondEditor(browser: Browser, path: string) {
@@ -206,6 +221,8 @@ test.describe("GF extracts contract data", () => {
       ).toHaveCount(1);
       await expect(button).toBeVisible();
       await expect(menu).toHaveCSS("opacity", "1");
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await expect(menu).toHaveCSS("opacity", "1");
       await screenshot(page, testInfo, "EXTRACT-AC2", "e1-embedded");
     } finally {
       await pageContent.focus();
@@ -218,28 +235,47 @@ test.describe("GF extracts contract data", () => {
     }
   });
 
-  test("EXTRACT-AC9, EXTRACT-AC14: E2 shows rows, quotes, pages and the field without source", async ({
+  test("EXTRACT-AC9: E2 shows all five rows with quotes and pages", async ({
     page,
   }, testInfo) => {
-    await mockExtraction(page, EXTRACTED_RESULT);
+    await mockExtraction(page, ALL_FOUND_RESULT);
     const path = await contractPagePath(page);
     await openContractPage(page, path);
 
     await (await revealExtractButton(page)).click();
 
     const dialog = page.getByRole("dialog");
-    await expect(dialog.getByText("Seite 1").first()).toBeVisible();
-    await expect(dialog.getByText("Nicht gefunden")).toBeVisible();
-    await expect(dialog.getByText("1 Feld ohne Quelle")).toBeVisible();
-    await expect(
-      dialog.getByText("Der Liefervertrag gilt bis zum 31.12.2027.", {
-        exact: false,
-      }),
-    ).toBeVisible();
+    await expect(dialog.getByText("Schema: Vertrag")).toBeVisible();
+    await expect(dialog.getByText("Seite 1")).toHaveCount(5);
+    await expect(dialog.getByLabel("Vertragswert")).toHaveValue(CONTRACT_VALUE);
+    await expect(dialog.getByText("Nicht gefunden")).toHaveCount(0);
+    await expect(dialog.getByText("ohne Quelle")).toHaveCount(0);
     await screenshot(page, testInfo, "EXTRACT-AC9", "e2");
+  });
 
-    await dialog.getByLabel("Vertragswert").fill(TYPED_VALUE);
-    await expect(dialog.getByLabel("Vertragswert")).toHaveValue(TYPED_VALUE);
+  test("EXTRACT-AC14: E2 flags Verlängerung as not found", async ({
+    page,
+  }, testInfo) => {
+    await mockExtraction(page, RENEWAL_NOT_FOUND_RESULT);
+    const path = await contractPagePath(page);
+    await openContractPage(page, path);
+
+    await (await revealExtractButton(page)).click();
+
+    const dialog = page.getByRole("dialog");
+    const renewal = dialog.getByRole("row").filter({ hasText: "Verlängerung" });
+    const input = renewal.getByLabel("Verlängerung");
+    await expect(input).toHaveValue("");
+    await expect(input).toHaveAttribute(
+      "placeholder",
+      "Wert manuell eintragen",
+    );
+    await expect(renewal.getByText("Nicht gefunden")).toBeVisible();
+    await expect(
+      renewal.getByText("Keine Fundstelle im Dokument."),
+    ).toBeVisible();
+    await expect(dialog.getByText("1 Feld ohne Quelle")).toBeVisible();
+    await screenshot(page, testInfo, "EXTRACT-AC14", "e2-not-found");
   });
 
   test("EXTRACT-AC32: E3 explains that a scanned PDF has no text", async ({
@@ -268,21 +304,25 @@ test.describe("GF extracts contract data", () => {
     page,
     browser,
   }, testInfo) => {
-    await mockExtraction(page, EXTRACTED_RESULT);
+    await mockExtraction(page, ALL_FOUND_RESULT);
     const path = await contractPagePath(page);
     await openContractPage(page, path);
     const second = await secondEditor(browser, path);
 
     try {
       await (await revealExtractButton(page)).click();
-      const dialog = page.getByRole("dialog");
-      await dialog.getByLabel("Vertragswert").fill(TYPED_VALUE);
-      await dialog
+      await page
+        .getByRole("dialog")
         .getByRole("button", { name: "Als Tabelle einfügen" })
         .click();
 
       await expectInsertedTable(page);
       await expectInsertedTable(second.page);
+      await page.getByRole("heading", { name: "Vertragsdaten" }).click();
+      await page.mouse.move(0, 0);
+      await expect(
+        page.getByRole("button", { name: "Kopfzeile umschalten" }),
+      ).toHaveCount(0);
       await screenshot(page, testInfo, "EXTRACT-AC21", "e4");
       await screenshot(second.page, testInfo, "EXTRACT-AC27", "e4-second");
 
