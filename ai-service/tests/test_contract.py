@@ -1,16 +1,21 @@
 import json
+from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
 
 import fakeredis
 import pytest
+from fastapi.testclient import TestClient
 
 from ai_service import auth
 from ai_service.app import create_app
-from ai_service.inference import ModelUnavailable
+from ai_service.extraction import ExtractionPipeline
+from ai_service.inference import JsonCompletion, ModelUnavailable
 from ai_service.jobs import JOB_STREAM, enqueue_job
-from tests.conftest import idle_ask_pipeline, make_settings
+from tests.conftest import idle_ask_pipeline, idle_extraction_pipeline, make_settings
 from tests.index_db import SPACE_A, page_id
+from tests.pdf_fixtures import build_blank_pdf, build_pdf
 from tests.test_ask import Harness, hit
 
 CONTRACT_PATH = Path(__file__).resolve().parents[2] / "docs" / "contracts" / "ai-bridge.json"
@@ -20,7 +25,7 @@ AI_SERVICE_ENDPOINTS: list[dict[str, Any]] = [
 ]
 IDLE_REDIS = fakeredis.FakeRedis()
 OPENAPI: dict[str, Any] = create_app(
-    make_settings(), IDLE_REDIS, idle_ask_pipeline(IDLE_REDIS)
+    make_settings(), IDLE_REDIS, idle_ask_pipeline(IDLE_REDIS), idle_extraction_pipeline()
 ).openapi()
 
 
@@ -92,6 +97,9 @@ def test_bridge_ac35_success_status_and_response_fields_equal_the_contract(
         assert list(content) == [endpoint["responseContentType"]]
         assert endpoint["response"] == []
         return
+    if "outcomes" in endpoint:
+        assert endpoint["response"] == []
+        return
     assert body_fields(content) == set(endpoint["response"])
 
 
@@ -150,6 +158,52 @@ def test_ask_ac9_every_ask_event_has_exactly_the_fields_of_the_contract(
     assert by_type == {name: set(fields) for name, fields in ask["events"].items()}
     errors = [event["code"] for event in events if event["type"] == "error"]
     assert set(errors) == set(ask["values"]["errorCode"])
+
+
+@dataclass
+class ContractModel:
+    fails: bool
+    model: str = "stub"
+
+    def complete_json(
+        self, messages: list[dict[str, str]], schema: dict[str, Any]
+    ) -> JsonCompletion:
+        if self.fails:
+            raise ModelUnavailable("HTTP 503")
+        answer = {
+            key: {"value": None, "quote": None}
+            for key in ("parties", "term", "noticePeriod", "value", "renewal")
+        }
+        return JsonCompletion(text=json.dumps(answer), prompt_tokens=10_000)
+
+
+def test_extract_ac50_every_extract_outcome_has_exactly_the_fields_of_the_contract(
+    service_headers: dict[str, str], make_token: Callable[..., str]
+) -> None:
+    extract = next(
+        endpoint for endpoint in AI_SERVICE_ENDPOINTS if endpoint["path"] == "/v1/extract"
+    )
+    headers = {**service_headers, "X-User-Token": make_token()}
+    body = {"attachmentId": "6f1b6a52-0c0e-4f55-9c4a-0d2f0f6f2a11", "fileSize": 10}
+    answers = {
+        "extracted": build_pdf(["Die Laufzeit betraegt zwei Jahre ab Unterschrift."]),
+        "refused": build_blank_pdf(1),
+        "failed": build_pdf(["Die Laufzeit betraegt zwei Jahre ab Unterschrift."]),
+    }
+    seen: dict[str, set[str]] = {}
+    for outcome, document in answers.items():
+        model = ContractModel(fails=outcome == "failed")
+        pipeline = ExtractionPipeline(lambda _, d=document: d, model, "local", "m")
+        redis = fakeredis.FakeRedis()
+        app = create_app(make_settings(), redis, idle_ask_pipeline(redis), pipeline)
+
+        response = TestClient(app).post("/v1/extract", headers=headers, json=body)
+
+        assert response.status_code == extract["status"]
+        seen[outcome] = event_fields(response.json())
+
+    assert seen == {name: set(fields) for name, fields in extract["outcomes"].items()}
+    assert set(extract["values"]["outcome"]) == set(seen)
 
 
 def test_bridge_ac36_user_token_algorithm_audience_and_type_equal_the_contract() -> None:

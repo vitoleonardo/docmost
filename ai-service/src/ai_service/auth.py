@@ -20,6 +20,8 @@ ERROR_STATUS = {
     "user_token_expired": 401,
     "user_token_invalid": 401,
     "invalid_request": 400,
+    "attachment_not_found": 404,
+    "assistant_unavailable": 503,
 }
 
 
