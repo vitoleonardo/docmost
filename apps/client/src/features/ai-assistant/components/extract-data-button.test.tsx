@@ -48,6 +48,7 @@ import { currentUserAtom } from "@/features/user/atoms/current-user-atom.ts";
 import type { ICurrentUser } from "@/features/user/types/user.types.ts";
 import api from "@/lib/api-client";
 import { extractContract } from "@/features/ai-assistant/services/ai-assistant-service.ts";
+import { extractionRequestAtom } from "@/features/ai-assistant/atoms/extraction-atom.ts";
 import type {
   AiAssistantStatus,
   ExtractResult,
@@ -162,7 +163,7 @@ function renderInProviders(ui: React.ReactNode) {
     user: { id: "u1", name: "Gerda Fischer" },
     workspace: { id: "w1" },
   } as ICurrentUser);
-  return render(
+  const rendered = render(
     <MantineProvider>
       <QueryClientProvider client={new QueryClient()}>
         <Provider store={store}>
@@ -172,6 +173,7 @@ function renderInProviders(ui: React.ReactNode) {
       </QueryClientProvider>
     </MantineProvider>,
   );
+  return { ...rendered, store };
 }
 
 function renderButton() {
@@ -457,5 +459,62 @@ describe("extract data in the page editor", () => {
     expect(
       afterTable.map((node) => [node.type.name, node.textContent]),
     ).toEqual(afterTable.map(() => ["paragraph", ""]));
+  });
+});
+
+describe("extraction dialog host", () => {
+  const OTHER_FILE = "Nachtrag.pdf";
+
+  const requestFor = (attachmentId: string, fileName: string) => ({
+    editor,
+    pageId: "page-1",
+    attachmentId,
+    fileName,
+  });
+
+  const signalOfCall = (call: number) => {
+    const signal = extractMock.mock.calls[call][2];
+    if (!signal) throw new Error("extraction started without a signal");
+    return signal;
+  };
+
+  it("EXTRACT-AC21: unmounting the host with a review open clears the request and aborts it", async () => {
+    answerWith("available");
+    extractMock.mockResolvedValue(EXTRACTED);
+    const { store, unmount } = renderPage();
+    await openReviewFromHoveredAttachment();
+    const signal = signalOfCall(0);
+
+    unmount();
+
+    expect(store.get(extractionRequestAtom)).toBeNull();
+    expect(signal.aborted).toBe(true);
+  });
+
+  it("EXTRACT-AC7: replacing the request while the review is open shows the new file's extraction", async () => {
+    answerWith("available");
+    extractMock.mockResolvedValueOnce(EXTRACTED);
+    const { store } = renderButton();
+    act(() =>
+      store.set(extractionRequestAtom, requestFor(ATTACHMENT_ID, FILE_NAME)),
+    );
+    await screen.findByRole("button", { name: INSERT_NAME });
+
+    act(() =>
+      store.set(extractionRequestAtom, requestFor("att-2", OTHER_FILE)),
+    );
+
+    expect(
+      await screen.findByText(`Daten extrahieren: ${OTHER_FILE}`),
+    ).toBeTruthy();
+    expect(screen.getByText(`Lese ${OTHER_FILE} …`)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: INSERT_NAME })).toBeNull();
+    expect(screen.queryByDisplayValue("Wert parties")).toBeNull();
+    expect(extractMock).toHaveBeenLastCalledWith(
+      "page-1",
+      "att-2",
+      expect.anything(),
+    );
+    expect(signalOfCall(0).aborted).toBe(true);
   });
 });

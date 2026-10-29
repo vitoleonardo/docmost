@@ -178,6 +178,16 @@ describe("contract table content", () => {
     expect(rows.flat().some((text) => text.includes("(manuell)"))).toBe(false);
   });
 
+  it("EXTRACT-AC26: an unchanged extracted value with surrounding whitespace carries no marker", () => {
+    const padded = fields.map((field) =>
+      field.key === "term" ? found("term", " 24 Monate\n") : field,
+    );
+    const rows = cellTexts(
+      build({ ...unchangedValues, term: " 24 Monate\n" }, padded),
+    );
+    expect(rows[2][1]).toBe("24 Monate");
+  });
+
   it("EXTRACT-AC60: markup in values stays literal text without marks", () => {
     const hostile = "<b>fett</b> **fett** [x](javascript:alert(1))";
     const content = build({ ...unchangedValues, value: hostile });

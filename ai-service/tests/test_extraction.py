@@ -269,6 +269,19 @@ def test_extract_ac53_a_bridge_error_propagates_without_an_extraction_log_line(
     assert log_lines(caplog) == []
 
 
+def test_extract_ac53_an_unexpected_error_logs_its_class_without_content_and_propagates(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    def crashing_fetch(attachment_id: str) -> bytes:
+        raise RuntimeError(PLAIN_QUOTE)
+
+    built = ExtractionPipeline(crashing_fetch, StubModel(), "local", "qwen3:8b", FakeClock())
+    with caplog.at_level(logging.INFO, logger=LOGGER_NAME), pytest.raises(RuntimeError):
+        built.extract(ATTACHMENT_ID, 1000)
+    assert log_lines(caplog) == [f"extract attachment={ATTACHMENT_ID} error=RuntimeError"]
+    assert [r.levelno for r in caplog.records if r.name == LOGGER_NAME] == [logging.WARNING]
+
+
 def test_extract_ac38_model_unavailable_is_a_failed_result() -> None:
     model = StubModel(error=ModelUnavailable("timeout"))
     wire = run([PLAIN_QUOTE], model)

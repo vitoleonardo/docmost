@@ -63,5 +63,11 @@ export default function ExtractionDialogHost() {
 
   if (!request) return null;
 
-  return <OpenExtraction request={request} onClose={() => setRequest(null)} />;
+  return (
+    <OpenExtraction
+      key={`${request.pageId}/${request.attachmentId}`}
+      request={request}
+      onClose={() => setRequest(null)}
+    />
+  );
 }

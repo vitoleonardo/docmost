@@ -9,6 +9,7 @@ from typing import Any, Literal, Protocol
 from pydantic import BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
 
+from ai_service.bridge_client import BridgeError
 from ai_service.inference import JsonCompletion, ModelUnavailable
 from ai_service.sections import PdfSkipped, read_pdf_pages
 
@@ -17,7 +18,7 @@ MAX_FILE_BYTES = 10_485_760
 MAX_PAGES = 10
 MAX_CHARACTERS = 30_000
 MIN_QUOTE_CHARACTERS = 15
-MIN_CHARACTERS_PER_PROMPT_TOKEN = 4
+MAX_CHARACTERS_PER_PROMPT_TOKEN = 4
 SOFT_HYPHEN = "­"
 FIELD_KEYS = ("parties", "term", "noticePeriod", "value", "renewal")
 
@@ -190,7 +191,13 @@ class ExtractionPipeline:
     def extract(self, attachment_id: str, file_size: int) -> ExtractionResult:
         started_at = self._clock()
         run = ExtractionRun()
-        result = self._extract(attachment_id, file_size, run)
+        try:
+            result = self._extract(attachment_id, file_size, run)
+        except BridgeError:
+            raise
+        except Exception as error:
+            LOGGER.warning("extract attachment=%s error=%s", attachment_id, type(error).__name__)
+            raise
         self._log(attachment_id, run, self._clock() - started_at)
         return result
 
@@ -232,7 +239,7 @@ class ExtractionPipeline:
             return Failed()
         sent = sum(len(message["content"]) for message in messages)
         tokens = completion.prompt_tokens
-        if tokens is not None and tokens * MIN_CHARACTERS_PER_PROMPT_TOKEN < sent:
+        if tokens is not None and tokens * MAX_CHARACTERS_PER_PROMPT_TOKEN < sent:
             run.outcome = "context_too_small"
             return Failed()
         try:

@@ -46,7 +46,7 @@ function cell(type: "tableHeader" | "tableCell", text: string): JSONContent {
 function valueText(typed: string, field: IExtractedField | undefined): string {
   const trimmed = typed.trim();
   if (!trimmed) return NOT_FOUND_TEXT;
-  if (trimmed === field?.value) return trimmed;
+  if (trimmed === field?.value?.trim()) return trimmed;
   return `${trimmed} ${MANUAL_MARKER}`;
 }
 
