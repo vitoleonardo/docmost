@@ -1,8 +1,11 @@
 import os
 import re
+import time
 import uuid
-from collections.abc import Iterator, Sequence
+from collections.abc import Callable, Iterator, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass, field
+from typing import Any
 
 import psycopg
 import pytest
@@ -25,9 +28,10 @@ from tests.seed_matrix import (
     load_entries,
 )
 from tests.test_ask import StubModel
-from tests.test_stack import list_all_pages
+from tests.test_stack import POLL_SECONDS, list_all_pages
 from tests.test_stack_ask import (
     MIN_SECTION_LENGTH,
+    MOVE_WAIT_SECONDS,
     SEED_EMAILS,
     THRESHOLD,
     Member,
@@ -45,6 +49,7 @@ LEAK_VARIABLES = (
     "LEAK_SEED_PASSWORD",
 )
 EMBEDDING_MODEL_VARIABLE = "LEAK_EMBEDDING_MODEL"
+WORKER_RUNNING_VARIABLE = "LEAK_WORKER_RUNNING"
 SPACE_NAMES = {
     "allgemein": "Allgemein",
     "hr": "HR",
@@ -60,6 +65,8 @@ EVERY_CANDIDATE_THRESHOLD = -1.0
 SOURCE_HEADER = re.compile(r"(?m)^\[\d+\] (.*)$")
 
 LeakFinding = tuple[str, str]
+SpaceMember = tuple[str, str, str]
+WikiItem = dict[str, Any]
 
 
 def source_blocks(sources_block: str) -> list[tuple[str, str]]:
@@ -109,11 +116,68 @@ class AccessModel:
     def remove_member(self, user: str, space_dir: str) -> None:
         self.members[user].discard(space_dir)
 
+    def add_member(self, user: str, space_dir: str) -> None:
+        self.members[user].add(space_dir)
+
     def move_page(self, page_id: str, space_id: str) -> None:
         self.page_spaces[page_id] = space_id
 
     def trash_page(self, page_id: str) -> None:
         self.trashed.add(page_id)
+
+    def restore_page(self, page_id: str) -> None:
+        self.trashed.discard(page_id)
+
+    def pages_in(self, space_dir: str) -> set[str]:
+        return {
+            page_id
+            for page_id, space_id in self.page_spaces.items()
+            if self.space_dirs[space_id] == space_dir
+        }
+
+
+@dataclass(frozen=True)
+class PageState:
+    space_id: str
+    parent_page_id: str | None
+    trashed: bool
+
+
+@dataclass(frozen=True)
+class WikiSnapshot:
+    spaces: dict[str, str]
+    space_members: dict[str, frozenset[SpaceMember]]
+    group_members: dict[str, frozenset[str]]
+    pages: dict[str, PageState]
+    index: dict[str, str]
+
+    def index_problems(self) -> list[str]:
+        problems = [
+            f"{page_id} is in the trash and in the index"
+            for page_id, state in self.pages.items()
+            if state.trashed and page_id in self.index
+        ]
+        problems.extend(
+            f"{page_id} has no index entry in its space {state.space_id}"
+            for page_id, state in self.pages.items()
+            if not state.trashed and self.index.get(page_id) != state.space_id
+        )
+        problems.extend(
+            f"{page_id} is in the index but not in the wiki"
+            for page_id in self.index.keys() - self.pages.keys()
+        )
+        return problems
+
+    def member_spaces(self, user_id: str) -> set[str]:
+        groups = {
+            group_id for group_id, user_ids in self.group_members.items() if user_id in user_ids
+        }
+        return {
+            self.spaces[space_id]
+            for space_id, members in self.space_members.items()
+            for kind, member_id, _ in members
+            if (kind, member_id) == ("user", user_id) or (kind == "group" and member_id in groups)
+        }
 
 
 @dataclass
@@ -160,6 +224,77 @@ class LeakStack:
 
     def refresh_sections(self, page_id: str) -> None:
         self.section_texts[page_id] = [section.text for section in self.store.sections_of(page_id)]
+
+    def sections_in_prompt(self, run: PipelineRun, page_id: str) -> list[str]:
+        return [
+            text
+            for text in self.section_texts[page_id]
+            if len(text) >= MIN_SECTION_LENGTH and text in run.sources_block
+        ]
+
+    def post(self, path: str, body: WikiItem) -> WikiItem:
+        response = self.owner.session.post(path, json=body)
+        assert response.status_code == 200, f"{path} {body}: {response.status_code} {response.text}"
+        return response.json() if response.content else {}
+
+    def listed(self, path: str, body: WikiItem) -> list[WikiItem]:
+        data = self.post(path, {**body, "limit": LIST_LIMIT})["data"]
+        assert not data["meta"]["hasNextPage"], f"{path} {body} lists more than {LIST_LIMIT} items"
+        return data["items"]
+
+    def group_id(self, name: str) -> str:
+        [group_id] = [
+            group["id"] for group in self.listed("/api/groups", {}) if group["name"] == name
+        ]
+        return group_id
+
+    def space_role(self, user: str, space_dir: str) -> str:
+        [role] = [
+            member["role"]
+            for member in self.listed("/api/spaces/members", {"spaceId": self.space_ids[space_dir]})
+            if member["type"] == "user" and member["id"] == self.user_ids[user]
+        ]
+        return role
+
+    def page_state(self, page_id: str) -> PageState:
+        page = self.post("/api/pages/info", {"pageId": page_id})["data"]
+        return PageState(page["spaceId"], page["parentPageId"], page["deletedAt"] is not None)
+
+    def snapshot(self) -> WikiSnapshot:
+        spaces = {space["id"]: space["name"] for space in self.listed("/api/spaces", {})}
+        pages = {page.id: self.page_state(page.id) for page in list_all_pages(self.bridge)}
+        for space_id in spaces:
+            for page in self.listed("/api/pages/trash", {"spaceId": space_id}):
+                pages[page["id"]] = PageState(page["spaceId"], page["parentPageId"], True)
+        return WikiSnapshot(
+            spaces=spaces,
+            space_members={
+                space_id: frozenset(
+                    (member["type"], member["id"], member["role"])
+                    for member in self.listed("/api/spaces/members", {"spaceId": space_id})
+                )
+                for space_id in spaces
+            },
+            group_members={
+                group["id"]: frozenset(
+                    user["id"]
+                    for user in self.listed("/api/groups/members", {"groupId": group["id"]})
+                )
+                for group in self.listed("/api/groups", {})
+            },
+            pages=pages,
+            index={entry.page_id: entry.space_id for entry in self.store.list_entries()},
+        )
+
+    def wait_for_worker(self, page_id: str, reached: Callable[[str | None], bool]) -> None:
+        if os.environ.get(WORKER_RUNNING_VARIABLE) != "1":
+            return
+        deadline = time.monotonic() + MOVE_WAIT_SECONDS
+        while not reached(
+            None if (entry := self.store.get_entry(page_id)) is None else entry.space_id
+        ):
+            assert time.monotonic() < deadline, f"worker did not update {page_id}"
+            time.sleep(POLL_SECONDS)
 
     def index_search(
         self, text: str, space_ids: Sequence[str], page_id: str | None, limit: int
@@ -281,6 +416,74 @@ class LeakStack:
             if canary is not None and canary in whole_prompt:
                 found.append((title, canary))
         return found
+
+
+@contextmanager
+def removed_from_space(stack: LeakStack, user: str, space_dir: str) -> Iterator[None]:
+    space_id = stack.space_ids[space_dir]
+    user_id = stack.user_ids[user]
+    role = stack.space_role(user, space_dir)
+    try:
+        stack.post("/api/spaces/members/remove", {"spaceId": space_id, "userId": user_id})
+        stack.access.remove_member(user, space_dir)
+        yield
+    finally:
+        stack.post(
+            "/api/spaces/members/add",
+            {"spaceId": space_id, "role": role, "userIds": [user_id], "groupIds": []},
+        )
+        stack.access.add_member(user, space_dir)
+
+
+@contextmanager
+def removed_from_group(
+    stack: LeakStack, user: str, group_name: str, space_dir: str
+) -> Iterator[None]:
+    group_id = stack.group_id(group_name)
+    user_id = stack.user_ids[user]
+    try:
+        stack.post("/api/groups/members/remove", {"groupId": group_id, "userId": user_id})
+        stack.access.remove_member(user, space_dir)
+        yield
+    finally:
+        stack.post("/api/groups/members/add", {"groupId": group_id, "userIds": [user_id]})
+        stack.access.add_member(user, space_dir)
+
+
+@contextmanager
+def moved_with_stale_index(stack: LeakStack, page_id: str, space_dir: str) -> Iterator[None]:
+    old_space_id = stack.access.page_spaces[page_id]
+    new_space_id = stack.space_ids[space_dir]
+    try:
+        stack.post("/api/pages/move-to-space", {"pageId": page_id, "spaceId": new_space_id})
+        stack.access.move_page(page_id, new_space_id)
+        stack.wait_for_worker(page_id, lambda space_id: space_id == new_space_id)
+        with stack.store.writer_lock():
+            stack.store.rescope([page_id], old_space_id)
+        yield
+    finally:
+        if stack.page_state(page_id).space_id != old_space_id:
+            stack.post("/api/pages/move-to-space", {"pageId": page_id, "spaceId": old_space_id})
+        stack.access.move_page(page_id, old_space_id)
+        assert stack.index_page(page_id) == IndexOutcome.INDEXED, page_id
+
+
+@contextmanager
+def trashed_with_stale_index(stack: LeakStack, page_id: str) -> Iterator[None]:
+    entry = stack.store.get_entry(page_id)
+    assert entry is not None, f"{page_id} is not indexed"
+    sections = stack.store.sections_of(page_id)
+    try:
+        stack.post("/api/pages/delete", {"pageId": page_id})
+        stack.access.trash_page(page_id)
+        stack.wait_for_worker(page_id, lambda space_id: space_id is None)
+        with stack.store.writer_lock():
+            assert stack.store.replace_page(entry, sections), page_id
+        yield
+    finally:
+        stack.post("/api/pages/restore", {"pageId": page_id})
+        stack.access.restore_page(page_id)
+        assert stack.index_page(page_id) == IndexOutcome.INDEXED, page_id
 
 
 def required_variables() -> dict[str, str]:
