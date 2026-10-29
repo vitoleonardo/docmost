@@ -1,0 +1,217 @@
+[
+  {
+    "pdf": "kundenvertrag-stadtwerke-beispielstadt.pdf",
+    "textLayer": true,
+    "fields": {
+      "parties": {
+        "value": "Ostmooimooi Anlagenbau GmbH und Stadtwerke Beispielstadt AöR",
+        "quote": "Dieser Vertrag wird geschlossen zwischen Ostmooimooi Anlagenbau GmbH und Stadtwerke Beispielstadt AöR, Beispielweg 1, 00000 Beispielstadt.",
+        "pdfPage": 1
+      },
+      "term": {
+        "value": "Die Vertragslaufzeit beträgt 24 Monate ab dem 01.04.2026",
+        "quote": "Die Vertragslaufzeit beträgt 24 Monate ab dem 01.04.2026.",
+        "pdfPage": 1
+      },
+      "noticePeriod": {
+        "value": "Kündigungsfrist von drei Monaten zum Quartalsende",
+        "quote": "Jede Partei kann den Vertrag mit einer Kündigungsfrist von drei Monaten zum Quartalsende schriftlich kündigen.",
+        "pdfPage": 1
+      },
+      "value": {
+        "value": "1.200.000,00 € netto",
+        "quote": "Der Auftragswert beträgt 1.200.000,00 € netto zuzüglich der gesetzlichen Umsatzsteuer.",
+        "pdfPage": 1
+      },
+      "renewal": {
+        "value": "verlängert sich der Vertrag um jeweils 12 Monate",
+        "quote": "Wird der Vertrag nicht fristgerecht gekündigt, verlängert sich der Vertrag um jeweils 12 Monate.",
+        "pdfPage": 1
+      }
+    }
+  },
+  {
+    "pdf": "rahmenvertrag-wasserverband-muster.pdf",
+    "textLayer": true,
+    "fields": {
+      "parties": {
+        "value": "Ostmooimooi Anlagenbau GmbH und Wasserverband Muster",
+        "quote": "Dieser Rahmenvertrag wird geschlossen zwischen Ostmooimooi Anlagenbau GmbH und Wasserverband Muster, Verbandsstraße 2, 00000 Beispielstadt.",
+        "pdfPage": 1
+      },
+      "term": {
+        "value": "Der Rahmenvertrag läuft vom 01.07.2025 bis zum 30.06.2028",
+        "quote": "Der Rahmenvertrag läuft vom 01.07.2025 bis zum 30.06.2028.",
+        "pdfPage": 1
+      },
+      "noticePeriod": {
+        "value": "Kündigungsfrist von sechs Monaten zum Jahresende",
+        "quote": "Der Rahmenvertrag kann von beiden Parteien mit einer Kündigungsfrist von sechs Monaten zum Jahresende gekündigt werden.",
+        "pdfPage": 1
+      },
+      "value": {
+        "value": "450.000,00 € netto pro Vertragsjahr",
+        "quote": "Das Rahmenvolumen beträgt 450.000,00 € netto pro Vertragsjahr.",
+        "pdfPage": 1
+      },
+      "renewal": {
+        "value": "verlängert sich der Rahmenvertrag um ein weiteres Jahr",
+        "quote": "Erfolgt keine Kündigung, verlängert sich der Rahmenvertrag um ein weiteres Jahr.",
+        "pdfPage": 1
+      }
+    }
+  },
+  {
+    "pdf": "liefervertrag-pumpen-fiktivwerk.pdf",
+    "textLayer": true,
+    "fields": {
+      "parties": {
+        "value": "Ostmooimooi Anlagenbau GmbH und Fiktivwerk Pumpen GmbH",
+        "quote": "Dieser Liefervertrag wird geschlossen zwischen Ostmooimooi Anlagenbau GmbH und Fiktivwerk Pumpen GmbH, Pumpenallee 3, 00000 Beispielhafen.",
+        "pdfPage": 1
+      },
+      "term": {
+        "value": "Der Liefervertrag gilt bis zum 31.12.2027",
+        "quote": "Der Liefervertrag gilt bis zum 31.12.2027.",
+        "pdfPage": 1
+      },
+      "noticePeriod": {
+        "value": "Kündigungsfrist von 30 Tagen zum Monatsende",
+        "quote": "Jede Partei kann den Vertrag mit einer Kündigungsfrist von 30 Tagen zum Monatsende schriftlich kündigen.",
+        "pdfPage": 1
+      },
+      "value": {
+        "value": "186.000,00 € netto",
+        "quote": "Der Gesamtpreis für alle zwölf Pumpen beträgt 186.000,00 € netto zuzüglich der gesetzlichen Umsatzsteuer.",
+        "pdfPage": 1
+      },
+      "renewal": {
+        "value": "einmaligen Verlängerung um 12 Monate",
+        "quote": "Die Käuferin hat bis zum 30.09.2027 das Recht zur einmaligen Verlängerung um 12 Monate durch schriftliche Erklärung.",
+        "pdfPage": 1
+      }
+    }
+  },
+  {
+    "pdf": "subunternehmervertrag-tiefbau.pdf",
+    "textLayer": true,
+    "fields": {
+      "parties": {
+        "value": "Ostmooimooi Anlagenbau GmbH und Tiefbau Beispiel GmbH",
+        "quote": "Dieser Vertrag wird geschlossen zwischen Ostmooimooi Anlagenbau GmbH und Tiefbau Beispiel GmbH, Grubenweg 5, 00000 Beispielstadt.",
+        "pdfPage": 1
+      },
+      "term": {
+        "value": "Der Vertrag ist befristet und gilt bis zur Abnahme des Bauabschnitts Nordhafen",
+        "quote": "Der Vertrag ist befristet und gilt bis zur Abnahme des Bauabschnitts Nordhafen.",
+        "pdfPage": 1
+      },
+      "noticePeriod": {
+        "value": "Kündigungsfrist von 14 Tagen",
+        "quote": "Die ordentliche Kündigung ist ausgeschlossen. Jede Partei kann den Vertrag aus wichtigem Grund mit einer Kündigungsfrist von 14 Tagen schriftlich kündigen.",
+        "pdfPage": 1
+      },
+      "value": {
+        "value": "94.500,00 € netto pauschal",
+        "quote": "Die Vergütung beträgt 94.500,00 € netto pauschal zuzüglich der gesetzlichen Umsatzsteuer.",
+        "pdfPage": 1
+      },
+      "renewal": {
+        "missing": true
+      }
+    }
+  },
+  {
+    "pdf": "softwarelizenzvertrag-planungssoftware.pdf",
+    "textLayer": true,
+    "fields": {
+      "parties": {
+        "value": "Planwerk Software GmbH und Ostmooimooi Anlagenbau GmbH",
+        "quote": "Dieser Lizenzvertrag wird geschlossen zwischen Planwerk Software GmbH und Ostmooimooi Anlagenbau GmbH, vertreten durch die IT.",
+        "pdfPage": 1
+      },
+      "term": {
+        "value": "Die Lizenz wird für die Dauer von 12 Monaten ab dem 01.01.2026 erteilt",
+        "quote": "Die Lizenz wird für die Dauer von 12 Monaten ab dem 01.01.2026 erteilt.",
+        "pdfPage": 1
+      },
+      "noticePeriod": {
+        "value": "Kündigungsfrist von drei Monaten zum Ablauf der Lizenzdauer",
+        "quote": "Jede Partei kann den Vertrag mit einer Kündigungsfrist von drei Monaten zum Ablauf der Lizenzdauer schriftlich kündigen.",
+        "pdfPage": 1
+      },
+      "value": {
+        "value": "18.400,00 € netto pro Jahr",
+        "quote": "Die Lizenzgebühr beträgt 18.400,00 € netto pro Jahr zuzüglich der gesetzlichen Umsatzsteuer.",
+        "pdfPage": 1
+      },
+      "renewal": {
+        "value": "verlängert sich die Lizenz automatisch um 12 Monate",
+        "quote": "Ohne fristgerechte Kündigung verlängert sich die Lizenz automatisch um 12 Monate.",
+        "pdfPage": 1
+      }
+    }
+  },
+  {
+    "pdf": "beratervertrag-unternehmensentwicklung.pdf",
+    "textLayer": true,
+    "fields": {
+      "parties": {
+        "value": "Ostmooimooi Anlagenbau GmbH und Kompass Beratung Muster GmbH",
+        "quote": "Dieser Beratervertrag wird geschlossen zwischen Ostmooimooi Anlagenbau GmbH und Kompass Beratung Muster GmbH, Lotsenstraße 7, 00000 Beispielstadt.",
+        "pdfPage": 1
+      },
+      "term": {
+        "value": "Der Beratervertrag läuft bis zum 31.12.2027",
+        "quote": "Der Beratervertrag läuft bis zum 31.12.2027.",
+        "pdfPage": 1
+      },
+      "noticePeriod": {
+        "value": "Kündigungsfrist von 30 Tagen zum Monatsende",
+        "quote": "Jede Partei kann den Vertrag mit einer Kündigungsfrist von 30 Tagen zum Monatsende schriftlich kündigen.",
+        "pdfPage": 1
+      },
+      "value": {
+        "value": "Tagessatz von 1.450,00 € netto",
+        "quote": "Das Honorar wird nach einem Tagessatz von 1.450,00 € netto je geleistetem Beratertag abgerechnet.",
+        "pdfPage": 1
+      },
+      "renewal": {
+        "value": "Eine Verlängerung um sechs Monate ist nur schriftlich möglich",
+        "quote": "Eine Verlängerung um sechs Monate ist nur schriftlich möglich und bedarf der Unterschrift beider Parteien.",
+        "pdfPage": 1
+      }
+    }
+  },
+  {
+    "pdf": "wartungsvertrag-serverraum-scan.pdf",
+    "textLayer": false,
+    "fields": {
+      "parties": {
+        "value": "Ostmooimooi Anlagenbau GmbH und Serviceprofi Beispiel GmbH",
+        "quote": "Dieser Wartungsvertrag wird geschlossen zwischen Ostmooimooi Anlagenbau GmbH und Serviceprofi Beispiel GmbH.",
+        "pdfPage": 1
+      },
+      "term": {
+        "value": "Die Vertragslaufzeit beträgt 36 Monate ab dem 01.02.2025",
+        "quote": "Die Vertragslaufzeit beträgt 36 Monate ab dem 01.02.2025.",
+        "pdfPage": 1
+      },
+      "noticePeriod": {
+        "value": "Kündigungsfrist von sechs Monaten",
+        "quote": "Jede Partei kann den Vertrag mit einer Kündigungsfrist von sechs Monaten schriftlich kündigen.",
+        "pdfPage": 1
+      },
+      "value": {
+        "value": "3.600,00 € netto pro Jahr",
+        "quote": "Die Vergütung beträgt 3.600,00 € netto pro Jahr zuzüglich der gesetzlichen Umsatzsteuer.",
+        "pdfPage": 1
+      },
+      "renewal": {
+        "value": "verlängert sich der Vertrag um jeweils 12 Monate",
+        "quote": "Ohne Kündigung verlängert sich der Vertrag um jeweils 12 Monate.",
+        "pdfPage": 1
+      }
+    }
+  }
+]

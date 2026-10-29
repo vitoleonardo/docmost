@@ -3,6 +3,11 @@
   "collection": "@nestjs/schematics",
   "sourceRoot": "src",
   "compilerOptions": {
-    "deleteOutDir": true
+    "deleteOutDir": true,
+    "assets": [
+      "integrations/seed/content/**/*.md",
+      "integrations/seed/content/**/*.json",
+      "integrations/seed/content/**/*.pdf"
+    ]
   }
 }
