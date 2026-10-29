@@ -173,6 +173,10 @@ beforeAll(() => {
     unobserve() {}
     disconnect() {}
   };
+  Object.defineProperty(document, "fonts", {
+    configurable: true,
+    value: { addEventListener() {}, removeEventListener() {} },
+  });
 });
 
 beforeEach(() => {

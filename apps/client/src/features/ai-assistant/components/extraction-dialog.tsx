@@ -8,7 +8,7 @@ import {
   Stack,
   Table,
   Text,
-  TextInput,
+  Textarea,
 } from "@mantine/core";
 import { useTranslation } from "react-i18next";
 import {
@@ -193,7 +193,7 @@ function ExtractionContent({
           <Table.Thead>
             <Table.Tr>
               <Table.Th>{t("Field")}</Table.Th>
-              <Table.Th>{t("Value")}</Table.Th>
+              <Table.Th w="45%">{t("Value")}</Table.Th>
               <Table.Th>{t("Source")}</Table.Th>
             </Table.Tr>
           </Table.Thead>
@@ -207,7 +207,20 @@ function ExtractionContent({
                 <Table.Tr key={key}>
                   <Table.Td>{CONTRACT_FIELD_LABELS[key]}</Table.Td>
                   <Table.Td>
-                    <TextInput
+                    <Textarea
+                      autosize
+                      minRows={1}
+                      styles={
+                        sourced
+                          ? undefined
+                          : {
+                              input: {
+                                borderColor: "var(--mantine-color-orange-6)",
+                                backgroundColor:
+                                  "var(--mantine-color-orange-0)",
+                              },
+                            }
+                      }
                       aria-label={CONTRACT_FIELD_LABELS[key]}
                       placeholder={t("Enter value manually")}
                       value={values[key]}
@@ -220,7 +233,7 @@ function ExtractionContent({
                       }}
                     />
                     {!sourced && (
-                      <Badge color="gray" mt={4}>
+                      <Badge color="orange" tt="none" mt={4}>
                         {t("Not found")}
                       </Badge>
                     )}
@@ -295,7 +308,7 @@ export default function ExtractionDialog({
     <Modal
       opened={opened}
       onClose={onClose}
-      size="xl"
+      size="80%"
       title={t("Extract data: {{fileName}}", { fileName })}
     >
       <ExtractionContent fileName={fileName} onClose={onClose} {...content} />

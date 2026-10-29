@@ -166,6 +166,10 @@ beforeAll(() => {
       disconnect() {}
     },
   );
+  Object.defineProperty(document, "fonts", {
+    configurable: true,
+    value: { addEventListener() {}, removeEventListener() {} },
+  });
 });
 
 beforeEach(() => {
@@ -243,7 +247,7 @@ describe("extraction dialog review", () => {
       "Verlängerung",
     ]);
     const first = rows[0];
-    expect((within(first).getByRole("textbox") as HTMLInputElement).value).toBe(
+    expect((within(first).getByRole("textbox") as HTMLTextAreaElement).value).toBe(
       "Acme GmbH und Beta AG",
     );
     expect(within(first).getByText(/„Zitat parties“/)).toBeTruthy();
@@ -270,7 +274,7 @@ describe("extraction dialog review", () => {
 
     await screen.findByText("Schema: Vertrag");
     const row = screen.getAllByRole("row")[5];
-    const input = within(row).getByRole("textbox") as HTMLInputElement;
+    const input = within(row).getByRole("textbox") as HTMLTextAreaElement;
     expect(input.value).toBe("");
     expect(input.placeholder).toBe("Wert manuell eintragen");
     expect(within(row).getByText("Nicht gefunden")).toBeTruthy();
