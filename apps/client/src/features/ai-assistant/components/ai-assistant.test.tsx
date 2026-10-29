@@ -396,7 +396,7 @@ describe("ai assistant panel: ask", () => {
     ).toBe(true);
   });
 
-  it("ASK-AC10: the button reads Stoppen from send until the answer ends and stops it", async () => {
+  it("ASK-AC77: the button is named Stoppen from send until the answer ends and stops it", async () => {
     mockWiki("available");
     const stream = controlledStream();
     fetchMock.mockResolvedValue(stream.response);
@@ -415,7 +415,7 @@ describe("ai assistant panel: ask", () => {
     expect(screen.getByRole("button", { name: "Senden" })).toBeTruthy();
   });
 
-  it("ASK-AC10: the button returns to Senden when the answer ends", async () => {
+  it("ASK-AC77: the button returns to Senden when the answer ends", async () => {
     mockWiki("available");
     const stream = controlledStream();
     fetchMock.mockResolvedValue(stream.response);
