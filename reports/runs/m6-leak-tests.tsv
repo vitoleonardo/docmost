@@ -1,4 +1,5 @@
-run	2026-10-29	leak-tests	m6-leak-tests	7	1	3	3421725	125981	431310	1021350	1843084
+run	2026-10-29	leak-tests	m6-leak-tests	7	1	4	3523813	125981	472556	1082192	1843084
+stop	6 verify round 1	test	gate secrets flagged fake literals in scripts/run-leak-check.sh; size gate fails (accepted, one PR per milestone)	secrets generated per run with openssl, seed password defaults on the Python side, exports unquoted (the scan matched `SECRET="$VAR"`)	fixed; review round 3 then verify round 2
 stop	5 review round 1	test	0 high, 5 medium (detector header format, AC6 proof, page spaces from wiki, canary normalisation, SSE/login duplication), 8 low	one deep dispatch fixed 1-8, 10, 11 (ce2a1f4d); 9 and 12 accepted	round 2 targeted
 stop	3 task 7	env	dev ai-service settings live in a dotfile the session may not read	ran the suite on a throwaway stack with the leak script's fake secrets	resolved, dev database untouched
 stop	3 task 7	test	2 control questions and LEAK-AC14's before-question scored under 0.45 with the real embedder	retry deep: verbatim questions became full section passages (scores 0.62–0.89)	resolved: suite 111 questions, 0 leaks, exit 0; leak check 38/38 with both embedders
