@@ -193,11 +193,10 @@ test.describe("GF extracts contract data", () => {
       name: "Daten extrahieren",
     });
     const menu = button.locator("xpath=..");
-    await expect(embeddedPdf.locator("iframe")).toBeAttached();
-    await page.mouse.move(0, 0);
-    await pageContent.focus();
-
     try {
+      await expect(embeddedPdf.locator("iframe")).toBeAttached();
+      await page.mouse.move(0, 0);
+      await pageContent.focus();
       await page.keyboard.press("ArrowUp");
       await expect(menu).toHaveCSS("opacity", "0");
       await page.keyboard.press("ArrowDown");
