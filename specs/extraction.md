@@ -3,7 +3,7 @@
 ID prefix: EXTRACT
 
 ## Goal
-An employee who may edit a page turns a contract PDF attached to it into a reviewed table of the contract's key data in that page. Every value the assistant fills in shows the sentence and PDF page it comes from; a value whose sentence is not found in the PDF's text is marked as not found and left for the employee to fill in, never filled.
+An employee who may edit a page turns a contract PDF attached to it into a reviewed table of the contract's key data in that page. Every value the assistant fills in shows the sentence and PDF page it comes from (in the review at desktop width, and in the inserted table); a value whose sentence is not found in the PDF's text is marked as not found and left for the employee to fill in, never filled.
 
 ## User flow
 Mockup: `docs/design/ai-assistant.html`, section "M7 Vertragsdaten extrahieren", states E1 to E4. The texts below are the German UI texts (UI language `de-DE`).
@@ -155,6 +155,7 @@ Each extraction logs one line in the AI service with the attachment id, the infe
 - Field-level accuracy over all seed contracts against the ground truth (M10 extraction suite).
 - Progress per PDF page while the AI service works.
 - Extraction from the assistant panel.
+- A review dialog laid out for phone widths: at a viewport 412 px wide the column "Quelle" runs past the dialog's right edge and cannot be read.
 
 ## Open questions
 
@@ -177,3 +178,4 @@ Each extraction logs one line in the AI service with the attachment id, the infe
 - 29.10.2026: the inserted table keeps each field's source as a third column, unlike the mockup's E4, because the table is the only copy of the result and spec section 9 requires a source quote and page number per field; without it nobody can check a value after the dialog is closed.
 - 29.10.2026: extractions are not limited per user, because the local model runtime queues requests and per-user limits belong to the rate limits deferred to the hosted demo (spec section 12); EXTRACT-AC57 is measured with one extraction at a time.
 - 29.10.2026: the mockup changes in the same PR (spec section 13): E2 shows "Lese <file name> …", the fixed "Schema: Vertrag" and "Keine Fundstelle im Dokument."; E3 shows the new limits and the text refusal; E4 gets the header row and the column "Quelle" and "(manuell)" as text; the open question on the limits in `docs/design/README.md` is closed.
+- 29.10.2026: the review criteria (EXTRACT-AC9 to EXTRACT-AC20) are checked at desktop width. At a viewport 412 px wide the review dialog shows "Feld", "Wert", the badge "Nicht gefunden" and the buttons, but the column "Quelle" runs past its right edge and cannot be read. v1 accepts this, because the review is a desktop task and the inserted table keeps every source; the user decided it after verify round 2.
