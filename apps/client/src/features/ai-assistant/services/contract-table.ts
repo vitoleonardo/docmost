@@ -21,7 +21,7 @@ const NO_SOURCE_TEXT = "Keine Fundstelle im Dokument.";
 const MANUAL_MARKER = "(manuell)";
 const REFERENCE_NODE_TYPES = ["attachment", "pdf"];
 
-export interface ContractTableInput {
+interface ContractTableInput {
   fileName: string;
   reviewerName: string;
   date: Date;

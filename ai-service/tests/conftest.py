@@ -162,3 +162,8 @@ def make_token() -> Callable[..., str]:
         return jwt.encode(claims, secret, algorithm=algorithm)
 
     return make
+
+
+@pytest.fixture
+def headers(service_headers: dict[str, str], make_token: Callable[..., str]) -> dict[str, str]:
+    return {**service_headers, "X-User-Token": make_token()}

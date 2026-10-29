@@ -62,11 +62,6 @@ def lines(response: httpx.Response) -> list[dict[str, Any]]:
     return [json.loads(line) for line in response.text.splitlines()]
 
 
-@pytest.fixture
-def headers(service_headers: dict[str, str], make_token: Callable[..., str]) -> dict[str, str]:
-    return {**service_headers, "X-User-Token": make_token()}
-
-
 def test_ask_ac9_the_response_is_ndjson_with_one_event_per_line_in_order(
     harness: Harness, headers: dict[str, str]
 ):

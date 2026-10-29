@@ -80,11 +80,6 @@ def extract(
     return client.post(PATH, headers=headers, json=BODY if body is None else body)
 
 
-@pytest.fixture
-def headers(service_headers: dict[str, str], make_token: Callable[..., str]) -> dict[str, str]:
-    return {**service_headers, "X-User-Token": make_token()}
-
-
 @pytest.mark.parametrize(
     ("service_token", "code"),
     [(None, "service_token_missing"), ("x" * 32, "service_token_invalid")],
