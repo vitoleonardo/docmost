@@ -249,7 +249,7 @@ describe('AiServiceClient', () => {
       ['refused', REFUSED],
       ['failed', FAILED],
     ])(
-      'EXTRACT-AC42: relays a %s result and posts attachment id and file size with both tokens to /v1/extract',
+      'extract contract: relays a %s result and posts attachment id and file size with both tokens to /v1/extract',
       async (_outcome, body) => {
         answer(200, body);
 
@@ -267,7 +267,7 @@ describe('AiServiceClient', () => {
       },
     );
 
-    it('EXTRACT-AC42: drops fields of the AI service the contract does not name', async () => {
+    it('extract contract: drops fields of the AI service the contract does not name', async () => {
       answer(200, {
         ...FAILED,
         detail: 'Vertragstext',
@@ -328,7 +328,7 @@ describe('AiServiceClient', () => {
         { outcome: 'refused', reason: 'too_large' },
       ],
       ['an unknown failure reason', { outcome: 'failed', reason: 'oops' }],
-    ])('EXTRACT-AC67: %s is a malformed result', async (_case, body) => {
+    ])('extract contract: %s is a malformed result', async (_case, body) => {
       answer(200, body);
 
       const error = await failureOf(extract());
@@ -355,7 +355,7 @@ describe('AiServiceClient', () => {
       expect(AI_EXTRACT_TIMEOUT_MS).toBe(200_000);
     });
 
-    it('EXTRACT-AC67: the caller aborting is an abort, not a timeout', async () => {
+    it('extract contract: the caller aborting is an abort, not a timeout', async () => {
       behaviour = 'hang';
       const caller = new AbortController();
       const pending = failureOf(extract(caller.signal));

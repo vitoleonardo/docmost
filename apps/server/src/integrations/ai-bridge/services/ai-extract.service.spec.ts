@@ -357,11 +357,11 @@ describe('AiExtractService', () => {
   });
 
   describe('the call to the AI service', () => {
-    it('EXTRACT-AC42: an editor with a PDF gets the result of the AI service', async () => {
+    it('extract contract: an editor with a PDF gets the result of the AI service', async () => {
       await expect(extract()).resolves.toEqual(EXTRACTED);
     });
 
-    it('EXTRACT-AC42: sends exactly attachment id and file size with both tokens to POST /v1/extract', async () => {
+    it('extract contract: sends exactly attachment id and file size with both tokens to POST /v1/extract', async () => {
       await extract();
 
       expect(requests).toHaveLength(1);
@@ -387,7 +387,7 @@ describe('AiExtractService', () => {
         },
       ],
       ['failed', MODEL_UNAVAILABLE],
-    ])('EXTRACT-AC42: relays a %s result', async (_outcome, body) => {
+    ])('extract contract: relays a %s result', async (_outcome, body) => {
       upstream = answerWith(200, body);
 
       await expect(extract()).resolves.toEqual(body);
@@ -445,7 +445,7 @@ describe('AiExtractService', () => {
       expect(warn).toHaveBeenCalledTimes(1);
     });
 
-    it('EXTRACT-AC67: a malformed result gives the model failure result and logs no content', async () => {
+    it('extract contract: a malformed result gives the model failure result and logs no content', async () => {
       const warn = jest.spyOn(Logger, 'warn');
       upstream = answerWith(200, {
         outcome: 'extracted',
@@ -459,7 +459,7 @@ describe('AiExtractService', () => {
       expect(logged).not.toContain(USER_CREDENTIAL);
     });
 
-    it('EXTRACT-AC67: a client that leaves before the AI service answers ends quietly', async () => {
+    it('extract contract: a client that leaves before the AI service answers ends quietly', async () => {
       const abort = new AbortController();
       const warn = jest.spyOn(Logger, 'warn');
       upstream = () => abort.abort();
@@ -485,7 +485,7 @@ describe('AiBridgeController.extract', () => {
       stub<AiExtractService>(extractService),
     );
 
-  it('EXTRACT-AC42: returns the result of the service as the response body', async () => {
+  it('extract contract: returns the result of the service as the response body', async () => {
     const { reply } = replyWithRaw();
     const controller = controllerWith({ extract: async () => EXTRACTED });
 
@@ -494,7 +494,7 @@ describe('AiBridgeController.extract', () => {
     );
   });
 
-  it('EXTRACT-AC67: closing the client connection aborts the signal passed to the service', async () => {
+  it('extract contract: closing the client connection aborts the signal passed to the service', async () => {
     const { raw, reply } = replyWithRaw();
     let seen: AbortSignal | undefined;
     const controller = controllerWith({

@@ -326,7 +326,7 @@ def envelope(content: object, usage: object = None) -> bytes:
     return json.dumps(body).encode()
 
 
-def test_extract_ac66_request_asks_for_a_json_schema_answer_without_streaming():
+def test_extract_contract_request_asks_for_a_json_schema_answer_without_streaming():
     seen: list[httpx.Request] = []
 
     def handler(request: httpx.Request) -> httpx.Response:

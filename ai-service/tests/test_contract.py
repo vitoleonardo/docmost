@@ -2,7 +2,7 @@ import json
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, cast, get_args
 
 import fakeredis
 import pytest
@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 
 from ai_service import auth
 from ai_service.app import create_app
-from ai_service.extraction import ExtractionPipeline
+from ai_service.extraction import ExtractionPipeline, RefusalReason
 from ai_service.inference import JsonCompletion, ModelUnavailable
 from ai_service.jobs import JOB_STREAM, enqueue_job
 from tests.conftest import idle_ask_pipeline, idle_extraction_pipeline, make_settings
@@ -177,7 +177,7 @@ class ContractModel:
         return JsonCompletion(text=json.dumps(answer), prompt_tokens=10_000)
 
 
-def test_extract_ac50_every_extract_outcome_has_exactly_the_fields_of_the_contract(
+def test_extract_contract_every_extract_outcome_has_exactly_the_fields_of_the_contract(
     service_headers: dict[str, str], make_token: Callable[..., str]
 ) -> None:
     extract = next(
@@ -191,6 +191,7 @@ def test_extract_ac50_every_extract_outcome_has_exactly_the_fields_of_the_contra
         "failed": build_pdf(["Die Laufzeit betraegt zwei Jahre ab Unterschrift."]),
     }
     seen: dict[str, set[str]] = {}
+    served: dict[str, dict[str, Any]] = {}
     for outcome, document in answers.items():
         model = ContractModel(fails=outcome == "failed")
         pipeline = ExtractionPipeline(lambda _, d=document: d, model, "local", "m")
@@ -201,9 +202,14 @@ def test_extract_ac50_every_extract_outcome_has_exactly_the_fields_of_the_contra
 
         assert response.status_code == extract["status"]
         seen[outcome] = event_fields(response.json())
+        served[outcome] = response.json()
 
     assert seen == {name: set(fields) for name, fields in extract["outcomes"].items()}
     assert set(extract["values"]["outcome"]) == set(seen)
+    assert [item["key"] for item in served["extracted"]["fields"]] == extract["values"]["fieldKey"]
+    assert served["refused"]["reason"] in extract["values"]["refusedReason"]
+    assert set(get_args(RefusalReason)) == set(extract["values"]["refusedReason"])
+    assert [served["failed"]["reason"]] == extract["values"]["failedReason"]
 
 
 def test_bridge_ac36_user_token_algorithm_audience_and_type_equal_the_contract() -> None:

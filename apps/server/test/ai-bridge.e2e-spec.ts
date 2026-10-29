@@ -2185,7 +2185,7 @@ describe('AI bridge page access (e2e)', () => {
         expect(extractRequests()).toHaveLength(0);
       });
 
-      it('EXTRACT-AC42: an editor gets the result and the AI service gets only attachment id and file size', async () => {
+      it('extract contract: an editor gets the result and the AI service gets only attachment id and file size', async () => {
         const body = await licenseBody();
 
         const response = await extract(body, await session('GF'));

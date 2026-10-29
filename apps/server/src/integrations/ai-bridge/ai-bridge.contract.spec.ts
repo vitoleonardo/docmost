@@ -654,7 +654,7 @@ describe('extract endpoint', () => {
       stub<FastifyReply>({ raw: new EventEmitter() }),
     );
 
-  it('EXTRACT-AC42: every outcome the wiki answers has exactly the fields of the contract', async () => {
+  it('extract contract: every outcome the wiki answers has exactly the fields of the contract', async () => {
     const bodies = await Promise.all(
       Object.values(EXTRACT_RESULTS).map((result) =>
         served({ extract: async () => result }),
@@ -832,7 +832,7 @@ describe('AI service calls of the bridge', () => {
     await expect(events.next()).rejects.toThrow('malformed ask event');
   });
 
-  it('EXTRACT-AC42: the extract call posts the contract request fields with both token headers', async () => {
+  it('extract contract: the extract call posts the contract request fields with both token headers', async () => {
     const endpoint = endpointAt('/v1/extract');
     fetchSpy.mockResolvedValue(
       new Response(JSON.stringify(EXTRACT_RESULTS.failed), {
@@ -860,7 +860,7 @@ describe('AI service calls of the bridge', () => {
     );
   });
 
-  it('EXTRACT-AC42: the bridge reads every contract outcome of /v1/extract with exactly its fields', async () => {
+  it('extract contract: the bridge reads every contract outcome of /v1/extract with exactly its fields', async () => {
     const endpoint = endpointAt('/v1/extract');
     const read: unknown[] = [];
     for (const result of Object.values(EXTRACT_RESULTS)) {
@@ -879,7 +879,7 @@ describe('AI service calls of the bridge', () => {
     expect(fieldsByOutcome(read)).toEqual(sortedOutcomes(endpoint.outcomes!));
   });
 
-  it('EXTRACT-AC42: the bridge accepts exactly the contract field keys and reasons of /v1/extract', async () => {
+  it('extract contract: the bridge accepts exactly the contract field keys and reasons of /v1/extract', async () => {
     const endpoint = endpointAt('/v1/extract');
     const extractAnswering = async (body: object) => {
       fetchSpy.mockResolvedValueOnce(
