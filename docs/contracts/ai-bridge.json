@@ -19,6 +19,9 @@
     "page_not_found": 404,
     "space_not_found": 404,
     "attachment_not_found": 404,
+    "proposal_not_found": 404,
+    "proposal_not_open": 409,
+    "run_in_progress": 409,
     "page_not_editable": 403
   },
   "endpoints": [
@@ -364,6 +367,134 @@
         "invalid_request",
         "attachment_not_found",
         "assistant_unavailable"
+      ]
+    },
+    {
+      "side": "ai-service",
+      "method": "POST",
+      "path": "/v1/agent/runs",
+      "auth": ["service", "user"],
+      "request": ["spaceId", "task"],
+      "response": [],
+      "responseType": "ndjson",
+      "responseContentType": "application/x-ndjson",
+      "events": {
+        "run": ["type", "runId"],
+        "step": [
+          "type",
+          "steps",
+          "label.kind",
+          "label.query",
+          "label.count",
+          "label.title"
+        ],
+        "proposal": [
+          "type",
+          "proposal.id",
+          "proposal.pageId",
+          "proposal.pageTitle",
+          "proposal.reason",
+          "proposal.added",
+          "proposal.removed"
+        ],
+        "end": ["type", "outcome", "pagesRead", "message"]
+      },
+      "values": {
+        "stepKind": ["search", "read", "propose", "refused"],
+        "endOutcome": [
+          "finished",
+          "out_of_scope",
+          "step_limit",
+          "time_limit",
+          "token_limit",
+          "context_too_small",
+          "model_failed"
+        ]
+      },
+      "maxTaskLength": 2000,
+      "status": 200,
+      "errors": [
+        "service_token_missing",
+        "service_token_invalid",
+        "user_token_missing",
+        "user_token_expired",
+        "user_token_invalid",
+        "invalid_request",
+        "run_in_progress",
+        "assistant_unavailable"
+      ]
+    },
+    {
+      "side": "ai-service",
+      "method": "POST",
+      "path": "/v1/agent/proposals/get",
+      "auth": ["service", "user"],
+      "request": ["proposalId"],
+      "response": [
+        "id",
+        "runId",
+        "userId",
+        "pageId",
+        "pageTitle",
+        "spaceId",
+        "reason",
+        "fingerprint",
+        "changes",
+        "added",
+        "removed",
+        "status",
+        "appliedBy",
+        "appliedAt"
+      ],
+      "values": {
+        "status": ["open", "applying", "applied", "discarded", "stale"]
+      },
+      "status": 200,
+      "errors": [
+        "service_token_missing",
+        "service_token_invalid",
+        "user_token_missing",
+        "user_token_expired",
+        "user_token_invalid",
+        "invalid_request",
+        "proposal_not_found"
+      ]
+    },
+    {
+      "side": "ai-service",
+      "method": "POST",
+      "path": "/v1/agent/proposals/transition",
+      "auth": ["service", "user"],
+      "request": ["proposalId", "to"],
+      "response": [
+        "id",
+        "runId",
+        "userId",
+        "pageId",
+        "pageTitle",
+        "spaceId",
+        "reason",
+        "fingerprint",
+        "changes",
+        "added",
+        "removed",
+        "status",
+        "appliedBy",
+        "appliedAt"
+      ],
+      "values": {
+        "to": ["applying", "applied", "open", "stale", "discarded"]
+      },
+      "status": 200,
+      "errors": [
+        "service_token_missing",
+        "service_token_invalid",
+        "user_token_missing",
+        "user_token_expired",
+        "user_token_invalid",
+        "invalid_request",
+        "proposal_not_found",
+        "proposal_not_open"
       ]
     },
     {

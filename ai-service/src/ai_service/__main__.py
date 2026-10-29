@@ -1,11 +1,14 @@
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
+from contextlib import contextmanager
 
 import psycopg
 import uvicorn
 from pydantic import ValidationError
 from redis import Redis
 
-from ai_service.app import create_app
+from ai_service.agent import AgentRunner
+from ai_service.agent_store import AgentStore
+from ai_service.app import AgentRecords, AgentServices, create_app
 from ai_service.ask import AskPipeline, SearchSections
 from ai_service.bridge_client import BridgeClient
 from ai_service.conversations import ConversationStore
@@ -60,6 +63,27 @@ def build_extraction_pipeline(settings: AskSettings) -> ExtractionPipeline:
     )
 
 
+def build_agent_services(settings: AskSettings) -> AgentServices:
+    bridge = BridgeClient(settings.ai_wiki_url, settings.ai_service_token)
+    model = ChatModel(settings.ai_llm_base_url, settings.ai_llm_model)
+
+    @contextmanager
+    def open_records() -> Iterator[AgentStore]:
+        with psycopg.connect(settings.ai_database_url, autocommit=True) as conn:
+            yield AgentStore(conn)
+
+    def make_runner(records: AgentRecords) -> AgentRunner:
+        return AgentRunner(
+            model=model,
+            bridge=bridge,
+            store=records,
+            inference_mode=settings.ai_inference_mode,
+            model_name=settings.ai_llm_model,
+        )
+
+    return AgentServices(open_records=open_records, make_runner=make_runner)
+
+
 def main() -> None:
     configure_logging()
     try:
@@ -81,6 +105,7 @@ def main() -> None:
             redis,
             build_pipeline(settings, embedder, redis),
             build_extraction_pipeline(settings),
+            build_agent_services(settings),
         ),
         host=settings.ai_service_host,
         port=settings.ai_service_port,
