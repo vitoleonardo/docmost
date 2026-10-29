@@ -208,7 +208,7 @@ def test_extract_ac51_a_zero_file_size_is_accepted(headers: dict[str, str]):
     assert response.status_code == 200
 
 
-def test_extract_ac50_an_extracted_result_is_200_with_five_fields_in_order(
+def test_extract_contract_an_extracted_result_is_200_with_five_fields_in_order(
     headers: dict[str, str],
 ):
     fetch = StubFetch()
@@ -229,7 +229,7 @@ def test_extract_ac50_an_extracted_result_is_200_with_five_fields_in_order(
     assert body["fields"][0] == {"key": "parties", "value": None, "quote": None, "pdfPage": None}
 
 
-def test_extract_ac50_a_refusal_is_200_with_the_reason_and_counts(headers: dict[str, str]):
+def test_extract_contract_a_refusal_is_200_with_the_reason_and_counts(headers: dict[str, str]):
     model = StubModel()
 
     response = extract(make_client(StubFetch(document=build_blank_pdf(3)), model), headers)
@@ -245,7 +245,7 @@ def test_extract_ac50_a_refusal_is_200_with_the_reason_and_counts(headers: dict[
     assert model.calls == 0
 
 
-def test_extract_ac50_a_failed_model_is_200_failed(headers: dict[str, str]):
+def test_extract_contract_a_failed_model_is_200_failed(headers: dict[str, str]):
     model = StubModel(error=ModelUnavailable("HTTP 503"))
 
     response = extract(make_client(StubFetch(), model), headers)
@@ -254,7 +254,7 @@ def test_extract_ac50_a_failed_model_is_200_failed(headers: dict[str, str]):
     assert response.json() == {"outcome": "failed", "reason": "model_unavailable"}
 
 
-def test_extract_ac50_a_too_large_file_is_refused_without_a_fetch(headers: dict[str, str]):
+def test_extract_ac35_a_too_large_file_is_refused_without_a_fetch(headers: dict[str, str]):
     fetch = StubFetch()
 
     response = extract(make_client(fetch), headers, {**BODY, "fileSize": 12_163_481})
@@ -297,7 +297,7 @@ def test_extract_ac52_nothing_is_stored_and_values_are_not_logged(
     ],
     ids=["not-found", "unavailable", "unreachable", "refused", "other-bridge-error"],
 )
-def test_extract_ac50_a_bridge_error_is_a_coded_error(
+def test_extract_contract_a_bridge_error_is_a_coded_error(
     headers: dict[str, str], error: Exception, status: int, code: str
 ):
     model = StubModel()
@@ -308,3 +308,22 @@ def test_extract_ac50_a_bridge_error_is_a_coded_error(
     assert response.json()["code"] == code
     assert set(response.json()) == {"code", "message"}
     assert model.calls == 0
+
+
+@pytest.mark.parametrize(
+    "error",
+    [AttachmentNotFound("HTTP 404"), BridgeUnavailable("HTTP 500 " + TERM_QUOTE)],
+    ids=["not-found", "unavailable"],
+)
+def test_extract_ac54_a_bridge_error_logs_one_warning_without_content(
+    headers: dict[str, str], error: Exception, caplog: pytest.LogCaptureFixture
+):
+    with caplog.at_level(logging.DEBUG):
+        extract(make_client(StubFetch(error=error)), headers)
+
+    warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
+    assert [r.getMessage() for r in warnings] == [
+        f"extract attachment={ATTACHMENT_ID} bridge_error={type(error).__name__}"
+    ]
+    assert TERM_QUOTE not in caplog.text
+    assert "outcome=" not in caplog.text

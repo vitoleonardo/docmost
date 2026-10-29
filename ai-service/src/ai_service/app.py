@@ -1,4 +1,5 @@
 import json
+import logging
 from collections.abc import AsyncIterator, Callable, Coroutine, Generator
 from typing import Annotated, Any, Self
 from uuid import UUID
@@ -25,6 +26,7 @@ from ai_service.extraction import ExtractionPipeline
 from ai_service.jobs import enqueue_job
 from ai_service.settings import Settings
 
+LOGGER = logging.getLogger("ai_service.app")
 MAX_QUESTION_LENGTH = 2000
 
 
@@ -156,9 +158,12 @@ def create_app(
             result = await run_in_threadpool(
                 extraction_pipeline.extract, str(body.attachmentId), body.fileSize
             )
-        except AttachmentNotFound as error:
-            raise ApiError("attachment_not_found", "The attachment does not exist.") from error
         except BridgeError as error:
+            LOGGER.warning(
+                "extract attachment=%s bridge_error=%s", body.attachmentId, type(error).__name__
+            )
+            if isinstance(error, AttachmentNotFound):
+                raise ApiError("attachment_not_found", "The attachment does not exist.") from error
             raise ApiError(
                 "assistant_unavailable", "The wiki could not deliver the file."
             ) from error

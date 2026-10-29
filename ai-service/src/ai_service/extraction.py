@@ -17,7 +17,7 @@ MAX_FILE_BYTES = 10_485_760
 MAX_PAGES = 10
 MAX_CHARACTERS = 30_000
 MIN_QUOTE_CHARACTERS = 15
-CHARACTERS_PER_TOKEN = 4
+MIN_CHARACTERS_PER_PROMPT_TOKEN = 4
 SOFT_HYPHEN = "­"
 FIELD_KEYS = ("parties", "term", "noticePeriod", "value", "renewal")
 
@@ -125,11 +125,13 @@ def parse_answer(text: str) -> dict[str, tuple[str | None, str | None]]:
         raise ModelAnswerInvalid("not an object")
     answers: dict[str, tuple[str | None, str | None]] = {}
     for key in FIELD_KEYS:
-        entry = body.get(key)
-        if isinstance(entry, dict):
-            answers[key] = (text_or_none(entry, "value"), text_or_none(entry, "quote"))
-        else:
+        if key not in body:
             answers[key] = (None, None)
+            continue
+        entry = body[key]
+        if not isinstance(entry, dict):
+            raise ModelAnswerInvalid(key)
+        answers[key] = (text_or_none(entry, "value"), text_or_none(entry, "quote"))
     return answers
 
 
@@ -188,10 +190,9 @@ class ExtractionPipeline:
     def extract(self, attachment_id: str, file_size: int) -> ExtractionResult:
         started_at = self._clock()
         run = ExtractionRun()
-        try:
-            return self._extract(attachment_id, file_size, run)
-        finally:
-            self._log(attachment_id, run, self._clock() - started_at)
+        result = self._extract(attachment_id, file_size, run)
+        self._log(attachment_id, run, self._clock() - started_at)
+        return result
 
     def _extract(self, attachment_id: str, file_size: int, run: ExtractionRun) -> ExtractionResult:
         if file_size > MAX_FILE_BYTES:
@@ -231,7 +232,7 @@ class ExtractionPipeline:
             return Failed()
         sent = sum(len(message["content"]) for message in messages)
         tokens = completion.prompt_tokens
-        if tokens is not None and tokens * CHARACTERS_PER_TOKEN < sent:
+        if tokens is not None and tokens * MIN_CHARACTERS_PER_PROMPT_TOKEN < sent:
             run.outcome = "context_too_small"
             return Failed()
         try:

@@ -7,6 +7,7 @@ from typing import Any
 import pytest
 
 from ai_service import extraction
+from ai_service.bridge_client import BridgeUnavailable
 from ai_service.extraction import ExtractionPipeline
 from ai_service.inference import JsonCompletion, ModelUnavailable
 from tests.conftest import FakeClock
@@ -249,10 +250,23 @@ def test_extract_ac40_answer_outside_the_schema_is_a_model_failure(text: str) ->
 
 
 @pytest.mark.parametrize("entry", ["2 Jahre", ["a"], None])
-def test_extract_ac62_field_that_is_not_an_object_is_not_found(entry: object) -> None:
+def test_extract_ac40_field_that_is_present_but_not_an_object_is_a_model_failure(
+    entry: object,
+) -> None:
     wire = run([PLAIN_QUOTE], StubModel(json.dumps({"term": entry})))
-    assert wire["outcome"] == "extracted"
-    assert by_key(wire)["term"]["value"] is None
+    assert wire == {"outcome": "failed", "reason": "model_unavailable"}
+
+
+def test_extract_ac53_a_bridge_error_propagates_without_an_extraction_log_line(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    def failing_fetch(attachment_id: str) -> bytes:
+        raise BridgeUnavailable("HTTP 500")
+
+    built = ExtractionPipeline(failing_fetch, StubModel(), "local", "qwen3:8b", FakeClock())
+    with caplog.at_level(logging.INFO, logger=LOGGER_NAME), pytest.raises(BridgeUnavailable):
+        built.extract(ATTACHMENT_ID, 1000)
+    assert log_lines(caplog) == []
 
 
 def test_extract_ac38_model_unavailable_is_a_failed_result() -> None:
