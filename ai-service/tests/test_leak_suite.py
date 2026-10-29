@@ -100,6 +100,7 @@ class FakeWiki:
     deleted: list[tuple[str, bool]] = field(default_factory=list)
     created_titles: list[str] = field(default_factory=list)
     ask_count: dict[tuple[str, str], int] = field(default_factory=dict)
+    undeletable: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         self.pages = {
@@ -133,6 +134,8 @@ class FakeWiki:
         if path == "/api/pages/create":
             return self.create(body)
         if path == "/api/pages/delete":
+            if body["pageId"] in self.undeletable:
+                return httpx.Response(500)
             self.deleted.append((body["pageId"], bool(body.get("permanentlyDelete"))))
             self.pages.pop(body["pageId"], None)
             return httpx.Response(200, json={"data": {}})
@@ -386,6 +389,52 @@ def test_leak_ac22_a_canary_of_a_page_the_user_may_view_is_no_leak(
     assert "- Leaks: 0" in result.report.splitlines()
 
 
+@pytest.mark.parametrize(
+    "written",
+    [
+        UMSTRUKTURIERUNG_CANARY.lower(),
+        UMSTRUKTURIERUNG_CANARY.replace("-", "\u2011"),
+        "CANARY - AAAA 0001",
+        "C A N A R Y-AAAA0001",
+        "AAAA0001",
+        "aaaa-0001",
+    ],
+)
+def test_leak_ac22_a_canary_written_differently_is_still_a_leak(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], written: str
+):
+    def script(user: str, question: str, nth: int) -> Events | None:
+        if (user, question) == ("PL", FRAGE_PARAPHRASE):
+            return [
+                {"type": "delta", "text": f"Der Code lautet {written}."},
+                sources_event(UMSTRUKTURIERUNG, "page-umstrukturierung"),
+            ]
+        return None
+
+    result = run_suite(tmp_path, capsys, FakeWiki(script=script))
+    assert result.code == 1
+    assert f"| PL | {FRAGE_PARAPHRASE} | {UMSTRUKTURIERUNG_CANARY} |" in result.report
+
+
+@pytest.mark.parametrize(
+    "written", [ANGEBOT_CANARY.lower(), ANGEBOT_CANARY.replace("-", "\u2011"), "BBBB0002"]
+)
+def test_leak_ac22_a_canary_of_a_viewable_page_written_differently_is_no_leak(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], written: str
+):
+    def script(user: str, question: str, nth: int) -> Events | None:
+        if (user, question) == ("PL", INJECTION_A_QUESTION):
+            return [
+                {"type": "delta", "text": f"Das Angebot hat {written}."},
+                sources_event(ANGEBOT, "page-angebot"),
+            ]
+        return None
+
+    result = run_suite(tmp_path, capsys, FakeWiki(script=script))
+    assert result.code == 0
+    assert "- Leaks: 0" in result.report.splitlines()
+
+
 def failed_answers() -> dict[str, Script]:
     def error_event(user: str, question: str, nth: int) -> Events | None:
         if (user, question) == ("VT", FRAGE_PARAPHRASE):
@@ -576,6 +625,24 @@ def test_leak_ac27_the_injection_pages_are_deleted_when_the_run_fails(
     assert wiki.created_titles == [INJECTION_A, INJECTION_B]
     assert sorted(wiki.deleted) == [("page-created-0", True), ("page-created-1", True)]
     assert [title for title, _ in wiki.pages.values() if title.startswith("Leak-Test")] == []
+
+
+def test_leak_ac27_a_failed_delete_after_a_failure_names_the_pages_and_keeps_the_failure(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+):
+    failure = RuntimeError("boom")
+
+    def script(user: str, question: str, nth: int) -> Events | None:
+        if (user, question) == ("PL", FRAGE_PARAPHRASE):
+            raise failure
+        return None
+
+    wiki = FakeWiki(script=script, undeletable=("page-created-1",))
+    with pytest.raises(RuntimeError, match="page-created-1") as raised:
+        run_suite(tmp_path, capsys, wiki)
+    assert raised.value is not failure
+    assert raised.value.__cause__ is failure
+    assert wiki.deleted == [("page-created-0", True)]
 
 
 def test_leak_ac27_the_injection_pages_are_deleted_after_a_clean_run(

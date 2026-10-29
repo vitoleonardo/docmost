@@ -34,6 +34,15 @@ if ! command -v psql >/dev/null 2>&1; then
   exit 1
 fi
 
+wiki_url="http://127.0.0.1:$LEAK_WIKI_PORT"
+
+port_probe=0
+curl -s -o /dev/null --max-time 5 "$wiki_url/" 2>/dev/null || port_probe=$?
+if [ "$port_probe" -ne 7 ]; then
+  echo "Port $LEAK_WIKI_PORT is already in use: stop the process on it or set LEAK_WIKI_PORT" >&2
+  exit 1
+fi
+
 server_base=${LEAK_PG_ADMIN_URL%/*}
 server_host=${server_base#*@}
 admin_credentials=${server_base#*://}
@@ -58,8 +67,6 @@ echo "Creating database $LEAK_DATABASE"
 psql "$LEAK_PG_ADMIN_URL" -v ON_ERROR_STOP=1 -q \
   -c "DROP DATABASE IF EXISTS $LEAK_DATABASE WITH (FORCE)" \
   -c "CREATE DATABASE $LEAK_DATABASE"
-
-wiki_url="http://127.0.0.1:$LEAK_WIKI_PORT"
 
 export DATABASE_URL="$leak_database_url"
 export REDIS_URL="$LEAK_REDIS_URL"
@@ -106,6 +113,11 @@ until curl -fsS -o /dev/null "$wiki_url/api/health" 2>/dev/null; do
   sleep 1
   waited=$((waited + 1))
 done
+if ! kill -0 "$server_pid" 2>/dev/null; then
+  echo "The wiki started on $wiki_url exited after its health check; another process answers on port $LEAK_WIKI_PORT" >&2
+  tail -n 40 "$server_log" >&2
+  exit 1
+fi
 echo "Wiki ready after ${waited}s"
 
 export LEAK_WIKI_URL="$wiki_url"

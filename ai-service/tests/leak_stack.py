@@ -2,7 +2,7 @@ import os
 import re
 import time
 import uuid
-from collections.abc import Callable, Iterator, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import Any
@@ -11,13 +11,22 @@ import psycopg
 import pytest
 from redis import Redis
 
-from ai_service.ask import AskPipeline, AskRequest, FilterPages, SearchSections
-from ai_service.bridge_client import BridgeClient
+from ai_service.ask import (
+    MAX_SOURCES,
+    AskPipeline,
+    AskRequest,
+    FilterPages,
+    SearchSections,
+    in_scope,
+    scope_space_ids,
+)
+from ai_service.bridge_client import BridgeClient, PageContent
 from ai_service.conversations import ConversationStore
 from ai_service.embedding import Embedder, FastEmbedEmbedder
 from ai_service.index_store import IndexStore, SearchHit
 from ai_service.indexer import Indexer, IndexOutcome
 from ai_service.leak_suite import SEED_EMAILS
+from ai_service.prompt import build_messages, format_source
 from ai_service.search import search_index
 from tests.hashing_embedder import HashingEmbedder
 from tests.seed_matrix import (
@@ -26,7 +35,10 @@ from tests.seed_matrix import (
     SEED_USERS,
     SPACE_DIRS,
     SPACE_MEMBERS,
+    SeedPage,
     load_entries,
+    load_seed_pages,
+    sentences_of,
 )
 from tests.test_ask import StubModel
 from tests.test_stack import POLL_SECONDS, list_all_pages
@@ -62,11 +74,50 @@ LIST_LIMIT = 100
 DENIED_SCORE = 1.0
 VIEWABLE_SCORE = 0.9
 EVERY_CANDIDATE_THRESHOLD = -1.0
-SOURCE_HEADER = re.compile(r"(?m)^\[\d+\] (.*)$")
+RECORDED_QUESTION = "Was steht in den Quellen?"
+PASSED_THE_FILTER = "passed the filter"
+HEADER_PROBE_NUMBER = 424242
+HEADER_PROBE_TITLE = "header-probe-title"
 
 LeakFinding = tuple[str, str]
 SpaceMember = tuple[str, str, str]
 WikiItem = dict[str, Any]
+
+
+def section_hit(
+    page_id: str,
+    title: str,
+    text: str,
+    space_id: str = "",
+    file_name: str | None = None,
+    pdf_page: int | None = None,
+) -> SearchHit:
+    return SearchHit(
+        page_id=page_id,
+        title=title,
+        space_id=space_id,
+        heading_path=[],
+        text=text,
+        score=VIEWABLE_SCORE,
+        attachment_id=None if file_name is None else f"attachment-{page_id}",
+        file_name=file_name,
+        pdf_page=pdf_page,
+    )
+
+
+def source_header_pattern() -> re.Pattern[str]:
+    probe = section_hit("", HEADER_PROBE_TITLE, "")
+    header = format_source(HEADER_PROBE_NUMBER, probe).split("\n", 1)[0]
+    assert str(HEADER_PROBE_NUMBER) in header and HEADER_PROBE_TITLE in header, header
+    pattern = (
+        re.escape(header)
+        .replace(str(HEADER_PROBE_NUMBER), r"\d+")
+        .replace(re.escape(HEADER_PROBE_TITLE), "(.*)")
+    )
+    return re.compile(f"(?m)^{pattern}$")
+
+
+SOURCE_HEADER = source_header_pattern()
 
 
 def source_blocks(sources_block: str) -> list[tuple[str, str]]:
@@ -81,10 +132,40 @@ def leak_questions() -> list[str]:
 @dataclass(frozen=True)
 class LeakRun(PipelineRun):
     filter_calls: list[list[str]] = field(default_factory=list)
+    sent_sources: int = 0
 
     @property
     def passing_page_ids(self) -> set[str]:
         return {page_id for passing in self.filter_calls for page_id in passing}
+
+
+def sent_source_count(
+    candidates: Sequence[SearchHit],
+    filter_calls: Sequence[Sequence[str]],
+    space_ids: Sequence[str],
+    page_id: str | None,
+    threshold: float,
+) -> int:
+    if not filter_calls:
+        return 0
+    passing = set(filter_calls[0])
+    sendable = [
+        hit
+        for hit in candidates
+        if hit.page_id in passing and hit.score >= threshold and in_scope(hit, space_ids, page_id)
+    ]
+    return min(len(sendable), MAX_SOURCES)
+
+
+def prompt_run(
+    hits: Sequence[SearchHit],
+    history: Sequence[tuple[str, str | None]] = (),
+    sent_sources: int | None = None,
+) -> LeakRun:
+    model = StubModel()
+    model.calls.append(build_messages(RECORDED_QUESTION, hits, history))
+    sent = len(hits) if sent_sources is None else sent_sources
+    return LeakRun([], [], model, sent_sources=sent)
 
 
 @dataclass
@@ -181,7 +262,52 @@ class WikiSnapshot:
 
 
 @dataclass
-class LeakStack:
+class LeakDetector:
+    titles: dict[str, str]
+    canaries: dict[str, str]
+    access: AccessModel
+    section_texts: dict[str, list[str]] = field(default_factory=dict)
+
+    def leaks(self, user: str, run: LeakRun) -> list[LeakFinding]:
+        passed_denied = [
+            (self.titles[page_id], PASSED_THE_FILTER)
+            for page_id in sorted(run.passing_page_ids)
+            if page_id in self.titles and not self.access.may_view(user, page_id)
+        ]
+        if not run.model.calls:
+            return passed_denied
+        prompt = run.model.calls[-1]
+        viewable_titles = {self.titles[page_id] for page_id in self.access.viewable_pages(user)}
+        sources = source_blocks(run.sources_block)
+        assert len(sources) == run.sent_sources, (
+            f"parsed {len(sources)} source blocks, the pipeline sent {run.sent_sources}"
+        )
+        searched = "\n".join(
+            [body for title, body in sources if title not in viewable_titles]
+            + [message["content"] for message in prompt if message["role"] == "assistant"]
+        )
+        source_titles = {title for title, _ in sources}
+        whole_prompt = "\n".join(message["content"] for message in prompt)
+        found: list[LeakFinding] = passed_denied
+        for page_id, texts in self.section_texts.items():
+            if self.access.may_view(user, page_id):
+                continue
+            title = self.titles[page_id]
+            if title in source_titles:
+                found.append((title, title))
+            found.extend(
+                (title, text)
+                for text in texts
+                if len(text) >= MIN_SECTION_LENGTH and text in searched
+            )
+            canary = self.canaries.get(page_id)
+            if canary is not None and canary in whole_prompt:
+                found.append((title, canary))
+        return found
+
+
+@dataclass(kw_only=True)
+class LeakStack(LeakDetector):
     bridge: BridgeClient
     store: IndexStore
     embedder: Embedder
@@ -190,11 +316,7 @@ class LeakStack:
     bridge_secret: str
     user_ids: dict[str, str]
     space_ids: dict[str, str]
-    titles: dict[str, str]
-    canaries: dict[str, str]
-    access: AccessModel
     threshold: float
-    section_texts: dict[str, list[str]] = field(default_factory=dict)
 
     @property
     def workspace_id(self) -> str:
@@ -379,43 +501,14 @@ class LeakStack:
         for event in events:
             if event["type"] == "citations":
                 conversations.confirm(user_id, request.conversation_id, event["turnId"])
-        return LeakRun(events, candidates, model, filter_calls)
-
-    def leaks(self, user: str, run: PipelineRun) -> list[LeakFinding]:
-        passed_denied: list[LeakFinding] = []
-        if isinstance(run, LeakRun):
-            passed_denied = [
-                (self.titles[page_id], "passed the filter")
-                for page_id in sorted(run.passing_page_ids)
-                if page_id in self.titles and not self.access.may_view(user, page_id)
-            ]
-        if not run.model.calls:
-            return passed_denied
-        prompt = run.model.calls[-1]
-        viewable_titles = {self.titles[page_id] for page_id in self.access.viewable_pages(user)}
-        sources = source_blocks(run.sources_block)
-        searched = "\n".join(
-            [body for title, body in sources if title not in viewable_titles]
-            + [message["content"] for message in prompt if message["role"] == "assistant"]
+        sent = sent_source_count(
+            candidates,
+            filter_calls,
+            scope_space_ids(self.token_space_ids(user), space_id),
+            page_id,
+            self.threshold,
         )
-        source_titles = {title for title, _ in sources}
-        whole_prompt = "\n".join(message["content"] for message in prompt)
-        found: list[LeakFinding] = passed_denied
-        for page_id, texts in self.section_texts.items():
-            if self.access.may_view(user, page_id):
-                continue
-            title = self.titles[page_id]
-            if title in source_titles:
-                found.append((title, title))
-            found.extend(
-                (title, text)
-                for text in texts
-                if len(text) >= MIN_SECTION_LENGTH and text in searched
-            )
-            canary = self.canaries.get(page_id)
-            if canary is not None and canary in whole_prompt:
-                found.append((title, canary))
-        return found
+        return LeakRun(events, candidates, model, filter_calls, sent)
 
 
 @contextmanager
@@ -516,6 +609,39 @@ def space_ids_by_dir(owner: Member) -> dict[str, str]:
     return {space_dir: by_name[name] for space_dir, name in SPACE_NAMES.items()}
 
 
+def seed_mismatches(
+    contents: Mapping[str, PageContent],
+    space_ids: Mapping[str, str],
+    seed_pages: Sequence[SeedPage],
+) -> list[str]:
+    problems: list[str] = []
+    matched: set[str] = set()
+    for content in contents.values():
+        seeds = [seed for seed in seed_pages if sentences_of(seed.markdown)[0] in content.markdown]
+        if len(seeds) != 1:
+            problems.append(f"{content.title!r} matches {len(seeds)} seed pages")
+            continue
+        [seed] = seeds
+        if seed.page_id in matched:
+            problems.append(
+                f"{content.title!r} is a second wiki page for the seed page {seed.title}"
+            )
+        matched.add(seed.page_id)
+        if content.space_id != space_ids[seed.space_dir]:
+            problems.append(
+                f"{content.title!r} is in the space {content.space_id}, "
+                f"the seed puts it in {seed.space_dir}"
+            )
+        if seed.canary is not None and content.title != seed.title:
+            problems.append(f"{content.title!r} has another title than the seed: {seed.title}")
+    problems.extend(
+        f"the seed page {seed.space_dir}/{seed.title} is not in the wiki"
+        for seed in seed_pages
+        if seed.page_id not in matched
+    )
+    return problems
+
+
 @pytest.fixture(scope="module")
 def leak_stack() -> Iterator[LeakStack]:
     variables = required_variables()
@@ -530,6 +656,11 @@ def leak_stack() -> Iterator[LeakStack]:
     listed = list_all_pages(bridge)
     contents = {page.id: bridge.page_content(page.id) for page in listed}
     titles = {page_id: content.title for page_id, content in contents.items()}
+    mismatches = seed_mismatches(contents, space_ids, load_seed_pages())
+    assert mismatches == [], f"the wiki does not hold the seed pages: {mismatches}"
+    assert {page.id: page.space_id for page in listed} == {
+        page_id: content.space_id for page_id, content in contents.items()
+    }, "the page list and the page contents disagree on the spaces"
     canary_entries = load_entries(CANARIES_PATH)
     canary_by_title = {entry["title"]: entry for entry in canary_entries}
     assert canary_by_title.keys() <= set(titles.values()), "a canary page is missing in the wiki"

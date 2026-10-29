@@ -116,7 +116,7 @@ To switch the assistant off, unset `AI_BRIDGE_SECRET` and restart the wiki serve
 - ai-service fast tests, CI: `cd ai-service && uv run pytest -m "not integration"`
 - ai-service integration, local only: `cd ai-service && uv run pytest -m "integration and not stack"`. It uses Redis db 15 and creates and drops the database `docmost_ai_role_test` and the role `docmost_ai_test`.
 - Contract: `docs/contracts/ai-bridge.json`. Both sides test against it: `apps/server/src/integrations/ai-bridge/ai-bridge.contract.spec.ts` and `ai-service/tests/test_contract.py`.
-- CI runs the leak check ("Leak tests") but not the other e2e and integration suites.
+- CI runs the leak check (step "Leak check") but not the other e2e and integration suites.
 
 ## Indexing
 

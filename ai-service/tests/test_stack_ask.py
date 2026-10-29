@@ -1,4 +1,3 @@
-import json
 import os
 import time
 import uuid
@@ -15,7 +14,8 @@ from redis import Redis
 from ai_service.ask import AskPipeline, AskRequest, FilterPages
 from ai_service.conversations import ConversationStore
 from ai_service.index_store import SearchHit
-from ai_service.leak_suite import LOGIN_THROTTLE_SECONDS, SEED_EMAILS
+from ai_service.leak_suite import SEED_EMAILS, parse_sse_events
+from ai_service.leak_suite import log_in as log_in_with_retry
 from ai_service.search import search_index
 from ai_service.settings import AskSettings
 from tests.test_ask import StubModel
@@ -134,11 +134,7 @@ def log_in(wiki_url: str, key: str, bridge_secret: str, password: str = SEED_PAS
     session = httpx.Client(
         base_url=wiki_url, timeout=httpx.Timeout(180, connect=10), follow_redirects=False
     )
-    credentials = {"email": SEED_EMAILS[key], "password": password}
-    response = session.post("/api/auth/login", json=credentials)
-    if response.status_code == 429:
-        time.sleep(LOGIN_THROTTLE_SECONDS)
-        response = session.post("/api/auth/login", json=credentials)
+    response = log_in_with_retry(session, SEED_EMAILS[key], password, time.sleep)
     assert response.status_code == 200, response.text
     user = session.post("/api/users/me").json()["data"]["user"]
     spaces = session.post("/api/spaces", json={}).json()["data"]["items"]
@@ -185,10 +181,7 @@ def ask_wiki(member: Member, question: str) -> WikiAnswer:
     body = {"question": question, "conversationId": str(uuid.uuid4())}
     with member.session.stream("POST", "/api/ai/ask", json=body) as response:
         assert response.status_code == 200, response.read()
-        for line in response.iter_lines():
-            if not line.startswith("data:"):
-                continue
-            event = json.loads(line.removeprefix("data:").strip())
+        for event in parse_sse_events(response.iter_lines()):
             if event["type"] == "delta" and first_text is None:
                 first_text = time.monotonic() - started
             events.append(event)

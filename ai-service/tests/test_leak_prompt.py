@@ -6,13 +6,15 @@ from tests.hashing_embedder import HashingEmbedder
 from tests.leak_stack import (
     EMBEDDING_MODEL_VARIABLE,
     EVERY_CANDIDATE_THRESHOLD,
+    PASSED_THE_FILTER,
     LeakRun,
     LeakStack,
     leak_questions,
     leak_stack,
+    prompt_run,
+    section_hit,
 )
 from tests.seed_matrix import SEED_USERS, load_seed_pages
-from tests.test_ask import StubModel
 from tests.test_stack_ask import MIN_SECTION_LENGTH, THRESHOLD, allow_every_page
 
 __all__ = ["leak_stack"]
@@ -73,12 +75,6 @@ def test_leak_ac1_the_expected_access_follows_the_seed_space_and_page_matrices(
         }, page.title
 
 
-def recorded_prompt(sources_block: str) -> LeakRun:
-    model = StubModel()
-    model.calls.append([{"role": "user", "content": f"{sources_block}\n\nFrage: Frage?"}])
-    return LeakRun([], [], model)
-
-
 def shared_denied_section(stack: LeakStack, user: str) -> tuple[str, str, str]:
     viewable = stack.access.viewable_pages(user)
     for denied_id, texts in stack.section_texts.items():
@@ -88,17 +84,18 @@ def shared_denied_section(stack: LeakStack, user: str) -> tuple[str, str, str]:
             for viewable_id in viewable:
                 for viewable_text in stack.section_texts[viewable_id]:
                     if len(text) >= MIN_SECTION_LENGTH and text in viewable_text:
-                        return stack.titles[denied_id], stack.titles[viewable_id], viewable_text
+                        return denied_id, viewable_id, viewable_text
     raise AssertionError(f"no section of a denied page is shared with a viewable page for {user}")
 
 
 def test_leak_ac1_a_shared_section_under_a_viewable_page_is_no_leak_under_a_denied_page_one(
     leak_stack: LeakStack,
 ):
-    denied_title, viewable_title, text = shared_denied_section(leak_stack, "VT")
+    denied_id, viewable_id, text = shared_denied_section(leak_stack, "VT")
+    denied_title = leak_stack.titles[denied_id]
 
-    under_viewable = recorded_prompt(f"Quellen:\n\n[1] {viewable_title}\n{text}")
-    under_denied = recorded_prompt(f"Quellen:\n\n[1] {denied_title}\n{text}")
+    under_viewable = prompt_run([section_hit(viewable_id, leak_stack.titles[viewable_id], text)])
+    under_denied = prompt_run([section_hit(denied_id, denied_title, text)])
 
     assert leak_stack.leaks("VT", under_viewable) == []
     assert (denied_title, denied_title) in leak_stack.leaks("VT", under_denied)
@@ -195,7 +192,9 @@ def test_leak_ac6_a_filter_that_lets_every_page_through_is_reported_as_a_leak(
 
     for question in QUESTIONS:
         run = leak_stack.ask(user, question, search=search, filter_pages=allow_every_page)
-        assert leak_stack.leaks(user, run) != [], question
+        findings = leak_stack.leaks(user, run)
+        assert findings != [], question
+        assert [text for _, text in findings if text != PASSED_THE_FILTER] != [], question
 
 
 def test_leak_ac10_the_index_uses_the_configured_embedding_model(leak_stack: LeakStack):

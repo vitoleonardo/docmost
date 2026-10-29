@@ -136,7 +136,6 @@ jobs:
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: .claude/bin/check build || [ $? -eq 4 ]
 
-      # Runs after Build so dist exists; the script builds the server itself when Build failed and left no dist.
       - name: Leak check
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: scripts/run-leak-check.sh
