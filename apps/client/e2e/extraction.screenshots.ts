@@ -179,6 +179,46 @@ test.describe("GF extracts contract data", () => {
     await screenshot(page, testInfo, "EXTRACT-AC1", "e1");
   });
 
+  test("EXTRACT-AC2: the selected embedded PDF shows Daten extrahieren without hover", async ({
+    page,
+  }, testInfo) => {
+    const path = await contractPagePath(page);
+    await openContractPage(page, path);
+    await page.getByText(CONTRACT_FILE).click();
+    await page.getByRole("button", { name: "Als PDF einbetten" }).click();
+
+    const pageContent = page.getByLabel("Seiteninhalt", { exact: true });
+    const embeddedPdf = pageContent.locator(".node-pdf");
+    const button = embeddedPdf.getByRole("button", {
+      name: "Daten extrahieren",
+    });
+    const menu = button.locator("xpath=..");
+    await expect(embeddedPdf.locator("iframe")).toBeAttached();
+    await page.mouse.move(0, 0);
+    await pageContent.focus();
+
+    try {
+      await page.keyboard.press("ArrowUp");
+      await expect(menu).toHaveCSS("opacity", "0");
+      await page.keyboard.press("ArrowDown");
+
+      await expect(
+        embeddedPdf.locator(".ProseMirror-selectednode"),
+      ).toHaveCount(1);
+      await expect(button).toBeVisible();
+      await expect(menu).toHaveCSS("opacity", "1");
+      await screenshot(page, testInfo, "EXTRACT-AC2", "e1-embedded");
+    } finally {
+      await pageContent.focus();
+      await page.keyboard.press("ControlOrMeta+z");
+      await expect(page.getByText(CONTRACT_FILE)).toBeVisible();
+      const restored = await page.context().newPage();
+      await openContractPage(restored, path);
+      await expect(restored.locator(".node-pdf")).toHaveCount(0);
+      await restored.close();
+    }
+  });
+
   test("EXTRACT-AC9, EXTRACT-AC14: E2 shows rows, quotes, pages and the field without source", async ({
     page,
   }, testInfo) => {
