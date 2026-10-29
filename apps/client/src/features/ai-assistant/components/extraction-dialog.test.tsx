@@ -256,7 +256,7 @@ describe("extraction dialog review", () => {
     expect(screen.queryByText(/ohne Quelle/)).toBeNull();
   });
 
-  it("EXTRACT-AC69: every Wert input keeps a minimum width beside long quotes", async () => {
+  it("EXTRACT-AC69: every Wert input keeps a minimum width of 140 px", async () => {
     await renderWith(extracted(ONE_MISSING));
 
     await screen.findByText("Schema: Vertrag");
