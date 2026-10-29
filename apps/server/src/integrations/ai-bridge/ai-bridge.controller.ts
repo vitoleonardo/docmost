@@ -14,7 +14,10 @@ import { AuthUser } from '../../common/decorators/auth-user.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { AiAskDto } from './dto/ai-ask.dto';
 import { AiBridgeExceptionFilter } from './filters/ai-bridge-exception.filter';
+import { AiExtractDto } from './dto/ai-extract.dto';
 import { AiAskService } from './services/ai-ask.service';
+import { AiExtractService } from './services/ai-extract.service';
+import { AiServiceExtractResult } from './services/ai-service.client';
 import {
   AiAssistantStatus,
   AiStatusService,
@@ -26,6 +29,7 @@ export class AiBridgeController {
   constructor(
     private readonly aiStatusService: AiStatusService,
     private readonly aiAskService: AiAskService,
+    private readonly aiExtractService: AiExtractService,
   ) {}
 
   @HttpCode(HttpStatus.OK)
@@ -60,5 +64,18 @@ export class AiBridgeController {
       reply.raw.write(`data: ${JSON.stringify(event)}\n\n`);
     }
     reply.raw.end();
+  }
+
+  @UseFilters(AiBridgeExceptionFilter)
+  @HttpCode(HttpStatus.OK)
+  @Post('extract')
+  extract(
+    @Body() dto: AiExtractDto,
+    @AuthUser() user: User,
+    @Res({ passthrough: true }) reply: FastifyReply,
+  ): Promise<AiServiceExtractResult | null> {
+    const clientGone = new AbortController();
+    reply.raw.on('close', () => clientGone.abort());
+    return this.aiExtractService.extract(user, dto, clientGone.signal);
   }
 }

@@ -19,7 +19,13 @@ from ai_service import __main__ as api_main
 from ai_service.app import create_app
 from ai_service.auth import UserSession, decode_user_token
 from ai_service.embedding import EmbeddingModelError
-from tests.conftest import BRIDGE_KEY, SERVICE_CREDENTIAL, USER_ID, make_settings
+from tests.conftest import (
+    BRIDGE_KEY,
+    SERVICE_CREDENTIAL,
+    USER_ID,
+    idle_extraction_pipeline,
+    make_settings,
+)
 from tests.index_db import SPACE_A, page_id
 from tests.test_ask import CONVERSATION_ID, OTHER_USER_ID, Harness, hit
 
@@ -39,7 +45,11 @@ def harness(redis_client: Redis) -> Harness:
 
 
 def make_client(harness: Harness) -> TestClient:
-    return TestClient(create_app(make_settings(), fakeredis.FakeRedis(), harness.pipeline()))
+    return TestClient(
+        create_app(
+            make_settings(), fakeredis.FakeRedis(), harness.pipeline(), idle_extraction_pipeline()
+        )
+    )
 
 
 def ask(
@@ -50,11 +60,6 @@ def ask(
 
 def lines(response: httpx.Response) -> list[dict[str, Any]]:
     return [json.loads(line) for line in response.text.splitlines()]
-
-
-@pytest.fixture
-def headers(service_headers: dict[str, str], make_token: Callable[..., str]) -> dict[str, str]:
-    return {**service_headers, "X-User-Token": make_token()}
 
 
 def test_ask_ac9_the_response_is_ndjson_with_one_event_per_line_in_order(
@@ -168,7 +173,12 @@ def test_ask_ac9_the_first_line_reaches_the_client_before_the_last_delta_exists(
 
     async def scenario() -> list[dict[str, Any] | None]:
         call = AsgiCall(
-            create_app(make_settings(), fakeredis.FakeRedis(), harness.pipeline()),
+            create_app(
+                make_settings(),
+                fakeredis.FakeRedis(),
+                harness.pipeline(),
+                idle_extraction_pipeline(),
+            ),
             headers,
             BODY,
         )
@@ -203,7 +213,12 @@ def test_ask_ac13_a_client_that_disconnects_after_the_first_line_stops_the_pipel
 
     async def scenario() -> None:
         call = AsgiCall(
-            create_app(make_settings(), fakeredis.FakeRedis(), harness.pipeline()),
+            create_app(
+                make_settings(),
+                fakeredis.FakeRedis(),
+                harness.pipeline(),
+                idle_extraction_pipeline(),
+            ),
             headers,
             BODY,
         )
@@ -412,7 +427,9 @@ CONFIRM_PATH = "/v1/conversations/confirm"
 
 
 def shared_client(harness: Harness) -> TestClient:
-    return TestClient(create_app(make_settings(), harness.redis, harness.pipeline()))
+    return TestClient(
+        create_app(make_settings(), harness.redis, harness.pipeline(), idle_extraction_pipeline())
+    )
 
 
 def answered_turn_id(client: TestClient, headers: dict[str, str]) -> str:

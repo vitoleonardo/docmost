@@ -27,6 +27,7 @@ import { DeletedPageBanner } from "@/features/page/trash/components/deleted-page
 import clsx from "clsx";
 import { currentPageEditModeAtom } from "@/features/editor/atoms/editor-atoms.ts";
 import { EmptyPageGetStarted } from "@/features/editor/components/empty-page/empty-page-get-started";
+import ExtractionDialogHost from "@/features/ai-assistant/components/extraction-dialog-host.tsx";
 
 const MemoizedTitleEditor = React.memo(TitleEditor);
 const MemoizedPageEditor = React.memo(PageEditor);
@@ -117,6 +118,7 @@ export function FullEditor({
         content={content}
         canComment={canComment}
       />
+      <ExtractionDialogHost />
       <EmptyPageGetStarted
         pageId={pageId}
         spaceId={spaceId}

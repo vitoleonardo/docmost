@@ -11,6 +11,7 @@ from ai_service.bridge_client import BridgeClient
 from ai_service.conversations import ConversationStore
 from ai_service.db_check import RoleNotIsolatedError, check_database_role
 from ai_service.embedding import Embedder, EmbeddingModelError
+from ai_service.extraction import ExtractionPipeline
 from ai_service.index_store import IndexStore, SearchHit
 from ai_service.inference import ChatModel
 from ai_service.search import search_index
@@ -49,6 +50,16 @@ def build_pipeline(settings: AskSettings, embedder: Embedder, redis: Redis) -> A
     )
 
 
+def build_extraction_pipeline(settings: AskSettings) -> ExtractionPipeline:
+    bridge = BridgeClient(settings.ai_wiki_url, settings.ai_service_token)
+    return ExtractionPipeline(
+        fetch_attachment=bridge.attachment,
+        model=ChatModel(settings.ai_llm_base_url, settings.ai_llm_model),
+        mode=settings.ai_inference_mode,
+        model_name=settings.ai_llm_model,
+    )
+
+
 def main() -> None:
     configure_logging()
     try:
@@ -65,7 +76,12 @@ def main() -> None:
         exit_with(str(error), error)
     redis: Redis = Redis.from_url(settings.redis_url, decode_responses=True)
     uvicorn.run(
-        create_app(settings, redis, build_pipeline(settings, embedder, redis)),
+        create_app(
+            settings,
+            redis,
+            build_pipeline(settings, embedder, redis),
+            build_extraction_pipeline(settings),
+        ),
         host=settings.ai_service_host,
         port=settings.ai_service_port,
     )
