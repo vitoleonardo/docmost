@@ -458,9 +458,7 @@ TOOLS = [
 ]
 
 
-def tool_envelope(
-    content: object = None, tool_calls: object = None, usage: object = None
-) -> bytes:
+def tool_envelope(content: object = None, tool_calls: object = None, usage: object = None) -> bytes:
     message: dict = {"role": "assistant", "content": content}
     if tool_calls is not None:
         message["tool_calls"] = tool_calls
@@ -567,9 +565,7 @@ def test_agent_ac67_connection_refused_raises_model_unavailable():
 
 def test_agent_ac67_server_error_raises_model_unavailable():
     with pytest.raises(ModelUnavailable) as error:
-        chat_model(serving(b"boom", status=500)).complete_tools(
-            MESSAGES, TOOLS, deadline_seconds=5
-        )
+        chat_model(serving(b"boom", status=500)).complete_tools(MESSAGES, TOOLS, deadline_seconds=5)
     assert "500" in error.value.cause
 
 

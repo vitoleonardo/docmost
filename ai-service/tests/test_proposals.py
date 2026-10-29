@@ -147,9 +147,7 @@ def test_agent_ac42_accepts_500_characters() -> None:
 
 
 def test_agent_ac43_refuses_two_changes_to_one_block() -> None:
-    assert refusal(
-        changes=[{"block": 2, "newText": "a b"}, {"block": 2, "newText": "c d"}]
-    )
+    assert refusal(changes=[{"block": 2, "newText": "a b"}, {"block": 2, "newText": "c d"}])
 
 
 def test_agent_ac44_refuses_11_changes_and_no_changes() -> None:
@@ -176,9 +174,7 @@ def test_agent_ac45_refuses_a_block_that_is_not_editable() -> None:
 
 
 def test_agent_ac46_refuses_a_second_proposal_for_a_page() -> None:
-    assert refusal(
-        changes=[{"block": 1, "newText": "x y"}], already_proposed=frozenset({"p1"})
-    )
+    assert refusal(changes=[{"block": 1, "newText": "x y"}], already_proposed=frozenset({"p1"}))
 
 
 def test_agent_ac46_uses_the_most_recent_read_passed_in() -> None:
@@ -227,12 +223,7 @@ def test_agent_ac72_marks_the_fewest_words() -> None:
 
 def test_agent_ac72_finds_a_minimal_edit_where_greedy_matching_is_longer() -> None:
     ops = diff_words("a b c d e", "b c d e a")
-    changed = [
-        token
-        for op in ops
-        if op.op != "keep"
-        for token in op.text.split()
-    ]
+    changed = [token for op in ops if op.op != "keep" for token in op.text.split()]
     assert len(changed) == 2
 
 
