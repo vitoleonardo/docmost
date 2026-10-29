@@ -54,6 +54,7 @@ The user chose KIT_APPROVAL=autonomous on 28.10.2026: decide at every auto gate 
 You are on branch $2, created off $1. Stay on it for the spec, the plan and the build; do not create another branch.
 The base branch for review, verify and every gate is $1 (KIT_BASE=$1 is set), not main: earlier milestones are not part of this diff.
 Open exactly one PR for this milestone with gh pr create --draft --base $1 --head $2. Never split the milestone into several PRs, even past 400 changed lines; the user decided one PR per milestone. Log the oversize under Decisions to review.
+After two failed verify rounds, run one more verify round without asking when every failure was in tests or test setup (no product code and no spec change needed); log it under Decisions to review. The user allowed this on 29.10.2026. A failure that needs a product or spec change still stops.
 When a step says stop and ask, or a failure stop is reached, write the question with its context under "## Questions for the user" in .work/$2.md, commit nothing half-done, and end the session.
 Do not change earlier milestones' branches, specs or open decisions. Never merge a PR.
 Every PR, commit and CI run you mention in the PR body gets its full URL.
