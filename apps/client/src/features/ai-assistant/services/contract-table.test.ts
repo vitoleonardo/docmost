@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { Editor } from "@tiptap/core";
+import { Editor, JSONContent } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import { TaskItem, TaskList } from "@tiptap/extension-list";
 import {
@@ -66,14 +66,14 @@ const build = (values = unchangedValues, input = fields) =>
     values,
   });
 
-const cellTexts = (content: any[]): string[][] =>
-  content[2].content.map((row: any) =>
-    row.content.map((cell: any) => cell.content[0].content?.[0]?.text ?? ""),
+const cellTexts = (content: JSONContent[]): string[][] =>
+  content[2].content.map((row) =>
+    row.content.map((cell) => cell.content[0].content?.[0]?.text ?? ""),
   );
 
 let editor: Editor;
 
-const makeEditor = (content: any[]) => {
+const makeEditor = (content: JSONContent[]) => {
   editor = new Editor({
     extensions: [
       StarterKit.configure({ link: false }),
@@ -127,7 +127,7 @@ describe("contract table content", () => {
       "Aus vertrag.pdf, geprüft von Gerda Fischer am 05.03.2026.",
     );
     expect(content[2].type).toBe("table");
-    expect(content[2].content[0].content.map((c: any) => c.type)).toEqual([
+    expect(content[2].content[0].content.map((c) => c.type)).toEqual([
       "tableHeader",
       "tableHeader",
       "tableHeader",

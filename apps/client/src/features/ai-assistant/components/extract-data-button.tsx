@@ -1,35 +1,32 @@
-import { useState } from "react";
-import { ActionIcon, Tooltip } from "@mantine/core";
+import { ActionIcon, ActionIconProps, Tooltip } from "@mantine/core";
 import { IconListDetails } from "@tabler/icons-react";
 import { Editor, useEditorState } from "@tiptap/react";
-import { useAtomValue } from "jotai";
+import { useSetAtom } from "jotai";
 import { useTranslation } from "react-i18next";
-import ExtractionDialog, {
-  ContractValues,
-} from "@/features/ai-assistant/components/extraction-dialog.tsx";
+import { extractionRequestAtom } from "@/features/ai-assistant/atoms/extraction-atom.ts";
 import { useAiAssistantStatusQuery } from "@/features/ai-assistant/queries/ai-assistant-query.ts";
-import {
-  buildContractTableContent,
-  insertContractTable,
-} from "@/features/ai-assistant/services/contract-table.ts";
-import type { IExtractedField } from "@/features/ai-assistant/types/ai-assistant.types.ts";
-import { currentUserAtom } from "@/features/user/atoms/current-user-atom.ts";
 
-interface ExtractDataButtonProps {
+interface ExtractDataButtonProps extends Pick<
+  ActionIconProps,
+  "size" | "variant" | "color"
+> {
   editor: Editor;
   attachmentId: string | null | undefined;
   fileName: string | null | undefined;
+  iconSize?: number;
 }
 
 export default function ExtractDataButton({
   editor,
   attachmentId,
   fileName,
+  iconSize = 18,
+  variant = "default",
+  ...actionIconProps
 }: ExtractDataButtonProps) {
   const { t } = useTranslation();
   const status = useAiAssistantStatusQuery();
-  const currentUser = useAtomValue(currentUserAtom);
-  const [opened, setOpened] = useState(false);
+  const setRequest = useSetAtom(extractionRequestAtom);
   const editable = useEditorState({
     editor,
     selector: (ctx) => ctx.editor.isEditable,
@@ -45,43 +42,18 @@ export default function ExtractDataButton({
     return null;
   }
 
-  const handleInsert = (values: ContractValues, fields: IExtractedField[]) => {
-    insertContractTable(
-      editor,
-      attachmentId,
-      buildContractTableContent({
-        fileName: fileName ?? "",
-        reviewerName: currentUser?.user.name ?? "",
-        date: new Date(),
-        fields,
-        values,
-      }),
-    );
-    setOpened(false);
-  };
-
   return (
-    <>
-      <Tooltip label={t("Extract data")} position="top" withinPortal={false}>
-        <ActionIcon
-          variant="default"
-          aria-label={t("Extract data")}
-          onClick={() => setOpened(true)}
-        >
-          <IconListDetails size={18} />
-        </ActionIcon>
-      </Tooltip>
-      {opened && (
-        <ExtractionDialog
-          opened
-          fileName={fileName ?? ""}
-          pageId={pageId}
-          attachmentId={attachmentId}
-          editable={editable}
-          onInsert={handleInsert}
-          onClose={() => setOpened(false)}
-        />
-      )}
-    </>
+    <Tooltip label={t("Extract data")} position="top" withinPortal={false}>
+      <ActionIcon
+        {...actionIconProps}
+        variant={variant}
+        aria-label={t("Extract data")}
+        onClick={() =>
+          setRequest({ editor, pageId, attachmentId, fileName: fileName ?? "" })
+        }
+      >
+        <IconListDetails size={iconSize} />
+      </ActionIcon>
+    </Tooltip>
   );
 }

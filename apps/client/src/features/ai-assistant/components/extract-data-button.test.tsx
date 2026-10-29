@@ -14,11 +14,12 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createStore, Provider } from "jotai";
-import { Editor } from "@tiptap/core";
+import { Editor, EditorContent, JSONContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { TaskItem, TaskList } from "@tiptap/extension-list";
 import {
@@ -40,13 +41,17 @@ import {
 } from "@docmost/editor-ext";
 import deDE from "../../../../public/locales/de-DE/translation.json";
 import ExtractDataButton from "./extract-data-button.tsx";
+import ExtractionDialogHost from "./extraction-dialog-host.tsx";
 import AttachmentView from "@/features/editor/components/attachment/attachment-view.tsx";
-import PdfMenu from "@/features/editor/components/pdf/pdf-menu.tsx";
+import PdfView from "@/features/editor/components/pdf/pdf-view.tsx";
 import { currentUserAtom } from "@/features/user/atoms/current-user-atom.ts";
 import type { ICurrentUser } from "@/features/user/types/user.types.ts";
 import api from "@/lib/api-client";
 import { extractContract } from "@/features/ai-assistant/services/ai-assistant-service.ts";
-import type { AiAssistantStatus } from "@/features/ai-assistant/types/ai-assistant.types.ts";
+import type {
+  AiAssistantStatus,
+  ExtractResult,
+} from "@/features/ai-assistant/types/ai-assistant.types.ts";
 
 vi.mock("react-i18next", async (importOriginal) => ({
   ...(await importOriginal<typeof import("react-i18next")>()),
@@ -57,10 +62,6 @@ vi.mock("react-i18next", async (importOriginal) => ({
         (deDE as Record<string, string>)[key] ?? key,
       ),
   }),
-}));
-
-vi.mock("@tiptap/react/menus", () => ({
-  BubbleMenu: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
 vi.mock("@/lib/api-client", () => ({ default: { post: vi.fn() } }));
@@ -79,17 +80,56 @@ const statusMock = vi.mocked(api.post);
 const extractMock = vi.mocked(extractContract);
 
 const BUTTON_NAME = "Daten extrahieren";
+const INSERT_NAME = "Als Tabelle einfügen";
 const FILE_NAME = "Vertrag.pdf";
+const DIALOG_TITLE = `Daten extrahieren: ${FILE_NAME}`;
 const ATTACHMENT_ID = "att-1";
+
+const EXTRACTED: ExtractResult = {
+  outcome: "extracted",
+  fields: (
+    ["parties", "term", "noticePeriod", "value", "renewal"] as const
+  ).map((key) => ({
+    key,
+    value: `Wert ${key}`,
+    quote: `Zitat ${key}`,
+    pdfPage: 1,
+  })),
+};
+
+const paragraph = (text: string): JSONContent => ({
+  type: "paragraph",
+  content: [{ type: "text", text }],
+});
+
+const pdfAttachment = (mime = "application/pdf", name = FILE_NAME) => ({
+  type: "attachment",
+  attrs: {
+    attachmentId: ATTACHMENT_ID,
+    name,
+    url: "/api/files/att-1/vertrag.pdf",
+    size: 10,
+    mime,
+  },
+});
+
+const embeddedPdf = {
+  type: "pdf",
+  attrs: {
+    attachmentId: ATTACHMENT_ID,
+    name: FILE_NAME,
+    src: "/api/files/att-1/vertrag.pdf",
+  },
+};
 
 let editor: Editor;
 
-function makeEditor() {
+function makeEditor(content: JSONContent[] = [pdfAttachment()]) {
   editor = new Editor({
     extensions: [
       StarterKit.configure({ link: false }),
-      Attachment,
-      TiptapPdf,
+      Attachment.configure({ view: AttachmentView }),
+      TiptapPdf.configure({ view: PdfView }),
       CustomTable,
       TableRow,
       TableHeader,
@@ -106,20 +146,7 @@ function makeEditor() {
       DetailsContent,
       DetailsSummary,
     ],
-    content: {
-      type: "doc",
-      content: [
-        {
-          type: "attachment",
-          attrs: {
-            attachmentId: ATTACHMENT_ID,
-            name: FILE_NAME,
-            url: "/x",
-            mime: "application/pdf",
-          },
-        },
-      ],
-    },
+    content: { type: "doc", content },
   });
   Object.assign(editor.storage, { pageId: "page-1" });
   return editor;
@@ -138,7 +165,10 @@ function renderInProviders(ui: React.ReactNode) {
   return render(
     <MantineProvider>
       <QueryClientProvider client={new QueryClient()}>
-        <Provider store={store}>{ui}</Provider>
+        <Provider store={store}>
+          {ui}
+          <ExtractionDialogHost />
+        </Provider>
       </QueryClientProvider>
     </MantineProvider>,
   );
@@ -154,8 +184,39 @@ function renderButton() {
   );
 }
 
+function renderPage(content?: JSONContent[]) {
+  makeEditor(content);
+  return renderInProviders(<EditorContent editor={editor} />);
+}
+
 const findButton = () => screen.findByRole("button", { name: BUTTON_NAME });
 const queryButton = () => screen.queryByRole("button", { name: BUTTON_NAME });
+
+async function attachmentCard(name = FILE_NAME): Promise<HTMLElement> {
+  const card = (await screen.findByText(name)).closest<HTMLElement>(
+    ".mantine-Paper-root",
+  );
+  if (!card) throw new Error("attachment card not rendered");
+  return card;
+}
+
+function attachmentPosition(): number {
+  let position = -1;
+  editor.state.doc.descendants((node, pos) => {
+    if (node.type.name === "attachment") position = pos;
+    return position < 0;
+  });
+  return position;
+}
+
+const topLevelTypes = () =>
+  (editor.getJSON().content ?? []).map((node) => node.type);
+
+async function openReviewFromHoveredAttachment() {
+  fireEvent.mouseEnter(await attachmentCard());
+  fireEvent.click(await findButton());
+  return screen.findByRole("button", { name: INSERT_NAME });
+}
 
 beforeAll(() => {
   window.matchMedia ??= ((query: string) => ({
@@ -239,110 +300,162 @@ describe("extract data button", () => {
     answerWith("available");
     renderButton();
     fireEvent.click(await findButton());
-    expect(
-      await screen.findByText(`Daten extrahieren: ${FILE_NAME}`),
-    ).toBeTruthy();
+    expect(await screen.findByText(DIALOG_TITLE)).toBeTruthy();
     expect(extractMock).toHaveBeenCalledWith(
       "page-1",
       ATTACHMENT_ID,
       expect.anything(),
     );
   });
+});
 
-  it("EXTRACT-AC1: inserting writes the reviewer name and today's date and closes the dialog", async () => {
+describe("extract data in the page editor", () => {
+  it("EXTRACT-AC1: hovering a PDF attachment shows the button in its toolbar", async () => {
+    answerWith("available");
+    renderPage();
+    fireEvent.mouseEnter(await attachmentCard());
+    expect(await findButton()).toBeTruthy();
+  });
+
+  it("EXTRACT-AC6: a text/plain attachment named x.pdf offers no button", async () => {
+    answerWith("available");
+    renderPage([pdfAttachment("text/plain", "x.pdf")]);
+    fireEvent.mouseEnter(await attachmentCard("x.pdf"));
+    expect(
+      await screen.findByRole("button", { name: "Als PDF einbetten" }),
+    ).toBeTruthy();
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+    expect(queryButton()).toBeNull();
+  });
+
+  it("EXTRACT-AC2: a selected embedded PDF shows the button in its menu next to its other actions", async () => {
+    answerWith("available");
+    renderPage([embeddedPdf]);
+    act(() => {
+      editor.commands.setNodeSelection(0);
+    });
+    const button = await findButton();
+    const menu =
+      button.closest<HTMLElement>(
+        "div:has(> * [aria-label='Löschen'], > [aria-label='Löschen'])",
+      ) ?? button.parentElement!;
+    expect(
+      within(menu.parentElement ?? menu).getByRole("button", {
+        name: "In Anhang umwandeln",
+      }),
+    ).toBeTruthy();
+  });
+
+  it("EXTRACT-AC2: the embedded PDF shows no button while the assistant is unavailable", async () => {
+    answerWith("unavailable");
+    renderPage([embeddedPdf]);
+    await waitFor(() => expect(statusMock).toHaveBeenCalled());
+    await act(async () => {});
+    expect(
+      await screen.findByRole("button", { name: "In Anhang umwandeln" }),
+    ).toBeTruthy();
+    expect(queryButton()).toBeNull();
+  });
+
+  it("EXTRACT-AC21: inserting writes the reviewer name and today's date directly after the attachment and closes the dialog", async () => {
     vi.useFakeTimers({ toFake: ["Date"], now: new Date(2026, 9, 29, 12) });
     answerWith("available");
-    extractMock.mockResolvedValue({
-      outcome: "extracted",
-      fields: (
-        ["parties", "term", "noticePeriod", "value", "renewal"] as const
-      ).map((key) => ({
-        key,
-        value: `Wert ${key}`,
-        quote: `Zitat ${key}`,
-        pdfPage: 1,
-      })),
-    });
-    renderButton();
-    fireEvent.click(await findButton());
-    fireEvent.click(
-      await screen.findByRole("button", { name: "Als Tabelle einfügen" }),
-    );
-    await waitFor(() =>
-      expect(screen.queryByText(`Daten extrahieren: ${FILE_NAME}`)).toBeNull(),
-    );
-    const doc = editor.getJSON().content ?? [];
-    expect(doc.slice(0, 4).map((node) => node.type)).toEqual([
+    extractMock.mockResolvedValue(EXTRACTED);
+    renderPage([pdfAttachment(), paragraph("Schluss")]);
+    fireEvent.click(await openReviewFromHoveredAttachment());
+    await waitFor(() => expect(screen.queryByText(DIALOG_TITLE)).toBeNull());
+    expect(topLevelTypes()).toEqual([
       "attachment",
       "heading",
       "paragraph",
       "table",
+      "paragraph",
     ]);
-    expect(doc[2].content).toEqual([
+    expect(editor.getJSON().content?.[2].content).toEqual([
       {
         type: "text",
         text: `Aus ${FILE_NAME}, geprüft von Gerda Fischer am 29.10.2026.`,
       },
     ]);
   });
-});
 
-describe("extract data wiring", () => {
-  const attachmentProps = (attrs: Record<string, unknown>) =>
-    ({
-      editor,
-      node: { attrs: { url: "/x", size: 10, ...attrs }, nodeSize: 1 },
-      getPos: () => 0,
-      selected: true,
-    }) as unknown as React.ComponentProps<typeof AttachmentView>;
-
-  it("EXTRACT-AC1: an attachment with content type application/pdf offers the button", async () => {
+  it("EXTRACT-AC22: inserting from the embedded PDF's menu puts the table directly after it", async () => {
     answerWith("available");
-    renderInProviders(
-      <AttachmentView
-        {...attachmentProps({
-          attachmentId: ATTACHMENT_ID,
-          name: FILE_NAME,
-          mime: "application/pdf",
-        })}
-      />,
-    );
-    expect(await findButton()).toBeTruthy();
+    extractMock.mockResolvedValue(EXTRACTED);
+    renderPage([embeddedPdf, paragraph("Schluss")]);
+    fireEvent.click(await findButton());
+    fireEvent.click(await screen.findByRole("button", { name: INSERT_NAME }));
+    await waitFor(() => expect(screen.queryByText(DIALOG_TITLE)).toBeNull());
+    expect(topLevelTypes()).toEqual([
+      "pdf",
+      "heading",
+      "paragraph",
+      "table",
+      "paragraph",
+    ]);
   });
 
-  it("EXTRACT-AC6: a text/plain attachment named x.pdf offers no button", async () => {
+  it("EXTRACT-AC21: the review stays open when the pointer leaves the attachment", async () => {
     answerWith("available");
-    renderInProviders(
-      <AttachmentView
-        {...attachmentProps({
-          attachmentId: ATTACHMENT_ID,
-          name: "x.pdf",
-          mime: "text/plain",
-        })}
-      />,
-    );
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 50));
+    extractMock.mockResolvedValue(EXTRACTED);
+    renderPage([pdfAttachment(), paragraph("Schluss")]);
+    await openReviewFromHoveredAttachment();
+    fireEvent.mouseLeave(await attachmentCard());
+    act(() => {
+      editor.commands.setTextSelection(editor.state.doc.content.size - 1);
     });
+    await waitFor(() => expect(queryButton()).toBeNull());
+    fireEvent.click(screen.getByRole("button", { name: INSERT_NAME }));
+    await waitFor(() => expect(screen.queryByText(DIALOG_TITLE)).toBeNull());
+    expect(topLevelTypes().slice(0, 2)).toEqual(["attachment", "heading"]);
+  });
+
+  it("EXTRACT-AC30: the review stays with Als Tabelle einfügen disabled when the editor stops being editable", async () => {
+    answerWith("available");
+    extractMock.mockResolvedValue(EXTRACTED);
+    renderPage();
+    await openReviewFromHoveredAttachment();
+    act(() => editor.setEditable(false));
+    await waitFor(() =>
+      expect(
+        screen
+          .getByRole("button", { name: INSERT_NAME })
+          .hasAttribute("disabled"),
+      ).toBe(true),
+    );
+    expect(screen.getByText(DIALOG_TITLE)).toBeTruthy();
+  });
+
+  it("EXTRACT-AC29: with the attachment removed during the review, inserting appends the table at the end of the page", async () => {
+    answerWith("available");
+    extractMock.mockResolvedValue(EXTRACTED);
+    renderPage([paragraph("Anfang"), pdfAttachment(), paragraph("Schluss")]);
+    await openReviewFromHoveredAttachment();
+    act(() => {
+      const from = attachmentPosition();
+      editor.commands.deleteRange({
+        from,
+        to: from + editor.state.doc.nodeAt(from)!.nodeSize,
+      });
+    });
+    expect(topLevelTypes()).toEqual(["paragraph", "paragraph"]);
+    await waitFor(() => expect(screen.queryByText(FILE_NAME)).toBeNull());
+    expect(screen.getByText(DIALOG_TITLE)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: INSERT_NAME }));
+    await waitFor(() => expect(screen.queryByText(DIALOG_TITLE)).toBeNull());
+    const types = topLevelTypes();
+    expect(types.slice(0, 5)).toEqual([
+      "paragraph",
+      "paragraph",
+      "heading",
+      "paragraph",
+      "table",
+    ]);
+    const afterTable = editor.state.doc.content.content.slice(5);
     expect(
-      screen.queryByRole("button", { name: "Als PDF einbetten" }),
-    ).toBeTruthy();
-    expect(queryButton()).toBeNull();
-  });
-
-  it("EXTRACT-AC2: the menu of a selected embedded PDF offers the button", async () => {
-    answerWith("available");
-    editor.commands.setContent({
-      type: "doc",
-      content: [
-        {
-          type: "pdf",
-          attrs: { attachmentId: ATTACHMENT_ID, name: FILE_NAME, src: "/x" },
-        },
-      ],
-    });
-    editor.commands.setNodeSelection(0);
-    renderInProviders(<PdfMenu editor={editor} />);
-    expect(await findButton()).toBeTruthy();
+      afterTable.map((node) => [node.type.name, node.textContent]),
+    ).toEqual(afterTable.map(() => ["paragraph", ""]));
   });
 });

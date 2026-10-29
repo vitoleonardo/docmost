@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { Editor } from "@tiptap/core";
 
 export type AiAssistantStatus = "available" | "unavailable" | "disabled";
 
@@ -122,3 +123,10 @@ export const extractResultSchema = z.discriminatedUnion("outcome", [
 export type ExtractResult = z.infer<typeof extractResultSchema>;
 
 export type ExtractRequestErrorCode = "not_available" | "unreachable" | "model";
+
+export interface IExtractionRequest {
+  editor: Editor;
+  pageId: string;
+  attachmentId: string;
+  fileName: string;
+}

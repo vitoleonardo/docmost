@@ -37,7 +37,7 @@ export default function AttachmentView(props: NodeViewProps) {
         },
       )
       .run();
-  }, [editor, getPos, node, url, name, attachmentId]);
+  }, [editor, getPos, node, url, name, attachmentId, size]);
 
   return (
     <NodeViewWrapper>
