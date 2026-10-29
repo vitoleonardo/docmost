@@ -201,6 +201,5 @@ def test_leak_ac6_a_filter_that_lets_every_page_through_is_reported_as_a_leak(
 def test_leak_ac10_the_index_uses_the_configured_embedding_model(leak_stack: LeakStack):
     expected = os.environ.get(EMBEDDING_MODEL_VARIABLE) or "test-hashing"
 
-    print(f"LEAK-AC10 embedding model: {leak_stack.embedder.model_name}")
     assert leak_stack.embedder.model_name == expected
     assert {entry.embedding_model for entry in leak_stack.store.list_entries()} == {expected}

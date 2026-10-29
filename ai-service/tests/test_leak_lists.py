@@ -2,6 +2,7 @@ import re
 
 import pytest
 
+from ai_service.leak_suite import INJECTION_TITLE_PREFIX
 from tests.seed_matrix import (
     CANARY_QUESTIONS_PATH,
     LEAK_INJECTION_PAGES_PATH,
@@ -15,7 +16,6 @@ from tests.test_ask import AC35_QUESTIONS
 
 KINDS = ("verbatim", "paraphrase", "identifier", "english", "injection")
 MIN_SENTENCE_CHARS = 30
-INJECTION_TITLE_PREFIX = "Leak-Test Injektion"
 CODE_WORDS = ("code", "kennung", "referenz")
 ENGLISH_FUNCTION_WORDS = frozenset(
     "the what is are of and how which about does for to with who when where".split()
@@ -61,17 +61,6 @@ CANARY_VALUES = [page.canary for page in CANARY_PAGES if page.canary is not None
 
 def injection_pages() -> list[Entry]:
     return load_entries(LEAK_INJECTION_PAGES_PATH)
-
-
-def injection_markdown_of(title: str) -> str:
-    return next(page["markdown"] for page in injection_pages() if page["title"] == title)
-
-
-def page_markdown_of(title: str) -> str:
-    for page in CANARY_PAGES:
-        if page.title == title:
-            return page.markdown
-    return injection_markdown_of(title)
 
 
 def canary_questions(kind: str | None = None) -> list[Entry]:
