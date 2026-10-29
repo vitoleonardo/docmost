@@ -4,12 +4,14 @@ import { screenshot, seedUserState } from "./screenshot";
 const SPACE_SLUG = "allgemein";
 const SOURCE_PAGE_TITLE = "Bürozeiten und Erreichbarkeit";
 const SOURCE_HEADING = "Notfälle auf Baustellen";
+const SECOND_HEADING = "Kernarbeitszeit";
 const ANSWER_TEXT =
-  "Die Kernarbeitszeit liegt zwischen 9:00 Uhr und 15:00 Uhr [1].";
+  "Bei Unfällen auf Baustellen gilt zuerst der Notruf [1]. Die Kernarbeitszeit liegt zwischen 9:00 Uhr und 15:00 Uhr [2].";
+const FIRST_ANSWER_PART = "Bei Unfällen auf Baustellen gilt zuerst der Notruf";
 const NO_SOURCE_TEXT =
   "Dazu habe ich in den Seiten, auf die du Zugriff hast, keine passende Quelle gefunden. Formuliere die Frage anders oder wende dich an die zuständige Abteilung.";
 const EXAMPLE_QUESTION = "Wann ist die Kernarbeitszeit?";
-const STREAMING_DELAY_MS = 3_000;
+const STREAMING_PAUSE_MS = 3_000;
 
 interface IProseMirrorNode {
   type?: string;
@@ -28,6 +30,7 @@ interface ISeedPage {
   id: string;
   slugId: string;
   headingId: string;
+  secondHeadingId: string;
 }
 
 function textOf(node: IProseMirrorNode): string {
@@ -88,11 +91,14 @@ async function sourcePage(
     { pageId: listed?.id },
   );
   const headingId = findHeadingId(content, SOURCE_HEADING);
+  const secondHeadingId = findHeadingId(content, SECOND_HEADING);
   expect(headingId).toBeDefined();
+  expect(secondHeadingId).toBeDefined();
   return {
     id: listed?.id ?? "",
     slugId: listed?.slugId ?? "",
     headingId: headingId ?? "",
+    secondHeadingId: secondHeadingId ?? "",
   };
 }
 
@@ -113,10 +119,8 @@ function eventStream(events: object[]) {
   return events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join("");
 }
 
-async function answerWith(page: Page, events: object[], delayMs = 0) {
+async function answerWith(page: Page, events: object[]) {
   await page.route("**/api/ai/ask", async (route) => {
-    if (delayMs > 0)
-      await new Promise((resolve) => setTimeout(resolve, delayMs));
     await route.fulfill({
       status: 200,
       contentType: "text/event-stream",
@@ -125,25 +129,75 @@ async function answerWith(page: Page, events: object[], delayMs = 0) {
   });
 }
 
-function citedAnswer(url: string, pageId: string) {
-  return [
-    { type: "delta", text: ANSWER_TEXT },
-    {
-      type: "sources",
-      sources: [
-        {
-          number: 1,
-          pageId,
-          title: SOURCE_PAGE_TITLE,
-          spaceName: "Allgemein",
-          headingPath: [SOURCE_HEADING],
-          fileName: null,
-          pdfPage: null,
-          url,
-        },
-      ],
+async function streamWithPause(
+  page: Page,
+  first: object[],
+  rest: object[],
+  pauseMs: number,
+) {
+  await page.addInitScript(
+    ({ firstBody, restBody, pause }) => {
+      const pageFetch = window.fetch.bind(window);
+      window.fetch = (input, init) => {
+        const url = input instanceof Request ? input.url : String(input);
+        if (!url.endsWith("/api/ai/ask")) return pageFetch(input, init);
+        const encoder = new TextEncoder();
+        const body = new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(encoder.encode(firstBody));
+            setTimeout(() => {
+              controller.enqueue(encoder.encode(restBody));
+              controller.close();
+            }, pause);
+          },
+        });
+        return Promise.resolve(
+          new Response(body, {
+            status: 200,
+            headers: { "Content-Type": "text/event-stream" },
+          }),
+        );
+      };
     },
-  ];
+    {
+      firstBody: eventStream(first),
+      restBody: eventStream(rest),
+      pause: pauseMs,
+    },
+  );
+}
+
+function citedSources(source: ISeedPage) {
+  const pageUrl = `/s/${SPACE_SLUG}/p/${source.slugId}`;
+  return {
+    type: "sources",
+    sources: [
+      {
+        number: 1,
+        pageId: source.id,
+        title: SOURCE_PAGE_TITLE,
+        spaceName: "Allgemein",
+        headingPath: [SOURCE_HEADING],
+        fileName: null,
+        pdfPage: null,
+        url: `${pageUrl}#${source.headingId}`,
+      },
+      {
+        number: 2,
+        pageId: source.id,
+        title: SOURCE_PAGE_TITLE,
+        spaceName: "Allgemein",
+        headingPath: [SECOND_HEADING],
+        fileName: null,
+        pdfPage: null,
+        url: `${pageUrl}#${source.secondHeadingId}`,
+      },
+    ],
+  };
+}
+
+function citedAnswer(source: ISeedPage) {
+  return [{ type: "delta", text: ANSWER_TEXT }, citedSources(source)];
 }
 
 async function openPanelOnAnotherPage(page: Page, pages: IListedPage[]) {
@@ -184,36 +238,44 @@ test.describe("WS asks the wiki", () => {
     await screenshot(page, testInfo, "ASK-AC1", "a1");
   });
 
-  test("ASK-AC10: A2 shows Stoppen while the answer is generated", async ({
+  test("ASK-AC77: A2 shows the stop button while the answer is generated", async ({
     page,
   }, testInfo) => {
     const pages = await allgemeinPages(page);
-    await page.setViewportSize({ width: 1280, height: 360 });
     const source = await sourcePage(page, pages);
-    const url = `/s/${SPACE_SLUG}/p/${source.slugId}#${source.headingId}`;
-    await answerWith(page, citedAnswer(url, source.id), STREAMING_DELAY_MS);
+    await streamWithPause(
+      page,
+      [{ type: "delta", text: FIRST_ANSWER_PART }],
+      [
+        { type: "delta", text: ANSWER_TEXT.slice(FIRST_ANSWER_PART.length) },
+        citedSources(source),
+      ],
+      STREAMING_PAUSE_MS,
+    );
     await openPanelOnAnotherPage(page, pages);
 
     await page.getByText(EXAMPLE_QUESTION).click();
 
+    await expect(page.getByText(FIRST_ANSWER_PART)).toBeVisible();
     await expect(page.getByRole("button", { name: "Stoppen" })).toBeVisible();
-    await screenshot(page, testInfo, "ASK-AC10", "a2-streaming");
+    await expect(page.getByText("Quellen", { exact: true })).toHaveCount(0);
+    await screenshot(page, testInfo, "ASK-AC77", "a2-streaming");
     await expect(page.getByText("Quellen", { exact: true })).toBeVisible();
   });
 
-  test("ASK-AC15: A2 shows the answer with its sources", async ({
+  test("ASK-AC15: A2 shows the answer with its two sources", async ({
     page,
   }, testInfo) => {
     const pages = await allgemeinPages(page);
     const source = await sourcePage(page, pages);
-    const url = `/s/${SPACE_SLUG}/p/${source.slugId}#${source.headingId}`;
-    await answerWith(page, citedAnswer(url, source.id));
+    await answerWith(page, citedAnswer(source));
     await openPanelOnAnotherPage(page, pages);
 
     await page.getByText(EXAMPLE_QUESTION).click();
 
     await expect(page.getByText("Quellen", { exact: true })).toBeVisible();
     await expect(page.getByText(`Allgemein › ${SOURCE_HEADING}`)).toBeVisible();
+    await expect(page.getByText(`Allgemein › ${SECOND_HEADING}`)).toBeVisible();
     await screenshot(page, testInfo, "ASK-AC15", "a2-sources");
   });
 
@@ -254,8 +316,7 @@ test.describe("WS asks the wiki", () => {
     const width = page.viewportSize()?.width ?? 1280;
     await page.setViewportSize({ width, height: 360 });
     const source = await sourcePage(page, pages);
-    const url = `/s/${SPACE_SLUG}/p/${source.slugId}#${source.headingId}`;
-    await answerWith(page, citedAnswer(url, source.id));
+    await answerWith(page, citedAnswer(source));
     await openPanelOnAnotherPage(page, pages);
     await page.getByText(EXAMPLE_QUESTION).click();
     const heading = page.locator(
