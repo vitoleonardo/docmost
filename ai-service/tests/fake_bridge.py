@@ -2,6 +2,7 @@ import json
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
+from typing import Literal
 
 import httpx
 
@@ -10,9 +11,13 @@ from ai_service.bridge_client import (
     FILTER_PAGES_PATH,
     PAGE_CONTENT_PATH,
     PAGES_PATH,
+    READ_BLOCKS_TOOL_PATH,
+    SEARCH_TOOL_PATH,
+    TASK_TOKEN_PATH,
     USER_TOKEN_HEADER,
     BridgeClient,
 )
+from ai_service.proposals import Block
 from tests.conftest import SERVICE_CREDENTIAL
 from tests.index_db import (
     SPACE_A,
@@ -170,6 +175,131 @@ class FilterBridge:
                 ]
             },
         )
+
+
+USER_TOKEN = "user-token"
+TASK_TOKEN = "task-token"
+TASK_TOKEN_EXPIRES_AT = "2026-10-30T12:00:00.000Z"
+MAX_SEARCH_RESULTS = 20
+FailureKind = Literal["server_error", "timeout", "unreachable"]
+
+
+@dataclass
+class FakePage:
+    id: str
+    space_id: str
+    title: str
+    blocks: tuple[Block, ...] = ()
+    fingerprint: str = "fingerprint-1"
+    viewable: bool = True
+    trashed: bool = False
+
+
+@dataclass
+class AgentBridge:
+    pages: list[FakePage] = field(default_factory=list)
+    spaces: set[str] | None = None
+    requests: list[httpx.Request] = field(default_factory=list)
+    tokens: list[tuple[str, str]] = field(default_factory=list)
+    failures: list[FailureKind] = field(default_factory=list)
+
+    def client(self) -> BridgeClient:
+        return mock_client(self.handle)
+
+    def fail_next(self, kind: FailureKind) -> None:
+        self.failures.append(kind)
+
+    def paths(self) -> list[str]:
+        return [request.url.path for request in self.requests]
+
+    def handle(self, request: httpx.Request) -> httpx.Response:
+        assert request.headers["X-Service-Token"] == TOKEN
+        self.requests.append(request)
+        token = request.headers[USER_TOKEN_HEADER]
+        self.tokens.append((request.url.path, token))
+        if self.failures:
+            return self._fail(self.failures.pop(0))
+        body = json.loads(request.content)
+        if request.url.path == TASK_TOKEN_PATH:
+            return self._task_token(token, body)
+        if token != TASK_TOKEN:
+            return answer(401, "user_token_invalid")()
+        if request.url.path == SEARCH_TOOL_PATH:
+            return self._search(body["spaceId"], body["query"])
+        assert request.url.path == READ_BLOCKS_TOOL_PATH
+        return self._read_blocks(body["pageId"], body["spaceId"])
+
+    def _fail(self, kind: FailureKind) -> httpx.Response:
+        if kind == "timeout":
+            raise httpx.ReadTimeout("slow")
+        if kind == "unreachable":
+            raise httpx.ConnectError("connection refused")
+        return server_error()
+
+    def _task_token(self, token: str, body: dict[str, str]) -> httpx.Response:
+        if token != USER_TOKEN:
+            return answer(401, "user_token_invalid")()
+        assert body["runId"]
+        return httpx.Response(
+            200, json={"taskToken": TASK_TOKEN, "expiresAt": TASK_TOKEN_EXPIRES_AT}
+        )
+
+    def _space_known(self, space_id: str) -> bool:
+        known = {page.space_id for page in self.pages} if self.spaces is None else self.spaces
+        return space_id in known
+
+    def _search(self, space_id: str, query: str) -> httpx.Response:
+        if not self._space_known(space_id):
+            return answer(404, "space_not_found")()
+        needle = query.lower()
+        found = [
+            page
+            for page in self.pages
+            if page.space_id == space_id
+            and page.viewable
+            and not page.trashed
+            and (
+                needle in page.title.lower()
+                or any(needle in block.text.lower() for block in page.blocks)
+            )
+        ]
+        return httpx.Response(
+            200,
+            json={
+                "results": [
+                    {"id": page.id, "title": page.title, "spaceId": page.space_id}
+                    for page in found[:MAX_SEARCH_RESULTS]
+                ]
+            },
+        )
+
+    def _read_blocks(self, page_id: str, space_id: str) -> httpx.Response:
+        for page in self.pages:
+            if (
+                page.id == page_id
+                and page.viewable
+                and not page.trashed
+                and page.space_id == space_id
+            ):
+                return httpx.Response(
+                    200,
+                    json={
+                        "id": page.id,
+                        "title": page.title,
+                        "spaceId": page.space_id,
+                        "fingerprint": page.fingerprint,
+                        "blocks": [
+                            {
+                                "number": block.number,
+                                "text": block.text,
+                                "heading": block.heading,
+                                "editable": block.editable,
+                            }
+                            for block in page.blocks
+                        ],
+                    },
+                )
+        return answer(404, "page_not_found")()
 
 
 TEXT_PAGES = (1, 2, 4, 5)

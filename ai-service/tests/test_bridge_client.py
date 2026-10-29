@@ -18,9 +18,20 @@ from ai_service.bridge_client import (
     BridgeRefused,
     BridgeUnavailable,
     BridgeUnreachable,
+    NotFound,
     PageNotFound,
+    SpaceNotFound,
 )
+from ai_service.proposals import Block
 from tests.conftest import SERVICE_CREDENTIAL
+from tests.fake_bridge import (
+    TASK_TOKEN,
+    TASK_TOKEN_EXPIRES_AT,
+    USER_TOKEN,
+    AgentBridge,
+    FailureKind,
+    FakePage,
+)
 
 CONTRACT_PATH = Path(__file__).resolve().parents[2] / "docs" / "contracts" / "ai-bridge.json"
 ENDPOINTS: dict[str, dict[str, Any]] = {
@@ -293,3 +304,153 @@ def test_index_bridge_client_parsed_response_fields_equal_the_contract() -> None
     assert pages == set(ENDPOINTS[PAGES_PATH]["response"])
     assert content == set(ENDPOINTS[PAGE_CONTENT_PATH]["response"])
     assert ENDPOINTS[ATTACHMENT_PATH]["response"] == []
+
+
+SPACE_ID = "0192f000-0000-7000-a000-000000000001"
+OTHER_SPACE_ID = "0192f000-0000-7000-a000-000000000002"
+RUN_ID = "0192f000-0000-7000-b000-000000000001"
+BLOCKS = (
+    Block(number=1, text="Reisekosten", heading=None, editable=True),
+    Block(number=2, text="Hotel bis 120 Euro", heading="Reisekosten", editable=False),
+)
+
+
+def agent_bridge(viewable: bool = True, trashed: bool = False) -> AgentBridge:
+    return AgentBridge(
+        pages=[
+            FakePage(
+                id=PAGE_ID,
+                space_id=SPACE_ID,
+                title="Reisekosten",
+                blocks=BLOCKS,
+                viewable=viewable,
+                trashed=trashed,
+            )
+        ]
+    )
+
+
+def test_agent_task_token_exchange_sends_user_token_and_run_id() -> None:
+    bridge = agent_bridge()
+    token = bridge.client().task_token(USER_TOKEN, RUN_ID)
+    assert token.token == TASK_TOKEN
+    assert token.expires_at == TASK_TOKEN_EXPIRES_AT
+    assert json.loads(bridge.requests[0].content) == {"runId": RUN_ID}
+    assert bridge.tokens == [("/api/ai-bridge/internal/task-token", USER_TOKEN)]
+
+
+def test_agent_task_token_rejected_user_token_is_a_bridge_error() -> None:
+    with pytest.raises(BridgeError):
+        agent_bridge().client().task_token("expired", RUN_ID)
+
+
+def test_agent_task_token_malformed_response_is_a_bridge_error() -> None:
+    client = client_for(lambda request: httpx.Response(200, json={"expiresAt": UPDATED_AT}))
+    with pytest.raises(BridgeError):
+        client.task_token(USER_TOKEN, RUN_ID)
+
+
+def test_agent_ac26_read_blocks_sends_the_task_token_and_parses_blocks() -> None:
+    bridge = agent_bridge()
+    read = bridge.client().read_blocks(TASK_TOKEN, PAGE_ID, SPACE_ID)
+    assert (read.id, read.title, read.space_id, read.fingerprint) == (
+        PAGE_ID,
+        "Reisekosten",
+        SPACE_ID,
+        "fingerprint-1",
+    )
+    assert read.blocks == BLOCKS
+    assert json.loads(bridge.requests[0].content) == {"pageId": PAGE_ID, "spaceId": SPACE_ID}
+    assert bridge.tokens == [("/api/ai-bridge/internal/tools/read-blocks", TASK_TOKEN)]
+
+
+def test_agent_ac26_tools_reject_the_user_token() -> None:
+    client = agent_bridge().client()
+    with pytest.raises(BridgeError):
+        client.read_blocks(USER_TOKEN, PAGE_ID, SPACE_ID)
+    with pytest.raises(BridgeError):
+        client.search_pages(USER_TOKEN, SPACE_ID, "Hotel")
+
+
+@pytest.mark.parametrize(
+    "flags",
+    [{"viewable": False}, {"trashed": True}],
+    ids=["not-viewable", "trashed"],
+)
+def test_agent_ac27_ac28_unreadable_page_is_not_found(flags: dict[str, bool]) -> None:
+    with pytest.raises(PageNotFound):
+        agent_bridge(**flags).client().read_blocks(TASK_TOKEN, PAGE_ID, SPACE_ID)
+
+
+def test_agent_ac29_page_in_another_space_or_unknown_is_not_found() -> None:
+    client = agent_bridge().client()
+    with pytest.raises(PageNotFound):
+        client.read_blocks(TASK_TOKEN, PAGE_ID, OTHER_SPACE_ID)
+    with pytest.raises(PageNotFound):
+        client.read_blocks(TASK_TOKEN, "0192f000-0000-7000-8000-0000000000ff", SPACE_ID)
+
+
+def test_agent_ac31_not_found_variants_share_one_handling() -> None:
+    assert issubclass(PageNotFound, NotFound)
+    assert issubclass(SpaceNotFound, NotFound)
+    with pytest.raises(NotFound):
+        answering(404, "page_not_found").read_blocks(TASK_TOKEN, PAGE_ID, SPACE_ID)
+    with pytest.raises(SpaceNotFound):
+        answering(404, "space_not_found").search_pages(TASK_TOKEN, SPACE_ID, "Hotel")
+    with pytest.raises(NotFound):
+        agent_bridge().client().search_pages(TASK_TOKEN, OTHER_SPACE_ID, "Hotel")
+
+
+def test_agent_ac26_search_returns_viewable_pages_of_the_space() -> None:
+    bridge = agent_bridge()
+    bridge.pages.append(
+        FakePage(id="hidden", space_id=SPACE_ID, title="Reisekosten geheim", viewable=False)
+    )
+    results = bridge.client().search_pages(TASK_TOKEN, SPACE_ID, "hotel")
+    assert [(item.id, item.title, item.space_id) for item in results] == [
+        (PAGE_ID, "Reisekosten", SPACE_ID)
+    ]
+    assert json.loads(bridge.requests[0].content) == {"spaceId": SPACE_ID, "query": "hotel"}
+    assert bridge.tokens == [("/api/ai-bridge/internal/tools/search", TASK_TOKEN)]
+
+
+@pytest.mark.parametrize("kind", ["server_error", "timeout", "unreachable"])
+def test_agent_ac23_failures_are_unavailable_and_not_not_found(kind: FailureKind) -> None:
+    for call in (
+        lambda client: client.read_blocks(TASK_TOKEN, PAGE_ID, SPACE_ID),
+        lambda client: client.search_pages(TASK_TOKEN, SPACE_ID, "Hotel"),
+        lambda client: client.task_token(USER_TOKEN, RUN_ID),
+    ):
+        bridge = agent_bridge()
+        bridge.fail_next(kind)
+        with pytest.raises(BridgeUnavailable) as raised:
+            call(bridge.client())
+        assert not isinstance(raised.value, NotFound)
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"id": PAGE_ID, "title": "t", "spaceId": SPACE_ID, "fingerprint": "f"},
+        {"id": PAGE_ID, "title": "t", "spaceId": SPACE_ID, "fingerprint": "f", "blocks": [1]},
+        {
+            "id": PAGE_ID,
+            "title": "t",
+            "spaceId": SPACE_ID,
+            "fingerprint": "f",
+            "blocks": [{"number": "1", "text": "x", "heading": None, "editable": True}],
+        },
+        {"title": "t", "spaceId": SPACE_ID, "fingerprint": "f", "blocks": []},
+    ],
+    ids=["no-blocks", "block-not-object", "number-not-int", "no-id"],
+)
+def test_agent_read_blocks_malformed_response_is_a_bridge_error(body: dict[str, Any]) -> None:
+    client = client_for(lambda request: httpx.Response(200, json=body))
+    with pytest.raises(BridgeError):
+        client.read_blocks(TASK_TOKEN, PAGE_ID, SPACE_ID)
+
+
+def test_agent_search_malformed_response_is_a_bridge_error() -> None:
+    client = client_for(lambda request: httpx.Response(200, json={"results": [{"id": 1}]}))
+    with pytest.raises(BridgeError):
+        client.search_pages(TASK_TOKEN, SPACE_ID, "Hotel")

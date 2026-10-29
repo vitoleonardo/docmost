@@ -5,6 +5,8 @@ from typing import Any
 
 import httpx
 
+from ai_service.proposals import Block
+
 TIMEOUT_SECONDS = 30
 SERVICE_TOKEN_HEADER = "X-Service-Token"
 PAGES_PATH = "/api/ai-bridge/internal/pages"
@@ -12,6 +14,9 @@ PAGE_CONTENT_PATH = "/api/ai-bridge/internal/page-content"
 ATTACHMENT_PATH = "/api/ai-bridge/internal/attachment"
 FILTER_PAGES_PATH = "/api/ai-bridge/internal/filter-pages"
 USER_TOKEN_HEADER = "X-User-Token"
+TASK_TOKEN_PATH = "/api/ai-bridge/internal/task-token"
+SEARCH_TOOL_PATH = "/api/ai-bridge/internal/tools/search"
+READ_BLOCKS_TOOL_PATH = "/api/ai-bridge/internal/tools/read-blocks"
 MAX_FILTER_PAGE_IDS = 500
 REFUSING_CODES = {"assistant_disabled", "service_token_missing", "service_token_invalid"}
 
@@ -34,7 +39,15 @@ class BridgeRefused(BridgeUnavailable):
     pass
 
 
-class PageNotFound(BridgeError):
+class NotFound(BridgeError):
+    pass
+
+
+class PageNotFound(NotFound):
+    pass
+
+
+class SpaceNotFound(NotFound):
     pass
 
 
@@ -72,6 +85,74 @@ class PageContent:
     updated_at: datetime
     markdown: str
     attachments: list[AttachmentInfo]
+
+
+@dataclass(frozen=True)
+class TaskToken:
+    token: str
+    expires_at: str
+
+
+@dataclass(frozen=True)
+class SearchResult:
+    id: str
+    title: str
+    space_id: str
+
+
+@dataclass(frozen=True)
+class BlockRead:
+    id: str
+    title: str
+    space_id: str
+    fingerprint: str
+    blocks: tuple[Block, ...]
+
+
+def malformed(what: str) -> BridgeError:
+    return BridgeError(f"bridge answered a malformed {what} response")
+
+
+def json_object(response: httpx.Response, what: str) -> dict[str, Any]:
+    try:
+        data = response.json()
+    except ValueError as error:
+        raise malformed(what) from error
+    if not isinstance(data, dict):
+        raise malformed(what)
+    return data
+
+
+def text_field(data: dict[str, Any], key: str, what: str) -> str:
+    value = data.get(key)
+    if not isinstance(value, str):
+        raise malformed(what)
+    return value
+
+
+def parse_block(item: Any) -> Block:
+    if not isinstance(item, dict):
+        raise malformed("read-blocks")
+    number, heading, editable = item.get("number"), item.get("heading"), item.get("editable")
+    if (
+        not isinstance(number, int)
+        or isinstance(number, bool)
+        or not isinstance(item.get("text"), str)
+        or not (heading is None or isinstance(heading, str))
+        or not isinstance(editable, bool)
+    ):
+        raise malformed("read-blocks")
+    return Block(number=number, text=item["text"], heading=heading, editable=editable)
+
+
+def parse_search_result(item: Any) -> SearchResult:
+    if not isinstance(item, dict):
+        raise malformed("search")
+    return SearchResult(
+        id=text_field(item, "id", "search"),
+        title=text_field(item, "title", "search"),
+        space_id=text_field(item, "spaceId", "search"),
+    )
 
 
 def error_code(response: httpx.Response) -> str | None:
@@ -151,6 +232,43 @@ class BridgeClient:
             raise BridgeError("bridge answered a malformed filter response")
         return passing
 
+    def task_token(self, user_token: str, run_id: str) -> TaskToken:
+        response = self._post(TASK_TOKEN_PATH, {"runId": run_id}, {USER_TOKEN_HEADER: user_token})
+        data = json_object(response, "task token")
+        return TaskToken(
+            token=text_field(data, "taskToken", "task token"),
+            expires_at=text_field(data, "expiresAt", "task token"),
+        )
+
+    def search_pages(self, task_token: str, space_id: str, query: str) -> list[SearchResult]:
+        response = self._post(
+            SEARCH_TOOL_PATH,
+            {"spaceId": space_id, "query": query},
+            {USER_TOKEN_HEADER: task_token},
+        )
+        results = json_object(response, "search").get("results")
+        if not isinstance(results, list):
+            raise malformed("search")
+        return [parse_search_result(item) for item in results]
+
+    def read_blocks(self, task_token: str, page_id: str, space_id: str) -> BlockRead:
+        response = self._post(
+            READ_BLOCKS_TOOL_PATH,
+            {"pageId": page_id, "spaceId": space_id},
+            {USER_TOKEN_HEADER: task_token},
+        )
+        data = json_object(response, "read-blocks")
+        blocks = data.get("blocks")
+        if not isinstance(blocks, list):
+            raise malformed("read-blocks")
+        return BlockRead(
+            id=text_field(data, "id", "read-blocks"),
+            title=text_field(data, "title", "read-blocks"),
+            space_id=text_field(data, "spaceId", "read-blocks"),
+            fingerprint=text_field(data, "fingerprint", "read-blocks"),
+            blocks=tuple(parse_block(item) for item in blocks),
+        )
+
     def _post(
         self, path: str, body: dict[str, Any], extra_headers: dict[str, str] | None = None
     ) -> httpx.Response:
@@ -171,6 +289,8 @@ class BridgeClient:
             raise BridgeUnavailable(cause)
         if response.status_code == 404 and code == "page_not_found":
             raise PageNotFound(cause)
+        if response.status_code == 404 and code == "space_not_found":
+            raise SpaceNotFound(cause)
         if response.status_code == 404 and code == "attachment_not_found":
             raise AttachmentNotFound(cause)
         raise BridgeError(cause)
