@@ -1,7 +1,4 @@
-import json
 import re
-from pathlib import Path
-from typing import Any, cast
 
 import pytest
 
@@ -9,7 +6,9 @@ from tests.seed_matrix import (
     CANARY_QUESTIONS_PATH,
     LEAK_INJECTION_PAGES_PATH,
     LEAK_QUESTIONS_PATH,
+    Entry,
     SeedPage,
+    load_entries,
     load_seed_pages,
 )
 from tests.test_ask import AC35_QUESTIONS
@@ -25,12 +24,6 @@ GERMAN_FUNCTION_WORDS = frozenset(
     "der die das den dem und ist wie welche welcher wer wann wo nicht mit von".split()
     + "für ein eine einen zu im".split()
 )
-
-Entry = dict[str, Any]
-
-
-def load_entries(path: Path) -> list[Entry]:
-    return cast(list[Entry], json.loads(path.read_text()))
 
 
 def sentences_of(markdown: str) -> list[str]:

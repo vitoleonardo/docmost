@@ -2,6 +2,7 @@ import json
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any, cast
 
 from ai_service.sections import markdown_sections
 
@@ -21,6 +22,8 @@ CANARY_QUESTIONS_PATH = SEED_CONTENT / "canary-questions.json"
 LEAK_INJECTION_PAGES_PATH = SEED_CONTENT / "leak-injection-pages.json"
 SEED_NAMESPACE = uuid.UUID("0192f000-0000-7000-8000-00000000feed")
 
+Entry = dict[str, Any]
+
 SPACE_DIRS = ("allgemein", "hr", "vertrieb", "projekte", "it", "geschaeftsfuehrung")
 SEED_USERS = ("GF", "PL", "VT", "WS")
 SPACE_MEMBERS: dict[str, frozenset[str]] = {
@@ -29,6 +32,10 @@ SPACE_MEMBERS: dict[str, frozenset[str]] = {
     "VT": frozenset({"allgemein", "vertrieb", "projekte"}),
     "WS": frozenset({"allgemein", "projekte", "it"}),
 }
+
+
+def load_entries(path: Path) -> list[Entry]:
+    return cast(list[Entry], json.loads(path.read_text()))
 
 
 def seed_id(name: str) -> str:
