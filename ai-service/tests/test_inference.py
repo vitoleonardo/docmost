@@ -8,7 +8,12 @@ from collections.abc import Callable, Iterator
 import httpx
 import pytest
 
-from ai_service.inference import FIRST_TEXT_DEADLINE_SECONDS, ChatModel, ModelUnavailable
+from ai_service.inference import (
+    FIRST_TEXT_DEADLINE_SECONDS,
+    ChatModel,
+    JsonCompletion,
+    ModelUnavailable,
+)
 from tests.conftest import FakeClock
 
 BASE_URL = "http://127.0.0.1:11434/v1"
@@ -309,3 +314,130 @@ def test_ask_ac68_an_unexpected_socket_lookup_error_is_logged_not_raised_in_the_
     assert thread_errors == []
     assert "no answer text within" in failure.cause
     assert "RuntimeError" in caplog.text
+
+
+SCHEMA = {"type": "object", "properties": {"parties": {"type": "string"}}}
+
+
+def envelope(content: object, usage: object = None) -> bytes:
+    body: dict = {"choices": [{"message": {"content": content}}]}
+    if usage is not None:
+        body["usage"] = usage
+    return json.dumps(body).encode()
+
+
+def test_extract_ac66_request_asks_for_a_json_schema_answer_without_streaming():
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, content=envelope("{}"))
+
+    chat_model(handler).complete_json(MESSAGES, SCHEMA)
+    assert str(seen[0].url) == f"{BASE_URL}/chat/completions"
+    assert json.loads(seen[0].content) == {
+        "model": "qwen3:8b",
+        "messages": MESSAGES,
+        "stream": False,
+        "temperature": 0,
+        "reasoning_effort": "none",
+        "response_format": {
+            "type": "json_schema",
+            "json_schema": {"name": "extraction", "schema": SCHEMA},
+        },
+    }
+
+
+def test_extract_ac66_returns_text_and_prompt_tokens():
+    body = envelope('{"parties": "A"}', {"prompt_tokens": 2050, "completion_tokens": 9})
+    result = chat_model(serving(body)).complete_json(MESSAGES, SCHEMA)
+    assert result == JsonCompletion(text='{"parties": "A"}', prompt_tokens=2050)
+
+
+@pytest.mark.parametrize("usage", [None, {}, {"prompt_tokens": "2050"}, {"prompt_tokens": None}])
+def test_extract_ac66_missing_or_non_integer_prompt_tokens_are_none(usage: object):
+    result = chat_model(serving(envelope("{}", usage))).complete_json(MESSAGES, SCHEMA)
+    assert result.prompt_tokens is None
+
+
+def test_extract_ac38_connection_refused_raises_model_unavailable():
+    model = chat_model(raising(httpx.ConnectError("refused")))
+    with pytest.raises(ModelUnavailable) as error:
+        model.complete_json(MESSAGES, SCHEMA)
+    assert "ConnectError" in error.value.cause
+
+
+def test_extract_ac39_read_timeout_raises_model_unavailable():
+    model = chat_model(raising(httpx.ReadTimeout("slow")))
+    with pytest.raises(ModelUnavailable) as error:
+        model.complete_json(MESSAGES, SCHEMA)
+    assert "ReadTimeout" in error.value.cause
+
+
+def test_extract_ac39_request_timeout_covers_the_whole_call():
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, content=envelope("{}"))
+
+    chat_model(handler).complete_json(MESSAGES, SCHEMA, timeout_seconds=42.0)
+    timeout = seen[0].extensions["timeout"]
+    assert timeout["read"] == 42.0
+    assert timeout["write"] == 42.0
+    assert timeout["pool"] == 42.0
+
+
+def test_extract_ac39_answer_arriving_after_the_deadline_raises_model_unavailable():
+    clock = FakeClock()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        clock.now += 181
+        return httpx.Response(200, content=envelope("{}"))
+
+    with pytest.raises(ModelUnavailable) as error:
+        chat_model(handler, clock).complete_json(MESSAGES, SCHEMA, timeout_seconds=180)
+    assert "180" in error.value.cause
+
+
+def test_extract_ac39_answer_within_the_deadline_is_returned():
+    clock = FakeClock()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        clock.now += 179
+        return httpx.Response(200, content=envelope("{}"))
+
+    assert chat_model(handler, clock).complete_json(MESSAGES, SCHEMA).text == "{}"
+
+
+def test_extract_ac38_server_error_raises_model_unavailable():
+    with pytest.raises(ModelUnavailable) as error:
+        chat_model(serving(b"boom", status=500)).complete_json(MESSAGES, SCHEMA)
+    assert "500" in error.value.cause
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        b"not json",
+        b"[]",
+        b"{}",
+        b'{"choices": []}',
+        b'{"choices": [{}]}',
+        b'{"choices": [{"message": {}}]}',
+        envelope(None),
+        envelope(12),
+        envelope(["a"]),
+    ],
+)
+def test_extract_ac40_malformed_envelope_raises_model_unavailable(body: bytes):
+    with pytest.raises(ModelUnavailable) as error:
+        chat_model(serving(body)).complete_json(MESSAGES, SCHEMA)
+    assert "SECRET" not in error.value.cause
+
+
+def test_extract_ac40_the_cause_never_holds_model_content():
+    body = b'{"choices": [{"message": {"content": 12}}], "note": "SECRET"}'
+    with pytest.raises(ModelUnavailable) as error:
+        chat_model(serving(body)).complete_json(MESSAGES, SCHEMA)
+    assert "SECRET" not in error.value.cause
