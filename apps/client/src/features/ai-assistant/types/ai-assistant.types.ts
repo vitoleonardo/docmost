@@ -69,3 +69,17 @@ export interface IAskConversation {
   turns: IAskTurn[];
   unavailable: boolean;
 }
+
+export type ExtractedFieldKey =
+  | "parties"
+  | "term"
+  | "noticePeriod"
+  | "value"
+  | "renewal";
+
+export interface IExtractedField {
+  key: ExtractedFieldKey;
+  value: string | null;
+  quote: string | null;
+  pdfPage: number | null;
+}
