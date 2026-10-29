@@ -1591,5 +1591,21 @@
   "The language model is not answering right now. Try again later.": "Das Sprachmodell antwortet gerade nicht. Versuche es später noch einmal.",
   "Page {{page}}": "Seite {{page}}",
   "Stopped": "Abgebrochen",
-  "Ask about this page": "Zu dieser Seite fragen"
+  "Ask about this page": "Zu dieser Seite fragen",
+  "Extract data: {{fileName}}": "Daten extrahieren: {{fileName}}",
+  "Reading {{fileName}} …": "Lese {{fileName}} …",
+  "Schema: Contract": "Schema: Vertrag",
+  "Done in {{seconds}} s": "Fertig in {{seconds}} s",
+  "Field": "Feld",
+  "Enter value manually": "Wert manuell eintragen",
+  "No source in the document.": "Keine Fundstelle im Dokument.",
+  "1 field without source": "1 Feld ohne Quelle",
+  "{{count}} fields without source": "{{count}} Felder ohne Quelle",
+  "Insert as table": "Als Tabelle einfügen",
+  "This PDF contains no text (probably scanned). Text recognition is not part of this version.": "Diese PDF enthält keinen Text (vermutlich eingescannt). Texterkennung ist in dieser Version nicht enthalten.",
+  "The file has {{count}} pages. Files up to 10 pages, 10 MB and 30,000 characters of text are extracted.": "Die Datei hat {{count}} Seiten. Extrahiert werden Dateien bis 10 Seiten, 10 MB und 30.000 Zeichen Text.",
+  "The file is {{size}} MB. Files up to 10 pages, 10 MB and 30,000 characters of text are extracted.": "Die Datei ist {{size}} MB groß. Extrahiert werden Dateien bis 10 Seiten, 10 MB und 30.000 Zeichen Text.",
+  "The file contains {{count}} characters of text. Files up to 10 pages, 10 MB and 30,000 characters of text are extracted.": "Die Datei enthält {{count}} Zeichen Text. Extrahiert werden Dateien bis 10 Seiten, 10 MB und 30.000 Zeichen Text.",
+  "This PDF cannot be read.": "Diese PDF kann nicht gelesen werden.",
+  "The attachment is no longer available or you may not edit the page.": "Der Anhang ist nicht mehr verfügbar oder du darfst die Seite nicht bearbeiten."
 }

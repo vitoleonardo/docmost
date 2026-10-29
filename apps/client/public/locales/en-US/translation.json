@@ -1591,5 +1591,21 @@
   "The language model is not answering right now. Try again later.": "The language model is not answering right now. Try again later.",
   "Page {{page}}": "Page {{page}}",
   "Stopped": "Stopped",
-  "Ask about this page": "Ask about this page"
+  "Ask about this page": "Ask about this page",
+  "Extract data: {{fileName}}": "Extract data: {{fileName}}",
+  "Reading {{fileName}} …": "Reading {{fileName}} …",
+  "Schema: Contract": "Schema: Contract",
+  "Done in {{seconds}} s": "Done in {{seconds}} s",
+  "Field": "Field",
+  "Enter value manually": "Enter value manually",
+  "No source in the document.": "No source in the document.",
+  "1 field without source": "1 field without source",
+  "{{count}} fields without source": "{{count}} fields without source",
+  "Insert as table": "Insert as table",
+  "This PDF contains no text (probably scanned). Text recognition is not part of this version.": "This PDF contains no text (probably scanned). Text recognition is not part of this version.",
+  "The file has {{count}} pages. Files up to 10 pages, 10 MB and 30,000 characters of text are extracted.": "The file has {{count}} pages. Files up to 10 pages, 10 MB and 30,000 characters of text are extracted.",
+  "The file is {{size}} MB. Files up to 10 pages, 10 MB and 30,000 characters of text are extracted.": "The file is {{size}} MB. Files up to 10 pages, 10 MB and 30,000 characters of text are extracted.",
+  "The file contains {{count}} characters of text. Files up to 10 pages, 10 MB and 30,000 characters of text are extracted.": "The file contains {{count}} characters of text. Files up to 10 pages, 10 MB and 30,000 characters of text are extracted.",
+  "This PDF cannot be read.": "This PDF cannot be read.",
+  "The attachment is no longer available or you may not edit the page.": "The attachment is no longer available or you may not edit the page."
 }
