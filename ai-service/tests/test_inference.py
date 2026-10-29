@@ -12,7 +12,10 @@ from ai_service.inference import (
     FIRST_TEXT_DEADLINE_SECONDS,
     ChatModel,
     JsonCompletion,
+    ModelCallCancelled,
     ModelUnavailable,
+    ToolCall,
+    ToolCompletion,
 )
 from tests.conftest import FakeClock
 
@@ -441,3 +444,221 @@ def test_extract_ac40_the_cause_never_holds_model_content():
     with pytest.raises(ModelUnavailable) as error:
         chat_model(serving(body)).complete_json(MESSAGES, SCHEMA)
     assert "SECRET" not in error.value.cause
+
+
+TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "search_pages",
+            "description": "Search pages",
+            "parameters": {"type": "object", "properties": {"query": {"type": "string"}}},
+        },
+    }
+]
+
+
+def tool_envelope(
+    content: object = None, tool_calls: object = None, usage: object = None
+) -> bytes:
+    message: dict = {"role": "assistant", "content": content}
+    if tool_calls is not None:
+        message["tool_calls"] = tool_calls
+    body: dict = {"choices": [{"message": message}]}
+    if usage is not None:
+        body["usage"] = usage
+    return json.dumps(body).encode()
+
+
+def function_call(call_id: str, name: str, arguments: str) -> dict:
+    return {"id": call_id, "type": "function", "function": {"name": name, "arguments": arguments}}
+
+
+def test_agent_contract_request_carries_tools_and_asks_for_a_plain_answer():
+    seen: list[httpx.Request] = []
+    messages = [
+        {"role": "user", "content": "Aufgabe"},
+        {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [function_call("c1", "search_pages", '{"query": "x"}')],
+        },
+        {"role": "tool", "tool_call_id": "c1", "content": "[]"},
+    ]
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, content=tool_envelope("fertig"))
+
+    chat_model(handler).complete_tools(messages, TOOLS, deadline_seconds=5)
+    assert str(seen[0].url) == f"{BASE_URL}/chat/completions"
+    assert json.loads(seen[0].content) == {
+        "model": "qwen3:8b",
+        "messages": messages,
+        "tools": TOOLS,
+        "stream": False,
+        "temperature": 0,
+        "reasoning_effort": "none",
+    }
+
+
+def test_agent_contract_final_message_has_text_and_no_tool_calls():
+    result = chat_model(serving(tool_envelope("Alles aktuell."))).complete_tools(
+        MESSAGES, TOOLS, deadline_seconds=5
+    )
+    assert result == ToolCompletion(
+        text="Alles aktuell.", tool_calls=[], prompt_tokens=None, completion_tokens=None
+    )
+
+
+def test_agent_contract_tool_calls_are_parsed_with_dict_arguments():
+    calls = [
+        function_call("c1", "search_pages", '{"query": "Urlaub"}'),
+        function_call("c2", "read_page", '{"page_id": "p1"}'),
+    ]
+    result = chat_model(serving(tool_envelope("", calls))).complete_tools(
+        MESSAGES, TOOLS, deadline_seconds=5
+    )
+    assert result.tool_calls == [
+        ToolCall(id="c1", name="search_pages", arguments={"query": "Urlaub"}),
+        ToolCall(id="c2", name="read_page", arguments={"page_id": "p1"}),
+    ]
+
+
+@pytest.mark.parametrize("arguments", ["not json", "[1, 2]", '"text"', "7", "null", ""])
+def test_agent_contract_arguments_that_are_not_a_json_object_stay_a_string(arguments: str):
+    body = tool_envelope(None, [function_call("c1", "search_pages", arguments)])
+    result = chat_model(serving(body)).complete_tools(MESSAGES, TOOLS, deadline_seconds=5)
+    assert result.tool_calls == [ToolCall(id="c1", name="search_pages", arguments=arguments)]
+    assert result.text is None
+
+
+def test_agent_contract_arguments_that_already_are_an_object_are_kept():
+    call = {"id": "c1", "type": "function", "function": {"name": "n", "arguments": {"a": 1}}}
+    result = chat_model(serving(tool_envelope(None, [call]))).complete_tools(
+        MESSAGES, TOOLS, deadline_seconds=5
+    )
+    assert result.tool_calls == [ToolCall(id="c1", name="n", arguments={"a": 1})]
+
+
+def test_agent_ac63_returns_prompt_and_completion_tokens():
+    body = tool_envelope("x", usage={"prompt_tokens": 2000, "completion_tokens": 31})
+    result = chat_model(serving(body)).complete_tools(MESSAGES, TOOLS, deadline_seconds=5)
+    assert (result.prompt_tokens, result.completion_tokens) == (2000, 31)
+
+
+@pytest.mark.parametrize(
+    "usage",
+    [None, {}, {"prompt_tokens": "2050", "completion_tokens": True}, {"prompt_tokens": None}],
+)
+def test_agent_ac63_missing_or_non_integer_token_counts_are_none(usage: object):
+    result = chat_model(serving(tool_envelope("x", usage=usage))).complete_tools(
+        MESSAGES, TOOLS, deadline_seconds=5
+    )
+    assert (result.prompt_tokens, result.completion_tokens) == (None, None)
+
+
+def test_agent_ac67_connection_refused_raises_model_unavailable():
+    model = chat_model(raising(httpx.ConnectError("refused")))
+    with pytest.raises(ModelUnavailable) as error:
+        model.complete_tools(MESSAGES, TOOLS, deadline_seconds=5)
+    assert "ConnectError" in error.value.cause
+
+
+def test_agent_ac67_server_error_raises_model_unavailable():
+    with pytest.raises(ModelUnavailable) as error:
+        chat_model(serving(b"boom", status=500)).complete_tools(
+            MESSAGES, TOOLS, deadline_seconds=5
+        )
+    assert "500" in error.value.cause
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        b"not json",
+        b"[]",
+        b"{}",
+        b'{"choices": []}',
+        b'{"choices": [{}]}',
+        b'{"choices": [{"message": {}}]}',
+        b'{"choices": [{"message": {"content": 12}}]}',
+        tool_envelope("x", [{"id": "c1"}]),
+        tool_envelope("x", [function_call("", "n", "{}")]),
+        tool_envelope("x", "calls"),
+        tool_envelope("x", [function_call("c1", "n", "{}"), "oops"]),
+    ],
+)
+def test_agent_ac67_malformed_body_raises_model_unavailable(body: bytes):
+    with pytest.raises(ModelUnavailable):
+        chat_model(serving(body)).complete_tools(MESSAGES, TOOLS, deadline_seconds=5)
+
+
+@pytest.fixture
+def release_slow_handlers() -> Iterator[threading.Event]:
+    release = threading.Event()
+    yield release
+    release.set()
+
+
+def slow_handler(release: threading.Event) -> Callable[[httpx.Request], httpx.Response]:
+    def handler(request: httpx.Request) -> httpx.Response:
+        release.wait(5)
+        return httpx.Response(200, content=tool_envelope("spät"))
+
+    return handler
+
+
+def test_agent_ac68_a_call_that_does_not_complete_within_the_deadline_raises_model_unavailable(
+    release_slow_handlers: threading.Event,
+):
+    model = chat_model(slow_handler(release_slow_handlers))
+    started = time.monotonic()
+    with pytest.raises(ModelUnavailable) as error:
+        model.complete_tools(MESSAGES, TOOLS, deadline_seconds=0.2)
+    assert time.monotonic() - started < 2
+    assert "timeout" in error.value.cause
+
+
+def test_agent_ac68_the_transport_gets_the_deadline_as_read_timeout():
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, content=tool_envelope("x"))
+
+    chat_model(handler).complete_tools(MESSAGES, TOOLS, deadline_seconds=42.0)
+    assert seen[0].extensions["timeout"]["read"] == 42.0
+
+
+def test_agent_ac59_setting_the_cancel_event_during_the_call_raises_model_call_cancelled(
+    release_slow_handlers: threading.Event,
+):
+    cancel = threading.Event()
+    threading.Timer(0.1, cancel.set).start()
+    model = chat_model(slow_handler(release_slow_handlers))
+    started = time.monotonic()
+    with pytest.raises(ModelCallCancelled):
+        model.complete_tools(MESSAGES, TOOLS, deadline_seconds=30, cancel=cancel)
+    assert time.monotonic() - started < 2
+
+
+def test_agent_ac59_a_cancel_event_that_is_already_set_makes_no_request():
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, content=tool_envelope("x"))
+
+    cancel = threading.Event()
+    cancel.set()
+    with pytest.raises(ModelCallCancelled):
+        chat_model(handler).complete_tools(MESSAGES, TOOLS, deadline_seconds=5, cancel=cancel)
+    assert seen == []
+
+
+def test_agent_ac59_an_unset_cancel_event_does_not_disturb_the_call():
+    result = chat_model(serving(tool_envelope("x"))).complete_tools(
+        MESSAGES, TOOLS, deadline_seconds=5, cancel=threading.Event()
+    )
+    assert result.text == "x"
