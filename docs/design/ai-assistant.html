@@ -308,44 +308,46 @@
       <div class="screen modal">
         <div class="head"><span class="h6">Daten extrahieren: Liefervertrag_Brenner_Antriebstechnik.pdf</span><svg class="icon dim"><use href="#i-x"/></svg></div>
         <div class="body">
-          <div class="row sm"><span class="dim">Schema</span><span class="input filled" style="padding:4px 10px">Vertrag ▾</span><span class="grow"></span><span class="badge green">Fertig in 18 s</span></div>
+          <div class="row sm"><span class="dim">Schema: Vertrag</span><span class="grow"></span><span class="badge green">Fertig in 18 s</span></div>
           <table class="t">
             <tr><th style="width:22%">Feld</th><th style="width:36%">Wert</th><th>Quelle</th></tr>
             <tr><td>Vertragsparteien</td><td><div class="input filled">Brenner Antriebstechnik GmbH (Lieferant); ‹Seed-Firma› (Kunde)</div></td><td><span class="quote">„zwischen der Brenner Antriebstechnik GmbH … und der …“</span><br><span class="xs dim">Seite 1</span></td></tr>
             <tr><td>Laufzeit</td><td><div class="input filled">01.01.2026 bis 31.12.2027</div></td><td><span class="quote">„Der Vertrag beginnt am 1. Januar 2026 und endet …“</span><br><span class="xs dim">Seite 2</span></td></tr>
             <tr><td>Kündigungsfrist</td><td><div class="input filled">3 Monate zum Laufzeitende</div></td><td><span class="quote">„… mit einer Frist von drei Monaten zum Ende der Laufzeit …“</span><br><span class="xs dim">Seite 4</span></td></tr>
-            <tr class="flag"><td>Vertragswert <br><span class="badge orange">Nicht gefunden</span></td><td><div class="input">Wert manuell eintragen</div></td><td class="dim">Keine Stelle im Dokument nennt einen Gesamtwert.</td></tr>
+            <tr class="flag"><td>Vertragswert <br><span class="badge orange">Nicht gefunden</span></td><td><div class="input">Wert manuell eintragen</div></td><td class="dim">Keine Fundstelle im Dokument.</td></tr>
             <tr><td>Verlängerung</td><td><div class="input filled">Automatisch um 12 Monate</div></td><td><span class="quote">„… verlängert sich jeweils um zwölf Monate, sofern …“</span><br><span class="xs dim">Seite 4</span></td></tr>
           </table>
         </div>
         <div class="foot"><span class="sm" style="color:var(--m-orange)">1 Feld ohne Quelle</span><span class="grow"></span><span class="btn subtle">Abbrechen</span><span class="btn primary">Als Tabelle einfügen</span></div>
       </div>
-      <figcaption><b>E2 Prüfen.</b> Werte sind editierbar. Ein Feld ohne Fundstelle bleibt leer und orange markiert; trägt der Nutzer selbst etwas ein, erscheint es in der Tabelle als „manuell“. Während der Extraktion zeigt der Dialog statt der Tabelle „Lese Seite 3 von 6 …“ und „Abbrechen“. Die Dauer wird angezeigt und ins Request-Log geschrieben.</figcaption>
+      <figcaption><b>E2 Prüfen.</b> Werte sind editierbar. Ein Feld ohne Fundstelle bleibt leer und orange markiert; trägt der Nutzer selbst etwas ein, erscheint es in der Tabelle als „manuell“. Während der Extraktion zeigt der Dialog statt der Tabelle „Lese &lt;Datei&gt; …“ und „Abbrechen“. Das Schema „Vertrag“ ist fest, es gibt keine Auswahl. Die Dauer („Fertig in 18 s“) wird angezeigt; das Request-Log kommt mit M9.</figcaption>
     </figure>
 
     <figure>
       <div class="screen panel" style="height:auto">
         <div class="row between"><span class="h6">Daten extrahieren</span><svg class="icon dim"><use href="#i-x"/></svg></div>
         <div class="alert red"><svg class="icon"><use href="#i-alert"/></svg><span>Diese PDF enthält keinen Text (vermutlich eingescannt). Texterkennung ist in dieser Version nicht enthalten.</span></div>
-        <div class="alert red"><svg class="icon"><use href="#i-alert"/></svg><span>Die Datei hat 64 Seiten. Extrahiert werden Dateien bis 30 Seiten und 10 MB.</span></div>
+        <div class="alert red"><svg class="icon"><use href="#i-alert"/></svg><span>Die Datei hat 11 Seiten. Extrahiert werden Dateien bis 10 Seiten, 10 MB und 30.000 Zeichen Text.</span></div>
+        <div class="alert red"><svg class="icon"><use href="#i-alert"/></svg><span>Die Datei enthält 30.001 Zeichen Text. Extrahiert werden Dateien bis 10 Seiten, 10 MB und 30.000 Zeichen Text.</span></div>
         <div class="row" style="justify-content:flex-end"><span class="btn default">Schließen</span></div>
       </div>
-      <figcaption><b>E3 Abgelehnt.</b> Zwei Fehlerfälle aus der Spec. Die Grenzwerte sind Platzhalter, bis M7 sie festlegt.</figcaption>
+      <figcaption><b>E3 Abgelehnt.</b> Drei Ablehnungen aus der Spec: kein Text, zu viele Seiten, zu viel Text. Die Grenzwerte sind festgelegt: 10 Seiten, 10 MB und 30.000 Zeichen Text; eine Datei über 10 MB zeigt „Die Datei ist &lt;x&gt; MB groß …“ mit demselben Zusatz.</figcaption>
     </figure>
 
     <figure>
       <div class="screen panel" style="height:auto;gap:8px">
         <b style="font-size:16px">Vertragsdaten</b>
-        <span class="xs dim">Aus Liefervertrag_Brenner_Antriebstechnik.pdf, geprüft von Anna Weber am 27.10.2026</span>
+        <span class="xs dim">Aus Liefervertrag_Brenner_Antriebstechnik.pdf, geprüft von Anna Weber am 27.10.2026.</span>
         <table class="t">
-          <tr><td style="width:40%">Vertragsparteien</td><td>Brenner Antriebstechnik GmbH (Lieferant); ‹Seed-Firma› (Kunde)</td></tr>
-          <tr><td>Laufzeit</td><td>01.01.2026 bis 31.12.2027</td></tr>
-          <tr><td>Kündigungsfrist</td><td>3 Monate zum Laufzeitende</td></tr>
-          <tr><td>Vertragswert</td><td>48.000 EUR <span class="badge gray">manuell</span></td></tr>
-          <tr><td>Verlängerung</td><td>Automatisch um 12 Monate</td></tr>
+          <tr><th style="width:22%">Feld</th><th style="width:36%">Wert</th><th>Quelle</th></tr>
+          <tr><td>Vertragsparteien</td><td>Brenner Antriebstechnik GmbH (Lieferant); ‹Seed-Firma› (Kunde)</td><td>„zwischen der Brenner Antriebstechnik GmbH … und der …“, Seite 1</td></tr>
+          <tr><td>Laufzeit</td><td>01.01.2026 bis 31.12.2027</td><td>„Der Vertrag beginnt am 1. Januar 2026 und endet …“, Seite 2</td></tr>
+          <tr><td>Kündigungsfrist</td><td>3 Monate zum Laufzeitende</td><td>„… mit einer Frist von drei Monaten zum Ende der Laufzeit …“, Seite 4</td></tr>
+          <tr><td>Vertragswert</td><td>48.000 EUR (manuell)</td><td>Keine Fundstelle im Dokument.</td></tr>
+          <tr><td>Verlängerung</td><td>Automatisch um 12 Monate</td><td>„… verlängert sich jeweils um zwölf Monate, sofern …“, Seite 4</td></tr>
         </table>
       </div>
-      <figcaption><b>E4 Eingefügt.</b> Normale Docmost-Tabelle direkt unter dem Anhang, für alle gleichzeitig Bearbeitenden sichtbar. Danach ganz normal editierbar. (Quellenangaben pro Feld bleiben im Prüfdialog, nicht in der Tabelle.)</figcaption>
+      <figcaption><b>E4 Eingefügt.</b> Normale Docmost-Tabelle direkt unter dem Anhang, für alle gleichzeitig Bearbeitenden sichtbar. Danach ganz normal editierbar. Die Tabelle trägt die Quelle jedes Feldes als dritte Spalte, weil sie die einzige Kopie des Ergebnisses ist. „(manuell)“ steht als Text in der Zelle, weil eine Docmost-Tabellenzelle Text enthält, keine Badges.</figcaption>
     </figure>
 
   </div>
