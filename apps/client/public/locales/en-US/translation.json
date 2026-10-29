@@ -1592,6 +1592,7 @@
   "Page {{page}}": "Page {{page}}",
   "Stopped": "Stopped",
   "Ask about this page": "Ask about this page",
+  "Extract data": "Extract data",
   "Extract data: {{fileName}}": "Extract data: {{fileName}}",
   "Reading {{fileName}} …": "Reading {{fileName}} …",
   "Schema: Contract": "Schema: Contract",

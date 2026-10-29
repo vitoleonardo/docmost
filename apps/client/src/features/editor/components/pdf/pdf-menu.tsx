@@ -1,3 +1,4 @@
+import ExtractDataButton from "@/features/ai-assistant/components/extract-data-button.tsx";
 import { BubbleMenu as BaseBubbleMenu } from "@tiptap/react/menus";
 import { findParentNode, posToDOMRect, useEditorState } from "@tiptap/react";
 import { useCallback } from "react";
@@ -129,6 +130,12 @@ export function PdfMenu({ editor }: EditorMenuProps) {
             <IconPaperclip size={18} />
           </ActionIcon>
         </Tooltip>
+
+        <ExtractDataButton
+          editor={editor}
+          attachmentId={editorState?.attachmentId}
+          fileName={editorState?.name}
+        />
 
         <Tooltip position="top" label={t("Delete")} withinPortal={false}>
           <ActionIcon
