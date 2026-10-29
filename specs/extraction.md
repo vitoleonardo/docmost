@@ -85,6 +85,7 @@ Each extraction logs one line in the AI service with the attachment id, the infe
 - **EXTRACT-AC18**: Given one field is not found, when the review is shown, then it shows "1 Feld ohne Quelle".
 - **EXTRACT-AC19**: Given three fields are not found, when the review is shown, then it shows "3 Felder ohne Quelle".
 - **EXTRACT-AC20**: Given the review is shown, when the user clicks "Abbrechen", then the dialog closes and the page content is unchanged.
+- **EXTRACT-AC69**: Given a viewport 412 px wide and a review in which "Vertragsparteien" is found with a quote of more than 100 characters and "Verlängerung" is not found, when the review is shown, then the input under "Wert" in each of the five rows is at least 140 px wide and ends inside the dialog's right edge.
 
 ### Insertion
 - **EXTRACT-AC21**: Given the review of "Liefervertrag.pdf" by the user "Anna Weber" on 27.10.2026 with all values unchanged, when the user clicks "Als Tabelle einfügen", then the node directly after the attachment is a heading "Vertragsdaten", followed by a paragraph "Aus Liefervertrag.pdf, geprüft von Anna Weber am 27.10.2026." and a table with the header row "Feld", "Wert", "Quelle" and 5 rows that read the field names in the order of user flow step 4, their values and their sources.
@@ -155,7 +156,8 @@ Each extraction logs one line in the AI service with the attachment id, the infe
 - Field-level accuracy over all seed contracts against the ground truth (M10 extraction suite).
 - Progress per PDF page while the AI service works.
 - Extraction from the assistant panel.
-- A review dialog laid out for phone widths: at a viewport 412 px wide the column "Quelle" runs past the dialog's right edge and cannot be read.
+- A review dialog laid out for phone widths beyond EXTRACT-AC69: at a viewport 412 px wide the column "Quelle" runs past the dialog's right edge and cannot be read.
+- An inserted table laid out for phone widths: at a viewport 412 px wide the column "Quelle" is visible only after scrolling the table sideways.
 
 ## Open questions
 
@@ -178,4 +180,6 @@ Each extraction logs one line in the AI service with the attachment id, the infe
 - 29.10.2026: the inserted table keeps each field's source as a third column, unlike the mockup's E4, because the table is the only copy of the result and spec section 9 requires a source quote and page number per field; without it nobody can check a value after the dialog is closed.
 - 29.10.2026: extractions are not limited per user, because the local model runtime queues requests and per-user limits belong to the rate limits deferred to the hosted demo (spec section 12); EXTRACT-AC57 is measured with one extraction at a time.
 - 29.10.2026: the mockup changes in the same PR (spec section 13): E2 shows "Lese <file name> …", the fixed "Schema: Vertrag" and "Keine Fundstelle im Dokument."; E3 shows the new limits and the text refusal; E4 gets the header row and the column "Quelle" and "(manuell)" as text; the open question on the limits in `docs/design/README.md` is closed.
-- 29.10.2026: the review criteria (EXTRACT-AC9 to EXTRACT-AC20) are checked at desktop width. At a viewport 412 px wide the review dialog shows "Feld", "Wert", the badge "Nicht gefunden" and the buttons, but the column "Quelle" runs past its right edge and cannot be read. v1 accepts this, because the review is a desktop task and the inserted table keeps every source; the user decided it after verify round 2.
+- 29.10.2026: the review criteria (EXTRACT-AC9 to EXTRACT-AC20) are checked at desktop width; EXTRACT-AC69 covers a viewport 412 px wide. At a viewport 412 px wide the review dialog shows "Feld", "Wert", the badge "Nicht gefunden" and the buttons, but the column "Quelle" runs past its right edge and cannot be read. v1 accepts this, because the review is a desktop task and the inserted table keeps every source; the user decided it after verify round 2.
+- 29.10.2026: verify round 3 showed the input under "Wert" shrunk to about one character next to a long quote at a viewport 412 px wide. The input keeps a minimum width (EXTRACT-AC69), so a value fits beside the field name; only the column "Quelle" runs past the dialog's right edge, as decided after verify round 2. The user decided it after verify round 3.
+- 29.10.2026: the inserted table is Docmost's own table, which is wider than a viewport 412 px wide and scrolls sideways, so at that width the column "Quelle" is visible only after the reader scrolls the table. M7 keeps that unchanged upstream behaviour, because the table must stay a normal Docmost table that every editor can change; every source stays readable there, which the verify round 2 decision relies on. The user decided it after verify round 3.
