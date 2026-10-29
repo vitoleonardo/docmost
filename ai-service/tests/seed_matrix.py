@@ -16,6 +16,9 @@ SEED_CONTENT = (
 )
 PAGES_DIR = SEED_CONTENT / "pages"
 CANARIES_PATH = SEED_CONTENT / "generated" / "canaries.json"
+LEAK_QUESTIONS_PATH = SEED_CONTENT / "leak-questions.json"
+CANARY_QUESTIONS_PATH = SEED_CONTENT / "canary-questions.json"
+LEAK_INJECTION_PAGES_PATH = SEED_CONTENT / "leak-injection-pages.json"
 SEED_NAMESPACE = uuid.UUID("0192f000-0000-7000-8000-00000000feed")
 
 SPACE_DIRS = ("allgemein", "hr", "vertrieb", "projekte", "it", "geschaeftsfuehrung")
