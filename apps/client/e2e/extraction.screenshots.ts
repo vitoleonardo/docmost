@@ -1,4 +1,11 @@
-import { Browser, expect, Page, test } from "@playwright/test";
+import {
+  Browser,
+  expect,
+  Locator,
+  Page,
+  test,
+  TestInfo,
+} from "@playwright/test";
 import { screenshot, seedUserState } from "./screenshot";
 
 const SPACE_SLUG = "projekte";
@@ -7,6 +14,7 @@ const CONTRACT_FILE = "liefervertrag-pumpen-fiktivwerk.pdf";
 const REVIEWER_NAME = "Jörg Ostmoor";
 const CONTRACT_VALUE = "1.200.000,00 EUR netto";
 const PAGE_LOAD_TIMEOUT_MS = 30_000;
+const MIN_READABLE_VALUE_WIDTH_PX = 140;
 
 const EXTRACTED_FIELDS = [
   {
@@ -77,6 +85,22 @@ function germanToday(): string {
   const day = String(now.getDate()).padStart(2, "0");
   const month = String(now.getMonth() + 1).padStart(2, "0");
   return `${day}.${month}.${now.getFullYear()}`;
+}
+
+async function expectValueReadable(dialog: Locator, label: string) {
+  const dialogBox = await dialog.boundingBox();
+  const inputBox = await dialog.getByLabel(label).boundingBox();
+  if (!dialogBox || !inputBox) {
+    throw new Error(`the dialog or the field ${label} is not rendered`);
+  }
+  expect(inputBox.width).toBeGreaterThanOrEqual(MIN_READABLE_VALUE_WIDTH_PX);
+  expect(inputBox.x + inputBox.width).toBeLessThanOrEqual(
+    dialogBox.x + dialogBox.width,
+  );
+}
+
+function phoneDialog(dialog: Locator, testInfo: TestInfo): Locator | undefined {
+  return testInfo.project.name === "mobile" ? dialog : undefined;
 }
 
 async function postData<T>(page: Page, path: string, data: object): Promise<T> {
@@ -253,7 +277,13 @@ test.describe("GF extracts contract data", () => {
     await expect(dialog.getByLabel("Vertragswert")).toHaveValue(CONTRACT_VALUE);
     await expect(dialog.getByText("Nicht gefunden")).toHaveCount(0);
     await expect(dialog.getByText("ohne Quelle")).toHaveCount(0);
-    await screenshot(page, testInfo, "EXTRACT-AC9", "e2");
+    await screenshot(
+      page,
+      testInfo,
+      "EXTRACT-AC9",
+      "e2",
+      phoneDialog(dialog, testInfo),
+    );
   });
 
   test("EXTRACT-AC14: E2 flags Verlängerung as not found", async ({
@@ -278,7 +308,36 @@ test.describe("GF extracts contract data", () => {
       renewal.getByText("Keine Fundstelle im Dokument."),
     ).toBeVisible();
     await expect(dialog.getByText("1 Feld ohne Quelle")).toBeVisible();
-    await screenshot(page, testInfo, "EXTRACT-AC14", "e2-not-found");
+    await screenshot(
+      page,
+      testInfo,
+      "EXTRACT-AC14",
+      "e2-not-found",
+      phoneDialog(dialog, testInfo),
+    );
+  });
+
+  test("EXTRACT-AC69: every Wert input stays readable beside long quotes", async ({
+    page,
+  }, testInfo) => {
+    await mockExtraction(page, RENEWAL_NOT_FOUND_RESULT);
+    const path = await contractPagePath(page);
+    await openContractPage(page, path);
+
+    await (await revealExtractButton(page)).click();
+
+    const dialog = page.getByRole("dialog");
+    await expect(dialog.getByText("1 Feld ohne Quelle")).toBeVisible();
+    for (const label of [
+      "Vertragsparteien",
+      "Laufzeit",
+      "Kündigungsfrist",
+      "Vertragswert",
+      "Verlängerung",
+    ]) {
+      await expectValueReadable(dialog, label);
+    }
+    await screenshot(page, testInfo, "EXTRACT-AC69", "e2-values", dialog);
   });
 
   test("EXTRACT-AC32: E3 explains that a scanned PDF has no text", async ({

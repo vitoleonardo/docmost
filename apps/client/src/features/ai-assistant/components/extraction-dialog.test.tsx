@@ -247,13 +247,28 @@ describe("extraction dialog review", () => {
       "Verlängerung",
     ]);
     const first = rows[0];
-    expect((within(first).getByRole("textbox") as HTMLTextAreaElement).value).toBe(
-      "Acme GmbH und Beta AG",
-    );
+    expect(
+      (within(first).getByRole("textbox") as HTMLTextAreaElement).value,
+    ).toBe("Acme GmbH und Beta AG");
     expect(within(first).getByText(/„Zitat parties“/)).toBeTruthy();
     expect(within(first).getByText(/Seite 1/)).toBeTruthy();
     expect(within(rows[4]).getByText(/Seite 5/)).toBeTruthy();
     expect(screen.queryByText(/ohne Quelle/)).toBeNull();
+  });
+
+  it("EXTRACT-AC69: every Wert input keeps a minimum width beside long quotes", async () => {
+    await renderWith(extracted(ONE_MISSING));
+
+    await screen.findByText("Schema: Vertrag");
+    const inputs = screen.getAllByRole("textbox");
+    expect(inputs).toHaveLength(5);
+    for (const input of inputs) {
+      const root = input.closest(".mantine-Textarea-root") as HTMLElement;
+      const minWidth = root.style.minWidth;
+      const rems = minWidth.match(/([\d.]+)rem/);
+      expect(rems, `min-width "${minWidth}"`).not.toBeNull();
+      expect(Number(rems![1]) * 16).toBeGreaterThanOrEqual(140);
+    }
   });
 
   it("EXTRACT-AC10: rounds the seconds from the start to the answer up (17.2 s gives 18)", async () => {

@@ -210,6 +210,7 @@ function ExtractionContent({
                     <Textarea
                       autosize
                       minRows={1}
+                      miw={140}
                       styles={
                         sourced
                           ? undefined
