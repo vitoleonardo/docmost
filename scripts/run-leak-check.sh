@@ -7,12 +7,7 @@ LEAK_DATABASE=${LEAK_DATABASE:-docmost_leak}
 LEAK_PG_ADMIN_URL=${LEAK_PG_ADMIN_URL:-postgresql://docmost:docmost@127.0.0.1:5433/postgres}
 LEAK_REDIS_URL=${LEAK_REDIS_URL:-redis://127.0.0.1:6380/13}
 LEAK_WIKI_PORT=${LEAK_WIKI_PORT:-3100}
-LEAK_APP_SECRET=${LEAK_APP_SECRET:-leak-test-secret-app-0123456789abcdef}
-LEAK_SERVICE_TOKEN=${LEAK_SERVICE_TOKEN:-leak-test-secret-service-0123456789abcdef}
-LEAK_BRIDGE_SECRET=${LEAK_BRIDGE_SECRET:-leak-test-secret-bridge-0123456789abcdef}
 LEAK_AI_ROLE=docmost_ai_leak
-LEAK_AI_PASSWORD=leak-test-secret-ai-role
-LEAK_SEED_PASSWORD=${LEAK_SEED_PASSWORD:-seed-demo-password}
 LEAK_HEALTH_TIMEOUT=${LEAK_HEALTH_TIMEOUT:-120}
 
 case "$LEAK_DATABASE" in
@@ -33,6 +28,16 @@ if ! command -v psql >/dev/null 2>&1; then
   echo "psql is required to create the leak-check database" >&2
   exit 1
 fi
+
+if ! command -v openssl >/dev/null 2>&1; then
+  echo "openssl is required to generate the per-run secrets" >&2
+  exit 1
+fi
+
+LEAK_APP_SECRET=${LEAK_APP_SECRET:-$(openssl rand -hex 32)}
+LEAK_SERVICE_TOKEN=${LEAK_SERVICE_TOKEN:-$(openssl rand -hex 32)}
+LEAK_BRIDGE_SECRET=${LEAK_BRIDGE_SECRET:-$(openssl rand -hex 32)}
+LEAK_AI_PASSWORD=${LEAK_AI_PASSWORD:-$(openssl rand -hex 32)}
 
 wiki_url="http://127.0.0.1:$LEAK_WIKI_PORT"
 
@@ -70,12 +75,12 @@ psql "$LEAK_PG_ADMIN_URL" -v ON_ERROR_STOP=1 -q \
 
 export DATABASE_URL="$leak_database_url"
 export REDIS_URL="$LEAK_REDIS_URL"
-export APP_SECRET="$LEAK_APP_SECRET"
+export APP_SECRET=$LEAK_APP_SECRET
 export APP_URL="$wiki_url"
 export PORT="$LEAK_WIKI_PORT"
 export STORAGE_DRIVER=local
-export AI_BRIDGE_SECRET="$LEAK_BRIDGE_SECRET"
-export AI_SERVICE_TOKEN="$LEAK_SERVICE_TOKEN"
+export AI_BRIDGE_SECRET=$LEAK_BRIDGE_SECRET
+export AI_SERVICE_TOKEN=$LEAK_SERVICE_TOKEN
 export AI_SERVICE_URL="http://127.0.0.1:1"
 export NODE_ENV=production
 
@@ -125,7 +130,9 @@ export LEAK_SERVICE_TOKEN
 export LEAK_BRIDGE_SECRET
 export LEAK_AI_DATABASE_URL="$leak_ai_database_url"
 export LEAK_REDIS_URL
-export LEAK_SEED_PASSWORD
+if [ -n "${LEAK_SEED_PASSWORD:-}" ]; then
+  export LEAK_SEED_PASSWORD
+fi
 
 status=0
 (cd "$root/ai-service" && uv run pytest -m leak "$@") || status=$?

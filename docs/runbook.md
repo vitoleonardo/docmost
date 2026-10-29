@@ -217,6 +217,7 @@ Spec `specs/leak-tests.md`. The prompt-content check proves that the prompt sent
 - It uses its own database `docmost_leak` and the role `docmost_ai_leak`, recreated on every run. It never touches the dev database `docmost`. It seeds the database, starts the wiki on port 3100, runs `uv run pytest -m leak` and stops the wiki on exit. A run that collects no tests fails.
 - `LEAK_EMBEDDING_MODEL=jinaai/jina-embeddings-v2-base-de`: index with the real model instead of the hashing embedder (LEAK-AC10).
 - `LEAK_WORKER_RUNNING=1`: set it when a worker indexes the same database, so the tests wait for the worker's update.
+- Secrets (app secret, service token, bridge secret, AI role password) are generated per run with `openssl rand -hex 32`; set `LEAK_APP_SECRET`, `LEAK_SERVICE_TOKEN`, `LEAK_BRIDGE_SECRET` or `LEAK_AI_PASSWORD` to pin them. `LEAK_SEED_PASSWORD` is passed on only when set; otherwise the tests use the seed's demo password.
 - Other variables: `LEAK_DATABASE` (must start with `docmost_leak`), `LEAK_PG_ADMIN_URL`, `LEAK_REDIS_URL`, `LEAK_WIKI_PORT`, `LEAK_HEALTH_TIMEOUT`.
 - CI runs it in the job "Quality gates" on every pull request, on its own Postgres and Redis services. Any failure blocks the merge.
 

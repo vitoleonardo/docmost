@@ -45,6 +45,7 @@ from tests.test_stack import POLL_SECONDS, list_all_pages
 from tests.test_stack_ask import (
     MIN_SECTION_LENGTH,
     MOVE_WAIT_SECONDS,
+    SEED_PASSWORD,
     THRESHOLD,
     Member,
     PipelineRun,
@@ -58,8 +59,8 @@ LEAK_VARIABLES = (
     "LEAK_BRIDGE_SECRET",
     "LEAK_AI_DATABASE_URL",
     "LEAK_REDIS_URL",
-    "LEAK_SEED_PASSWORD",
 )
+SEED_PASSWORD_VARIABLE = "LEAK_SEED_PASSWORD"
 EMBEDDING_MODEL_VARIABLE = "LEAK_EMBEDDING_MODEL"
 WORKER_RUNNING_VARIABLE = "LEAK_WORKER_RUNNING"
 SPACE_NAMES = {
@@ -583,7 +584,9 @@ def required_variables() -> dict[str, str]:
     missing = [name for name in LEAK_VARIABLES if not os.environ.get(name)]
     if missing:
         pytest.fail(f"no leak-check stack configured, set {', '.join(missing)}")
-    return {name: os.environ[name] for name in LEAK_VARIABLES}
+    variables = {name: os.environ[name] for name in LEAK_VARIABLES}
+    variables[SEED_PASSWORD_VARIABLE] = os.environ.get(SEED_PASSWORD_VARIABLE) or SEED_PASSWORD
+    return variables
 
 
 def active_embedder() -> Embedder:
