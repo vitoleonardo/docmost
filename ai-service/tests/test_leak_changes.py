@@ -33,7 +33,10 @@ OFFICE_HOURS_SENTENCE = (
     "Das Büro in Beispielstadt ist montags bis freitags von 7:30 Uhr bis 17:00 Uhr besetzt."
 )
 WELCOME_TITLE = "Willkommen bei Ostmooimooi"
-WELCOME_SENTENCE = "Das Unternehmen wurde 1998 gegründet und beschäftigt heute rund 60 Personen."
+WELCOME_SENTENCE = (
+    "Das Unternehmen wurde 1998 gegründet und beschäftigt heute rund 60 Personen."
+    " Geschäftsführer ist Jörg Ostmoor. Der Firmensitz liegt in Beispielstadt, Musterstraße 12."
+)
 PROJECT_TEAM = "Projektteam"
 NON_OWNERS = ("PL", "VT", "WS")
 
