@@ -1,0 +1,83 @@
+#!/bin/sh
+# Token usage per agent and the token budget, in .work/<branch>/ (see .claude/bin/usage).
+#   PostToolUse (Agent)  note which agent ran which task: agent id, description, type, requested and resolved model
+#   SubagentStop         recompute the agent's tokens from its transcript
+#   Stop                 recompute the session's own tokens from its transcript, keyed main:<session id>, so a
+#                        second session on the branch (a resumed run, a standalone /review-diff) adds a line
+#   PreToolUse (Agent)   refresh the session's line, then warn at 80 percent of KIT_BUDGET_TOKENS and block at 100
+# No hook input carries token counts, so they come from the transcripts. A message is written there several
+# times while it streams; the last line per message ID counts. Lines are replaced, never appended, because
+# the transcripts are cumulative.
+. "$(dirname -- "$0")/lib.sh"
+[ -x .claude/bin/usage ] || exit 0
+
+branch=$(git branch --show-current 2>/dev/null)
+dir=.work/${branch:-detached}
+mkdir -p "$dir"
+
+# tokens <transcript>: "<model> TAB <input> TAB <output> TAB <cache read> TAB <cache write>" per model.
+tokens() {
+  [ -f "$1" ] || return 0
+  awk '
+    function num(s, key) { return match(s, "\"" key "\":[0-9]+") ? substr(s, RSTART + length(key) + 3, RLENGTH - length(key) - 3) + 0 : 0 }
+    /"type":"assistant"/ && match($0, /"usage":\{/) {
+      u = substr($0, RSTART, 1500)
+      id = match($0, /"id":"msg_[^"]*"/) ? substr($0, RSTART, RLENGTH) : "line" NR
+      model = match($0, /"model":"[^"]*"/) ? substr($0, RSTART + 9, RLENGTH - 10) : "unknown"
+      if (model == "<synthetic>") next
+      if (!(id in seen)) order[++n] = id
+      seen[id] = 1; m[id] = model
+      in_[id] = num(u, "input_tokens"); out[id] = num(u, "output_tokens")
+      cr[id] = num(u, "cache_read_input_tokens"); cw[id] = num(u, "cache_creation_input_tokens")
+    }
+    END {
+      for (i = 1; i <= n; i++) { id = order[i]; k = m[id]; a[k] += in_[id]; b[k] += out[id]; c[k] += cr[id]; d[k] += cw[id] }
+      for (k in a) printf "%s\t%d\t%d\t%d\t%d\n", k, a[k], b[k], c[k], d[k]
+    }
+  ' "$1"
+}
+
+# replace <agent id> <transcript>: swap the agent's lines in usage.tsv for freshly computed ones.
+replace() {
+  [ -n "$1" ] && [ -f "$2" ] || return 0
+  lines=$(tokens "$2" | sed "s/^/$1	/")
+  # Hooks for one event run in parallel, so write to a private file and rename it.
+  new=$dir/usage.tsv.$$
+  { [ -f "$dir/usage.tsv" ] && awk -F '\t' -v id="$1" '$1 != id' "$dir/usage.tsv"; [ -n "$lines" ] && printf '%s\n' "$lines"; } >"$new"
+  mv "$new" "$dir/usage.tsv"
+}
+
+session_key=main:$(json_string session_id | tr -cd 'A-Za-z0-9_-')
+
+# Paths in hook input may start with ~.
+expand() { case $1 in "~"/*) printf '%s' "$HOME/${1#"~/"}" ;; *) printf '%s' "$1" ;; esac; }
+
+case $(json_string hook_event_name) in
+  SubagentStop)
+    replace "$(json_string agent_id)" "$(expand "$(json_string agent_transcript_path)")"
+    ;;
+  Stop)
+    replace "$session_key" "$(expand "$(json_string transcript_path)")"
+    ;;
+  PostToolUse)
+    agent=$(json_string agentId)
+    [ -n "$agent" ] || exit 0
+    field() { json_string "$1" | tr '\t' ' '; }
+    printf '%s\t%s\t%s\t%s\t%s\n' "$agent" "$(field description)" "$(field subagent_type)" "$(field model)" "$(field resolvedModel)" >>"$dir/agents.tsv"
+    ;;
+  PreToolUse)
+    budget=${KIT_BUDGET_TOKENS:-}
+    [ -n "$budget" ] && [ "$budget" -gt 0 ] 2>/dev/null || exit 0
+    replace "$session_key" "$(expand "$(json_string transcript_path)")"
+    used=$(.claude/bin/usage total)
+    if [ "$used" -ge "$budget" ]; then
+      echo "Blocked by .claude/hooks/usage: this branch has used $used tokens of KIT_BUDGET_TOKENS=$budget. Stop before the next dispatch and ask the user whether to raise the budget or stop. .claude/bin/usage report shows where the tokens went." >&2
+      exit 2
+    fi
+    if [ $((used * 100)) -ge $((budget * 80)) ]; then
+      printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","additionalContext":"%s"}}\n' \
+        "$(printf 'Token budget: %s of %s tokens used (%s percent). Tell the user before the next step.' "$used" "$budget" "$((used * 100 / budget))" | json_escape)"
+    fi
+    ;;
+esac
+exit 0

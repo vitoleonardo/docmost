@@ -1,0 +1,24 @@
+# Local dev infra for the Docmost fork and ai-service.
+# pgvector image so the same Postgres serves Docmost and the AI schema.
+name: docmost-ai-dev
+services:
+  db:
+    image: pgvector/pgvector:pg18
+    environment:
+      POSTGRES_DB: docmost
+      POSTGRES_USER: docmost
+      POSTGRES_PASSWORD: docmost
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - db_data:/var/lib/postgresql
+  redis:
+    image: redis:8
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    ports:
+      - "127.0.0.1:6380:6379"
+    volumes:
+      - redis_data:/data
+volumes:
+  db_data:
+  redis_data:

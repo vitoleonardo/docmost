@@ -1,0 +1,597 @@
+#!/bin/sh
+# Evidence pack for /verify-feature: the parts a script can decide, so the model only writes the judgements.
+# Usage:
+#   .claude/bin/evidence gates                 run every hard gate; write gates.md and gates.tsv; exit 1 if one fails
+#   .claude/bin/evidence matrix                check edge-cases.md: every case has a passing test or "n/a: <reason>"
+#   .claude/bin/evidence data [--all]          run KIT_SEED + the affected e2e tests and KIT_TEST_MOCKED; write data-runs.md
+#   .claude/bin/evidence screenshots [--no-base] [--all]   screenshots of the affected tests, on the branch and the base
+#   .claude/bin/evidence e2e-select [--all]    print which e2e tests the change needs: all, related (with files) or none
+#   .claude/bin/evidence json                  assemble evidence.json from the parts
+#   .claude/bin/evidence push [--pr N]         push the pack to the kit-evidence branch under <pr-N|branch>/<head sha>/
+#   .claude/bin/evidence ci-check --head SHA --key KEY...   CI: the pushed pack exists for SHA and names it
+#   .claude/bin/evidence comment --dir DIR --repo OWNER/NAME --key KEY   print the PR comment for a pack
+# The pack lives in .work/<branch>/evidence/ (EVIDENCE_DIR overrides it). See docs/SPEC-v1.1.md, section 4.
+# --all runs the whole e2e suite; CI does that after every merge to catch what the selection missed.
+set -u
+
+root=$(CDPATH='' cd -- "$(dirname -- "$0")/../.." && pwd) || exit 2
+cd "$root" || exit 2
+KIT_ROOT=$root
+export KIT_ROOT NO_COLOR=1 FORCE_COLOR=0 CI=${CI:-1}
+# shellcheck source=conf.sh
+. "$root/.claude/bin/conf.sh"
+[ -f .claude/kit.conf ] || { echo "evidence: .claude/kit.conf is missing." >&2; exit 2; }
+
+branch=$(git branch --show-current 2>/dev/null)
+dir=${EVIDENCE_DIR:-.work/${branch:-detached}/evidence}
+tab=$(printf '\t')
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+
+protected() { conf_value . KIT_PROTECTED_PATHS; }
+excludes() { for p in $(protected); do printf ':(exclude)%s\n' "${p%/}"; done; }
+now() { date +%s; }
+
+# json_str <text>: a JSON string literal.
+json_str() {
+  printf '"%s"' "$(printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' | tr '\t\n' '  ')"
+}
+
+# --- gates ---------------------------------------------------------------------
+
+# gate <name> <result> <seconds> <detail>: record one gate.
+gate() {
+  printf '%s\t%s\t%s\t%s\n' "$1" "$2" "$3" "$(printf '%s' "$4" | tr '\t\n' '  ' | cut -c1-300)" >>"$dir/gates.tsv"
+  printf '| %s | %s | %ss | %s |\n' "$1" "$2" "$3" "$(printf '%s' "$4" | tr '|\n' '/ ' | cut -c1-300)" >>"$tmp/gates-table"
+  [ "$2" = fail ] && [ -s "$tmp/log-$1" ] && { printf '\n### %s\n\n```text\n' "$1"; tail -n 40 "$tmp/log-$1"; printf '```\n'; } >>"$tmp/gates-logs"
+  [ "$2" = fail ] && failed="$failed $1"
+  return 0
+}
+
+# check_gate <name> <check arguments...>: a gate run through .claude/bin/check; n/a passes with its reason,
+# "not configured" fails (a hard gate has to be configured or say why not).
+check_gate() {
+  name=$1
+  shift
+  started=$(now)
+  .claude/bin/check "$@" >"$tmp/log-$name" 2>&1
+  code=$?
+  secs=$(($(now) - started))
+  summary=$(grep -E '^(tests|lint|typecheck|coverage) in |n/a:|not configured|legacy|flaky|new clones' "$tmp/log-$name" | head -n 3 | tr '\n' ';')
+  case $code in
+    0) gate "$name" pass "$secs" "$summary" ;;
+    4) gate "$name" n/a "$secs" "$(grep -o 'n/a:.*' "$tmp/log-$name" | head -n 1)" ;;
+    3) gate "$name" fail "$secs" "not configured: set the command in kit.conf, or n/a: <reason>" ;;
+    *) gate "$name" fail "$secs" "exit $code; $summary" ;;
+  esac
+}
+
+# diff_all [git diff options]: the diff since the merge base including untracked files, without protected paths.
+diff_all() {
+  # shellcheck disable=SC2046
+  git diff "$@" "$(merge_base)" -- . $(excludes) 2>/dev/null
+  # shellcheck disable=SC2046
+  git ls-files --others --exclude-standard -- . $(excludes) 2>/dev/null | while IFS= read -r f; do
+    git diff --no-index "$@" -- /dev/null "$f" 2>/dev/null
+  done
+  return 0
+}
+
+# Added lines of the diff since the merge base, without protected paths: "<file> TAB <line>".
+added_lines() {
+  diff_all -U0 | awk '
+    /^\+\+\+ / { f = substr($0, 7); next }
+    /^\+/ { print f "\t" substr($0, 2) }'
+}
+
+# deps <file content on stdin> <manifest name>: dependency names declared in a manifest.
+deps() {
+  case $1 in
+    package.json)
+      awk '
+        /"(dependencies|devDependencies|peerDependencies|optionalDependencies)"[[:space:]]*:[[:space:]]*\{/ { inside = 1; next }
+        inside && /\}/ { inside = 0; next }
+        inside && match($0, /"[^"]+"[[:space:]]*:/) { s = substr($0, RSTART + 1, RLENGTH - 1); sub(/"[[:space:]]*:$/, "", s); print s }'
+      ;;
+    pyproject.toml)
+      awk '
+        /^(dependencies|[a-zA-Z0-9_-]+)[[:space:]]*=[[:space:]]*\[/ && (section ~ /^(project|dependency-groups|project\.optional-dependencies)$/) { inside = 1 }
+        /^\[/ { section = $0; gsub(/[][]/, "", section); inside = 0; next }
+        inside { while (match($0, /"[A-Za-z0-9_.-]+/)) { print tolower(substr($0, RSTART + 1, RLENGTH - 1)); $0 = substr($0, RSTART + RLENGTH) } }
+        inside && /\]/ { inside = 0 }'
+      ;;
+    requirements*.txt)
+      sed -e 's/#.*//' -e 's/[[:space:]]//g' | grep -v '^-' | sed -E 's/[<>=!~;[].*//' | tr 'A-Z' 'a-z' | grep .
+      ;;
+  esac | sort -u
+}
+
+gates() {
+  mkdir -p "$dir"
+  : >"$dir/gates.tsv"
+  : >"$tmp/gates-table"
+  : >"$tmp/gates-logs"
+  failed=""
+  check_gate typecheck --against-baseline typecheck
+  check_gate lint --against-baseline lint
+  check_gate build build
+  check_gate test --against-baseline test
+  check_gate coverage --against-baseline coverage
+  check_gate duplicates duplicates
+
+  started=$(now)
+  .claude/bin/structure >"$tmp/log-structure" 2>&1
+  code=$?
+  summary=$(tail -n 1 "$tmp/log-structure")
+  case $code in
+    0) gate structure pass $(($(now) - started)) "$summary" ;;
+    3) gate structure fail 0 "not configured: no Map in .claude/rules/structure.md" ;;
+    *) gate structure fail $(($(now) - started)) "$summary" ;;
+  esac
+
+  added_lines >"$tmp/added"
+  focus='(^|[^[:alnum:]_])((it|test|describe|context|suite)\.(only|skip|todo)[[:space:]]*\(|(xit|xdescribe|xtest|fit|fdescribe)[[:space:]]*\(|@pytest\.mark\.(skip|skipif|xfail)|@unittest\.skip|pytest\.skip[[:space:]]*\()'
+  grep -E "$focus" "$tmp/added" >"$tmp/log-focus"
+  if [ -s "$tmp/log-focus" ]; then gate focus fail 0 "focus or skip added: $(cut -f1 "$tmp/log-focus" | sort -u | tr '\n' ' ')"; else gate focus pass 0 "no .only, .skip or skip markers added"; fi
+
+  plan=.work/${branch:-detached}.md
+  approved=$(sed -n 's/^- *Approved dependencies: *//p' "$plan" 2>/dev/null | head -n 1 | tr ',' ' ' | tr 'A-Z' 'a-z')
+  : >"$tmp/log-dependencies"
+  mb=$(merge_base)
+  git diff --name-only "$mb" -- 2>/dev/null | grep -E '(^|/)(package\.json|pyproject\.toml|requirements[^/]*\.txt)$' | while IFS= read -r m; do
+    [ -f "$m" ] || continue
+    kind=${m##*/}
+    git show "$mb:$m" 2>/dev/null | deps "$kind" >"$tmp/old"
+    deps "$kind" <"$m" >"$tmp/new"
+    comm -13 "$tmp/old" "$tmp/new" | while IFS= read -r d; do
+      case " $approved " in *" $(printf '%s' "$d" | tr 'A-Z' 'a-z') "*) ;; *) printf '%s: %s\n' "$m" "$d" ;; esac
+    done
+  done >"$tmp/log-dependencies"
+  if [ -s "$tmp/log-dependencies" ]; then
+    gate dependencies fail 0 "not in the plan's Approved dependencies: $(cut -d' ' -f2 "$tmp/log-dependencies" | tr '\n' ' ')"
+  else
+    gate dependencies pass 0 "no new dependency outside the plan's approved list (${approved:-none})"
+  fi
+
+  : >"$tmp/log-protected"
+  protected_list=$(protected)
+  for p in $protected_list; do
+    git diff --name-only "$mb" -- "${p%/}" 2>/dev/null
+    git ls-files --others --exclude-standard -- "${p%/}" 2>/dev/null
+  done >"$tmp/log-protected"
+  if [ -s "$tmp/log-protected" ]; then gate protected fail 0 "files changed in protected paths: $(tr '\n' ' ' <"$tmp/log-protected")"; else gate protected pass 0 "no protected path changed (${protected_list:-none configured})"; fi
+
+  if command -v gitleaks >/dev/null 2>&1; then
+    # shellcheck disable=SC2046
+    git diff "$mb" -- . $(excludes) | gitleaks stdin --no-banner >"$tmp/log-secrets" 2>&1
+    if [ $? -eq 0 ]; then gate secrets pass 0 "gitleaks: no leaks in the diff"; else gate secrets fail 0 "gitleaks found secrets in the diff"; fi
+  else
+    key_format='(-----BEGIN [A-Z ]*PRIVATE KEY-----|AKIA[0-9A-Z]{16}|gh[pousr]_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{40,}|xox[baprs]-[A-Za-z0-9-]{10,}|sk-[A-Za-z0-9_-]{20,})'
+    assignment='(api[_-]?key|secret|token|password)["'"'"']?[[:space:]]*[:=][[:space:]]*["'"'"'][^"'"'"'[:space:]]{12,}'
+    {
+      grep -Ei "$key_format" "$tmp/added" | cut -f1
+      allowed=.claude/secrets-allow.tsv
+      [ -f "$allowed" ] || allowed=/dev/null
+      grep -Ei "$assignment" "$tmp/added" | awk -F '\t' '
+        NR == FNR { if ($0 !~ /^#/ && NF >= 2) { n++; path[n] = $1; value[n] = $2 } next }
+        { for (i = 1; i <= n; i++) if (path[i] == $1 && index($2, value[i])) next; print }' "$allowed" - |
+        cut -f1 | sort -u | while IFS= read -r f; do
+        matches_any "$f" "$(test_patterns "$(package_of "$f")")" || printf '%s\n' "$f"
+      done
+    } | sort -u >"$tmp/log-secrets"
+    git diff --name-only --diff-filter=A "$mb" -- 2>/dev/null | grep -E '(^|/)\.env(\.[^/]*)?$' | grep -vE '\.env\.(example|sample|template)$' >>"$tmp/log-secrets"
+    if [ -s "$tmp/log-secrets" ]; then gate secrets fail 0 "possible secrets (pattern scan, gitleaks not installed): $(tr '\n' ' ' <"$tmp/log-secrets")"; else gate secrets pass 0 "pattern scan, gitleaks not installed: nothing found (fake values assigned in test files or listed in .claude/secrets-allow.tsv are not flagged; key formats are)"; fi
+  fi
+
+  max=$(conf_value . KIT_MAX_CHANGED_LINES)
+  max=${max:-400}
+  changed=$(diff_all --numstat | awk '$3 !~ /(^|\/)(package-lock\.json|pnpm-lock\.yaml|yarn\.lock|uv\.lock)$|\.snap$/ {
+    total += ($1 == "-" ? 0 : $1) + ($2 == "-" ? 0 : $2) } END { print total + 0 }')
+  if [ "$changed" -gt $((max * 2)) ]; then gate size fail 0 "$changed changed lines, more than twice the limit of $max; split the change"
+  elif [ "$changed" -gt "$max" ]; then gate size pass 0 "warning: $changed changed lines, above the limit of $max"
+  else gate size pass 0 "$changed changed lines (limit $max)"; fi
+
+  {
+    printf '# Hard gates\n\nHead %s, base %s (%s).\n\n' "$(git rev-parse --short HEAD)" "$(base_ref)" "$(git rev-parse --short "$mb")"
+    printf '| Gate | Result | Time | Detail |\n|------|--------|------|--------|\n'
+    cat "$tmp/gates-table"
+    [ -s "$tmp/gates-logs" ] && { printf '\n## Output\n'; cat "$tmp/gates-logs"; }
+  } >"$dir/gates.md"
+  # The test gate's flaky tests go into the pack.
+  sed -n 's/^  flaky (passed on the rerun): //p' "$tmp/log-test" >"$dir/flaky.txt" 2>/dev/null
+  # The JUnit reports of this run, so the matrix can check test names against what actually ran.
+  : >"$dir/tests.tsv"
+  for pkg in $(packages); do
+    report=$(conf_value "$pkg" KIT_TEST_REPORT)
+    [ -n "$report" ] && [ -f "$pkg/$report" ] && .claude/bin/baseline junit "$pkg/$report" >>"$dir/tests.tsv"
+  done
+  cat "$tmp/gates-table"
+  if [ -n "$failed" ]; then
+    echo "Failed gates:$failed. Details in $dir/gates.md."
+    return 1
+  fi
+  echo "All hard gates passed. Details in $dir/gates.md."
+}
+
+# --- matrix --------------------------------------------------------------------
+
+# edge-cases.md holds one table: | Criterion | Case | Input | Expected | Test | Result |
+# The Test cell names a test (as in its title) or says "n/a: <reason>". The script fills in the result.
+matrix() {
+  file=$dir/edge-cases.md
+  [ -f "$file" ] || { echo "evidence: $file is missing; write the matrix first." >&2; return 2; }
+  [ -s "$dir/tests.tsv" ] || { echo "evidence: no test results in $dir/tests.tsv; run 'evidence gates' first." >&2; return 2; }
+  awk -F '|' -v results="$dir/tests.tsv" '
+    function trim(s) { gsub(/^[[:space:]`]+|[[:space:]`]+$/, "", s); return s }
+    BEGIN { while ((getline line < results) > 0) { n = split(line, f, "\t"); status[f[1]] = f[2] } }
+    /^\|/ && NF >= 7 {
+      c = trim($2); kase = trim($3); test = trim($6)
+      if (c == "Criterion" || c ~ /^-+$/) next
+      if (test ~ /^n\/a:[[:space:]]*[^[:space:]]/) { r = "n/a" }
+      else if (test == "" || test == "-" || test ~ /^n\/a:?[[:space:]]*$/) { r = "fail: no test"; bad = 1 }
+      else {
+        r = "fail: no test named like this ran"
+        for (id in status) if (index(id, test) > 0) { r = status[id] == "pass" ? "pass" : "fail: " status[id]; if (status[id] == "pass") break }
+        if (r != "pass") bad = 1
+      }
+      printf "%s\t%s\t%s\t%s\n", c, kase, test, r
+    }
+    END { exit bad }
+  ' "$file" >"$dir/matrix.tsv"
+  result=$?
+  awk -F '\t' '{ printf "%-12s %-40s %s\n", $1, substr($2, 1, 40), $4 }' "$dir/matrix.tsv"
+  [ -s "$dir/matrix.tsv" ] || { echo "evidence: no rows in $file." >&2; return 1; }
+  if [ "$result" -ne 0 ]; then echo "Matrix: cases without a passing test. A case without a test is a failure, not a note."; fi
+  return "$result"
+}
+
+# --- e2e selection -------------------------------------------------------------
+
+# changed_files: the files changed since the merge base, untracked ones included, without protected paths.
+changed_files() {
+  # shellcheck disable=SC2046
+  { git diff --name-only "$(merge_base)" -- . $(excludes); git ls-files --others --exclude-standard -- . $(excludes); } 2>/dev/null | sort -u
+}
+
+# quoted <file>: the lines of a file as single-quoted shell words, for appending to a command.
+quoted() { sed "s/'/'\\\\''/g; s/^/'/; s/\$/'/" "$1" | tr '\n' ' '; }
+
+# e2e_select [--all]: which e2e tests the change since the merge base needs. Prints "<mode>: <reason>" and, for
+# "related", one test file per line. all runs KIT_E2E, related runs KIT_E2E_RELATED with the files, none runs nothing.
+# Related tests are the changed e2e files plus the e2e files that name a feature (SHOP in SHOP-AC1) whose criterion
+# IDs the diff adds. Whatever the selection cannot vouch for runs everything.
+e2e_select() {
+  [ "${1:-}" = --all ] && { echo "all: --all"; return; }
+  [ -n "$(conf_value . KIT_E2E_RELATED)" ] || { echo "all: KIT_E2E_RELATED is not set"; return; }
+  e2e_patterns=$(conf_value . KIT_E2E_PATTERNS)
+  [ -n "$e2e_patterns" ] || { echo "all: KIT_E2E_PATTERNS is not set"; return; }
+  full=$(conf_value . KIT_E2E_FULL_PATTERNS)
+  test_patterns=$(conf_value . KIT_TEST_PATTERNS)
+  changed_files >"$tmp/changed"
+  : >"$tmp/selected"
+  other=""
+  while IFS= read -r f; do
+    if [ -n "$full" ] && matches_any "$f" "$full"; then echo "all: $f changed"; return; fi
+    if matches_any "$f" "$e2e_patterns"; then
+      [ -f "$f" ] && printf '%s\n' "$f" >>"$tmp/selected"
+    elif ! matches_any "$f" "$test_patterns"; then
+      case $f in *.md) ;; *) other=$f ;; esac
+    fi
+  done <"$tmp/changed"
+  features=""
+  if [ -n "$other" ]; then
+    # Only tests and docs changed: their own e2e files are enough. Otherwise add the features the diff names.
+    features=$(diff_all -U0 | grep '^+' | grep -v '^+++' | grep -oE '[A-Z][A-Z0-9]*-AC[0-9]+' | sed 's/-AC[0-9]*$//' | sort -u | tr '\n' ' ')
+    if [ -n "$features" ]; then
+      # shellcheck disable=SC2046
+      git ls-files --cached --others --exclude-standard -- . $(excludes) | while IFS= read -r f; do
+        matches_any "$f" "$e2e_patterns" && [ -f "$f" ] &&
+          grep -qE "(^|[^A-Z0-9])($(printf '%s' "$features" | sed 's/ *$//; s/ /|/g'))-AC[0-9]" "$f" && printf '%s\n' "$f"
+      done >>"$tmp/selected"
+    fi
+  fi
+  sort -u "$tmp/selected" -o "$tmp/selected"
+  if [ -s "$tmp/selected" ]; then
+    echo "related: $(wc -l <"$tmp/selected" | tr -d ' ') e2e test files (changed e2e files${features:+, features ${features% }})"
+    cat "$tmp/selected"
+  elif [ -n "$other" ]; then
+    echo "all: $other changed and no e2e test names a criterion of this change"
+  else
+    echo "none: only tests and docs changed"
+  fi
+}
+
+# e2e_command <command key> <related key> [--all]: the command for the selection, or "n/a: <reason>" for none.
+# The selection stays in $tmp/selection; its first line is the reason.
+e2e_command() {
+  e2e_select "${3:-}" >"$tmp/selection"
+  case $(head -n 1 "$tmp/selection") in
+    none:*) printf 'n/a: %s' "$(head -n 1 "$tmp/selection" | sed 's/^none: //')" ;;
+    related:*)
+      related=$(conf_value . "$2")
+      if [ -z "$related" ]; then conf_value . "$1"; return; fi
+      tail -n +2 "$tmp/selection" >"$tmp/selected-files"
+      printf '%s %s' "$related" "$(quoted "$tmp/selected-files")"
+      ;;
+    *) conf_value . "$1" ;;
+  esac
+}
+
+# --- data runs -----------------------------------------------------------------
+
+# run_step <name> <command> [label]: the label defaults to the last "seed:" or "mocked:" line the command prints.
+run_step() {
+  name=$1 cmd=$2
+  started=$(now)
+  (sh -c "$cmd" </dev/null) >"$tmp/log-$name" 2>&1
+  code=$?
+  secs=$(($(now) - started))
+  label=${3:-$(grep -E '^(seed|mocked):' "$tmp/log-$name" | tail -n 1)}
+  result=pass
+  [ "$code" -eq 0 ] || result=fail
+  printf '%s\t%s\t%s\t%s\n' "$name" "$result" "$secs" "$label" >>"$dir/data-runs.tsv"
+  printf '| %s | %s | %ss | `%s` | %s |\n' "$name" "$result" "$secs" "$cmd" "$label" >>"$tmp/data-table"
+  [ "$result" = fail ] && { printf '\n### %s\n\n```text\n' "$name"; tail -n 40 "$tmp/log-$name"; printf '```\n'; } >>"$tmp/data-logs"
+  [ "$code" -eq 0 ]
+}
+
+data() {
+  mkdir -p "$dir"
+  : >"$dir/data-runs.tsv"
+  : >"$tmp/data-table"
+  : >"$tmp/data-logs"
+  status=0
+  seed=$(conf_value . KIT_SEED)
+  e2e=$(conf_value . KIT_E2E)
+  case $e2e in '' | n/a:*) ;; *) e2e=$(e2e_command KIT_E2E KIT_E2E_RELATED "${1:-}") ;; esac
+  mocked=$(conf_value . KIT_TEST_MOCKED)
+  for pair in "seed:$seed" "e2e:$e2e" "mocked:$mocked"; do
+    name=${pair%%:*} cmd=${pair#*:}
+    case $cmd in
+      '') printf '%s\tnot configured\t0\t\n' "$name" >>"$dir/data-runs.tsv"; printf '| %s | not configured | – | – | – |\n' "$name" >>"$tmp/data-table" ;;
+      n/a:*) printf '%s\tn/a\t0\t%s\n' "$name" "$cmd" >>"$dir/data-runs.tsv"; printf '| %s | %s | – | – | – |\n' "$name" "$cmd" >>"$tmp/data-table" ;;
+      *)
+        if [ "$name" = e2e ] && grep -q "^seed${tab}fail" "$dir/data-runs.tsv"; then
+          printf 'e2e\tfail\t0\tnot run: the seed failed\n' >>"$dir/data-runs.tsv"; status=1; continue
+        fi
+        label=""
+        [ "$name" = e2e ] && label=$(head -n 1 "$tmp/selection")
+        run_step "$name" "$cmd" "$label" || status=1
+        ;;
+    esac
+  done
+  {
+    printf '# Data runs\n\nSeeded: `KIT_SEED` then `KIT_E2E`. Mocked: `KIT_TEST_MOCKED`. The seed version and the mock set are the last `seed:` and `mocked:` lines the commands print.\n\n'
+    printf '| Run | Result | Time | Command | Seed, mock set or e2e selection |\n|-----|--------|------|---------|---------------------------------|\n'
+    cat "$tmp/data-table"
+    [ -s "$tmp/data-logs" ] && { printf '\n## Failures\n'; cat "$tmp/data-logs"; }
+  } >"$dir/data-runs.md"
+  cat "$tmp/data-table"
+  return "$status"
+}
+
+# --- screenshots ---------------------------------------------------------------
+
+# KIT_SCREENSHOTS writes <AC-ID>-<step>-<desktop|mobile><KIT_SCREENSHOT_SUFFIX>.png into $KIT_SCREENSHOT_DIR.
+screenshots() {
+  with_base=1 all=""
+  for arg; do
+    case $arg in --no-base) with_base=0 ;; --all) all=--all ;; esac
+  done
+  cmd=$(conf_value . KIT_SCREENSHOTS)
+  case $cmd in '' | n/a:*) ;; *) cmd=$(e2e_command KIT_SCREENSHOTS KIT_SCREENSHOTS_RELATED "$all") ;; esac
+  case $cmd in
+    '' | n/a:*) echo "screenshots: ${cmd:-not configured}"; mkdir -p "$dir"; printf '%s\n' "${cmd:-not configured}" >"$dir/screenshots.txt"; return 0 ;;
+  esac
+  shots=$(mkdir -p "$dir/screenshots" && cd "$dir/screenshots" && pwd)
+  rm -f "$shots"/*.png
+  echo "screenshots on $(git branch --show-current)"
+  if ! KIT_SCREENSHOT_DIR=$shots KIT_SCREENSHOT_SUFFIX="" sh -c "$cmd" </dev/null; then
+    echo "screenshots: KIT_SCREENSHOTS failed on the branch." >&2
+    return 1
+  fi
+  if [ "$with_base" -eq 1 ]; then
+    # The same flow on the base: a worktree of the merge base, set up with KIT_SETUP (for example the install).
+    wt=$tmp/base
+    git worktree add -q --detach "$wt" "$(merge_base)" || return 1
+    cp .claude/kit.conf "$wt/.claude/kit.conf" 2>/dev/null
+    setup=$(conf_value . KIT_SETUP)
+    echo "screenshots on the base ($(git rev-parse --short "$(merge_base)"))"
+    if (cd "$wt" && { [ -z "$setup" ] || sh -c "$setup"; } && KIT_SCREENSHOT_DIR=$shots KIT_SCREENSHOT_SUFFIX=".main" sh -c "$cmd") </dev/null; then
+      :
+    else
+      echo "screenshots: the base run failed; pages that do not exist there have no .main image." >&2
+    fi
+    git worktree remove --force "$wt"
+  fi
+  ls "$shots" | sed 's/^/  /'
+  [ -n "$(ls "$shots")" ] || { echo "screenshots: KIT_SCREENSHOTS wrote no images." >&2; return 1; }
+}
+
+# --- evidence.json -------------------------------------------------------------
+
+json() {
+  [ -f "$dir/gates.tsv" ] || { echo "evidence: run 'evidence gates' first." >&2; return 2; }
+  head=$(git rev-parse HEAD)
+  mb=$(merge_base)
+  review=$dir/review.md
+  verdict=missing high=0 medium=0 low=0
+  if [ -f "$review" ]; then
+    high=$(grep -c '\[high\]' "$review")
+    medium=$(grep -c '\[medium\]' "$review")
+    low=$(grep -c '\[low\]' "$review")
+    ready=$(awk '/^## Ready for PR/ { getline; while ($0 ~ /^[[:space:]]*$/) getline; print tolower($1); exit }' "$review")
+    case $ready in yes*) verdict=ready ;; no*) verdict=not-ready ;; *) verdict=unknown ;; esac
+  fi
+  {
+    printf '{\n  "branch": %s,\n  "head": %s,\n  "base": %s,\n  "base_sha": %s,\n  "created": %s,\n' \
+      "$(json_str "$branch")" "$(json_str "$head")" "$(json_str "$(base_ref)")" "$(json_str "$(git rev-parse "$mb")")" \
+      "$(json_str "$(date -u +%Y-%m-%dT%H:%M:%SZ)")"
+    printf '  "gates": ['
+    awk -F '\t' -v q='"' '
+      function s(x) { gsub(/\\/, "\\\\", x); gsub(/"/, "\\\"", x); return q x q }
+      { printf "%s\n    {\"name\": %s, \"result\": %s, \"seconds\": %s, \"detail\": %s}", (NR > 1 ? "," : ""), s($1), s($2), $3 + 0, s($4) }
+    ' "$dir/gates.tsv"
+    printf '\n  ],\n  "criteria": ['
+    if [ -f "$dir/matrix.tsv" ]; then
+      ls "$dir/screenshots" 2>/dev/null >"$tmp/shots"
+      awk -F '\t' -v q='"' -v shots="$tmp/shots" -v data="$dir/data-runs.tsv" '
+        function s(x) { gsub(/\\/, "\\\\", x); gsub(/"/, "\\\"", x); return q x q }
+        BEGIN {
+          while ((getline l < shots) > 0) shot[++ns] = l
+          while ((getline l < data) > 0) { split(l, f, "\t"); run[f[1]] = f[2] }
+          seeded = ("e2e" in run) ? run["e2e"] : "not configured"
+          mocked = ("mocked" in run) ? run["mocked"] : "not configured"
+        }
+        {
+          if (!($1 in seen)) { seen[$1] = 1; order[++n] = $1 }
+          cases[$1]++
+          if ($4 == "pass" || $4 == "n/a") ok[$1]++
+          if ($3 !~ /^n\/a:/ && index(tests[$1], "\t" $3 "\t") == 0) tests[$1] = tests[$1] "\t" $3 "\t"
+        }
+        END {
+          for (i = 1; i <= n; i++) {
+            c = order[i]; t = ""; m = split(tests[c], parts, "\t")
+            for (j = 1; j <= m; j++) if (parts[j] != "") t = t (t == "" ? "" : ", ") s(parts[j])
+            sh = ""
+            for (k = 1; k <= ns; k++) if (index(shot[k], c "-") == 1) sh = sh (sh == "" ? "" : ", ") s(shot[k])
+            printf "%s\n    {\"id\": %s, \"tests\": [%s], \"edge_cases\": %d, \"edge_cases_passed\": %d, \"screenshots\": [%s], \"seeded\": %s, \"mocked\": %s}", \
+              (i > 1 ? "," : ""), s(c), t, cases[c], ok[c] + 0, sh, s(seeded), s(mocked)
+          }
+        }
+      ' "$dir/matrix.tsv"
+    fi
+    printf '\n  ],\n  "flaky": ['
+    [ -s "$dir/flaky.txt" ] && awk -v q='"' '{ gsub(/"/, "\\\""); printf "%s%s%s%s", (NR > 1 ? ", " : ""), q, $0, q }' "$dir/flaky.txt"
+    printf '],\n  "review": {"verdict": %s, "high": %d, "medium": %d, "low": %d},\n' "$(json_str "$verdict")" "$high" "$medium" "$low"
+    printf '  "screenshots": %s,\n' "$(json_str "$(cat "$dir/screenshots.txt" 2>/dev/null || { [ -d "$dir/screenshots" ] && echo taken; } || echo "not run")")"
+    printf '  "usage": "usage.tsv"\n}\n'
+  } >"$dir/evidence.json"
+  echo "Wrote $dir/evidence.json for $(git rev-parse --short HEAD)."
+  if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+    echo "Warning: the working tree has uncommitted changes, so the pack does not describe $head exactly. Commit, then verify again." >&2
+    return 1
+  fi
+}
+
+# --- push to kit-evidence ------------------------------------------------------
+
+push() {
+  pr=""
+  [ "${1:-}" = --pr ] && pr=${2:?--pr needs a number}
+  [ -f "$dir/evidence.json" ] || { echo "evidence: run 'evidence json' first." >&2; return 2; }
+  head=$(git rev-parse HEAD)
+  grep -q "\"head\": \"$head\"" "$dir/evidence.json" || { echo "evidence: evidence.json is not for HEAD ($head); verify again." >&2; return 1; }
+  key=${pr:+pr-$pr}
+  key=${key:-$(printf '%s' "$branch" | tr -c 'A-Za-z0-9._-' '-')}
+  remote=${KIT_EVIDENCE_REMOTE:-origin}
+  git fetch -q "$remote" "+refs/heads/kit-evidence:refs/remotes/$remote/kit-evidence" 2>/dev/null
+  parent=$(git rev-parse -q --verify "refs/remotes/$remote/kit-evidence" 2>/dev/null)
+  # Build the commit with a temporary index, so the working tree and the current branch stay untouched.
+  GIT_INDEX_FILE=$tmp/index
+  export GIT_INDEX_FILE
+  if [ -n "$parent" ]; then git read-tree "$parent"; else git read-tree --empty; fi
+  git rm -q -r --cached --ignore-unmatch "$key/$head" >/dev/null
+  (cd "$dir" && find . -type f | sed 's|^\./||') | while IFS= read -r f; do
+    blob=$(git hash-object -w "$dir/$f")
+    git update-index --add --cacheinfo "100644,$blob,$key/$head/$f"
+  done
+  tree=$(git write-tree)
+  unset GIT_INDEX_FILE
+  commit=$(git commit-tree "$tree" ${parent:+-p "$parent"} -m "Evidence for $key at $head")
+  git push -q "$remote" "$commit:refs/heads/kit-evidence" || return 1
+  echo "Pushed the pack to $remote kit-evidence:$key/$head/"
+}
+
+# --- CI ------------------------------------------------------------------------
+
+# ci-check --head SHA --key KEY [--key KEY]: exit 0 if a pack for SHA exists under one of the keys and names SHA.
+ci_check() {
+  head="" keys=""
+  while [ $# -gt 0 ]; do
+    case $1 in
+      --head) head=$2; shift 2 ;;
+      --key) keys="$keys $(printf '%s' "$2" | tr -c 'A-Za-z0-9._-' '-')"; shift 2 ;;
+      *) echo "evidence ci-check: unknown option $1" >&2; return 2 ;;
+    esac
+  done
+  [ -n "$head" ] && [ -n "$keys" ] || { echo "usage: evidence ci-check --head SHA --key KEY..." >&2; return 2; }
+  remote=${KIT_EVIDENCE_REMOTE:-origin}
+  git fetch -q "$remote" "+refs/heads/kit-evidence:refs/remotes/$remote/kit-evidence" 2>/dev/null || { echo "No kit-evidence branch: run /verify-feature and push its pack." >&2; return 1; }
+  for key in $keys; do
+    if json=$(git show "refs/remotes/$remote/kit-evidence:$key/$head/evidence.json" 2>/dev/null); then
+      named=$(printf '%s' "$json" | sed -n 's/^ *"head": *"\([0-9a-f]*\)".*/\1/p' | head -n 1)
+      if [ "$named" != "$head" ]; then
+        echo "The pack under $key/$head names $named, not $head: stale evidence counts as no evidence." >&2
+        return 1
+      fi
+      echo "$key"
+      return 0
+    fi
+  done
+  newest=$(git ls-tree --name-only "refs/remotes/$remote/kit-evidence" 2>/dev/null | tr '\n' ' ')
+  echo "No evidence pack for $head under:$keys. Packs exist for: ${newest:-nothing}. Stale evidence counts as no evidence: run /verify-feature on this commit." >&2
+  return 1
+}
+
+# comment --dir DIR --repo OWNER/NAME --key KEY [--ci-data FILE]: the sticky PR comment, inline images from kit-evidence.
+comment() {
+  cdir="" repo="" key="" ci_data=""
+  while [ $# -gt 0 ]; do
+    case $1 in
+      --dir) cdir=$2; shift 2 ;;
+      --repo) repo=$2; shift 2 ;;
+      --key) key=$2; shift 2 ;;
+      --ci-data) ci_data=$2; shift 2 ;;
+      *) echo "evidence comment: unknown option $1" >&2; return 2 ;;
+    esac
+  done
+  [ -f "$cdir/gates.tsv" ] || { echo "evidence comment: no gates.tsv in $cdir" >&2; return 2; }
+  head=$(sed -n 's/^ *"head": *"\([0-9a-f]*\)".*/\1/p' "$cdir/evidence.json" | head -n 1)
+  echo "<!-- kit-evidence -->"
+  echo "## Evidence for ${head:-unknown}"
+  echo
+  echo "| Gate | Result | Detail |"
+  echo "|------|--------|--------|"
+  awk -F '\t' '{ gsub(/\|/, "/", $4); printf "| %s | %s | %s |\n", $1, $2, $4 }' "$cdir/gates.tsv"
+  if [ -f "$cdir/matrix.tsv" ]; then
+    echo
+    echo "**Edge cases:** $(awk -F '\t' '$4 == "pass" || $4 == "n/a" { ok++ } END { printf "%d of %d", ok, NR }' "$cdir/matrix.tsv") pass."
+    awk -F '\t' '$4 != "pass" && $4 != "n/a" { printf "- %s %s: %s\n", $1, $2, $4 }' "$cdir/matrix.tsv"
+  fi
+  [ -f "$cdir/evidence.json" ] && sed -n 's/^ *"review": *{"verdict": *"\([^"]*\)", "high": \([0-9]*\), "medium": \([0-9]*\), "low": \([0-9]*\)}.*/\
+**Review:** \1, \2 high, \3 medium, \4 low./p' "$cdir/evidence.json"
+  if [ -n "$ci_data" ] && [ -f "$ci_data" ]; then
+    echo
+    echo "**Data runs in CI:** $(awk -F '\t' '{ printf "%s%s %s", (NR > 1 ? ", " : ""), $1, $2 }' "$ci_data")"
+  fi
+  if [ -d "$cdir/screenshots" ] && [ -n "$(ls "$cdir/screenshots")" ]; then
+    echo
+    echo "### Screenshots"
+    echo
+    for path in "$cdir"/screenshots/*.png; do
+      f=${path##*/}
+      case $f in *.main.png) continue ;; esac
+      main=${f%.png}.main.png
+      printf '**%s**\n\n' "${f%.png}"
+      printf '![%s](https://github.com/%s/blob/kit-evidence/%s/%s/screenshots/%s?raw=true)' "$f" "$repo" "$key" "$head" "$f"
+      [ -f "$cdir/screenshots/$main" ] && printf ' ![%s](https://github.com/%s/blob/kit-evidence/%s/%s/screenshots/%s?raw=true)' "$main" "$repo" "$key" "$head" "$main"
+      printf '\n\n'
+    done
+  fi
+}
+
+command=${1:-}
+[ $# -gt 0 ] && shift
+case $command in
+  gates) gates ;;
+  matrix) matrix ;;
+  data) data "$@" ;;
+  e2e-select) e2e_select "$@" ;;
+  screenshots) screenshots "$@" ;;
+  json) json ;;
+  push) push "$@" ;;
+  ci-check) ci_check "$@" ;;
+  comment) comment "$@" ;;
+  *) sed -n '3,15p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2 ;;
+esac

@@ -1,0 +1,106 @@
+#!/bin/sh
+# Structure gate: every new source file sits in a home of the Map in .claude/rules/structure.md.
+# Usage: .claude/bin/structure [files...]
+#   with files: check them as new files (the guard passes the file Claude is about to write)
+#   without:    check the files added since the merge base with the base branch, and untracked ones
+# Homes are the backticked paths in the Home column of each "## Map" table in .claude/rules/*.md
+# (structure.md, and presets that add their framework's homes). Paths under "## Legacy" take no new files.
+# Only files matching the package's KIT_SOURCE_PATTERNS are checked; docs, configs and edits never are.
+# Exit codes: 0 pass, 1 a file is misplaced, 3 no Map (not configured).
+set -u
+
+root=$(CDPATH='' cd -- "$(dirname -- "$0")/../.." && pwd) || exit 2
+cd "$root" || exit 2
+# shellcheck source=conf.sh
+. "$root/.claude/bin/conf.sh"
+
+# patterns <section>: the path patterns of a section in the rule files, one per line, as shell patterns.
+# `<name>` becomes *, a trailing / means anything below the folder.
+patterns() {
+  awk -v want="$1" '
+    FNR == 1 { inside = 0 }
+    /^## / { inside = ($0 == "## " want); rows = 0; next }
+    !inside { next }
+    want == "Map" { if ($0 !~ /^\|/ || ++rows <= 2) next; split($0, cell, "|"); $0 = cell[3] }
+    { while (match($0, /`[^`]+`/)) { print substr($0, RSTART + 1, RLENGTH - 2); $0 = substr($0, RSTART + RLENGTH) } }
+  ' .claude/rules/*.md 2>/dev/null | sed -e 's/<[^>]*>/*/g' -e 's|/$|/*|'
+}
+
+# in_any <path> <patterns>: true if the path matches one of the newline-separated patterns.
+# A pattern without a slash matches the file name anywhere.
+in_any() {
+  set -f
+  old_ifs=$IFS
+  IFS='
+'
+  for p in $2; do
+    case $p in
+      */*) target=$1 ;;
+      *) target=${1##*/} ;;
+    esac
+    # shellcheck disable=SC2254
+    case $target in
+      $p) IFS=$old_ifs; set +f; return 0 ;;
+    esac
+  done
+  IFS=$old_ifs
+  set +f
+  return 1
+}
+
+# grab_bag <path>: the first folder or file name that says nothing about what it holds.
+grab_bag() {
+  printf '%s\n' "$1" | tr '/' '\n' | sed 's/\..*//' | grep -m 1 -xiE 'utils?|helpers?|common|misc'
+}
+
+homes=$(patterns Map)
+if [ -z "$homes" ]; then
+  echo "structure: no Map in .claude/rules/structure.md; nothing to check against." >&2
+  exit 3
+fi
+legacy=$(patterns Legacy)
+
+if [ $# -gt 0 ]; then
+  files=$(printf '%s\n' "$@")
+else
+  files=$({
+    git diff --name-only --diff-filter=AR "$(merge_base)" -- 2>/dev/null
+    git ls-files --others --exclude-standard 2>/dev/null
+  } | sort -u)
+fi
+
+failed=0
+checked=0
+while IFS= read -r file; do
+  case $file in
+    "$root"/*) file=${file#"$root"/} ;;
+    /*) continue ;;
+  esac
+  file=${file#./}
+  case $file in '' | .claude/* | .work/* | */.claude/*) continue ;; esac
+  pkg=$(package_of "$file")
+  matches_any "$file" "$(conf_value "$pkg" KIT_SOURCE_PATTERNS)" || continue
+  checked=$((checked + 1))
+  # In a package with its own kit.conf, a home may also be written relative to the package.
+  rel=$file
+  [ "$pkg" = . ] || rel=${file#"$pkg"/}
+
+  if [ -n "$legacy" ] && { in_any "$file" "$legacy" || in_any "$rel" "$legacy"; }; then
+    echo "$file: in a legacy home (## Legacy in .claude/rules/); new code goes to the current home in the Map."
+    failed=$((failed + 1))
+  elif ! in_any "$file" "$homes" && ! in_any "$rel" "$homes"; then
+    echo "$file: no home in the Map (.claude/rules/structure.md). Put it in its kind's home, or propose a new home in the plan."
+    failed=$((failed + 1))
+  elif name=$(grab_bag "$file") && ! printf '%s\n' "$homes" | grep -qxF -e "$file" -e "$rel"; then
+    echo "$file: '$name' says nothing about what it holds. Name the file or folder after its topic."
+    failed=$((failed + 1))
+  fi
+done <<EOF
+$files
+EOF
+
+if [ "$failed" -gt 0 ]; then
+  echo "structure: $failed of $checked new source files misplaced."
+  exit 1
+fi
+echo "structure: $checked new source files, all in their homes."

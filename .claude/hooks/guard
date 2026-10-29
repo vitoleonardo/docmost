@@ -1,0 +1,238 @@
+#!/bin/sh
+# PreToolUse guard: a second layer behind the deny list in settings.json.
+# Blocks dangerous shell commands, secret files, protected paths (KIT_PROTECTED_PATHS) and edits
+# outside an agent's allowed scope. For protected paths the sandbox is the enforcement; this is best effort.
+# Exit 2 blocks the tool call; the message on stderr goes to Claude.
+. "$(dirname -- "$0")/lib.sh"
+
+block() {
+  echo "Blocked by .claude/hooks/guard: $1" >&2
+  echo "If this is really needed, explain why and ask the user to run it themselves." >&2
+  exit 2
+}
+
+lockfiles="package-lock.json pnpm-lock.yaml yarn.lock bun.lock poetry.lock uv.lock Cargo.lock go.sum Gemfile.lock composer.lock"
+config_files=".github/* .gitlab-ci.yml Dockerfile* docker-compose* compose.yaml compose.yml migrations/* infra/* terraform/*"
+
+permission() {
+  printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"%s","permissionDecisionReason":"%s"}}\n' \
+    "$1" "$(printf '%s' "$2" | json_escape)"
+  exit 0
+}
+
+decide_gates() {
+  single=$1
+  shift
+  [ $# -gt 0 ] || exit 0
+  level=$(.claude/bin/gate level 2>/dev/null) || level=strict
+  for g in "$@"; do
+    decision=ask
+    [ "$g" = commit-main ] || decision=$(.claude/bin/gate "$g" 2>/dev/null) || decision=ask
+    [ "$decision" = auto ] || permission ask "approval gate ${g%-main} (KIT_APPROVAL=$level, .claude/bin/gate). Ask the user."
+  done
+  [ "$single" = 1 ] || exit 0
+  permission allow "approval gate $* is auto (KIT_APPROVAL=$level). Log the decision under Decisions to review in .work/<branch>.md."
+}
+
+tool=$(json_string tool_name)
+agent=$(json_string agent_type)
+protected=${KIT_PROTECTED_PATHS:-}
+
+is_secret_name() {
+  printf '%s\n' "$1" | grep -oE '(^|[^[:alnum:]_])\.env(\.[[:alnum:]_-]+)*' |
+    grep -vE '\.env\.(example|sample|template)$' | grep -q .
+}
+
+# in_protected <path relative to the root, or absolute>: true if it lies in a protected path.
+in_protected() {
+  target=$(relative_path "$1")
+  [ -n "$target" ] || target=$1
+  target=${target#./}
+  for p in $protected; do
+    p=${p%/}
+    case $target in "$p" | "$p"/*) return 0 ;; esac
+  done
+  return 1
+}
+
+case $tool in
+  Grep | Glob)
+    # Grep's pattern is a regex, Glob's is a path.
+    pattern=""
+    [ "$tool" = Glob ] && pattern=$(json_string pattern)
+    for value in "$(json_string path)" "$pattern"; do
+      [ -n "$value" ] && in_protected "$value" && block "$value is a protected path (KIT_PROTECTED_PATHS in .claude/kit.conf)."
+    done
+    exit 0
+    ;;
+  Read | Edit | Write)
+    path=$(json_string file_path)
+    in_protected "$path" && block "$path is in a protected path (KIT_PROTECTED_PATHS in .claude/kit.conf)."
+    case ${path##*/} in
+      *.pem | *.key | *.p12 | .npmrc | .pypirc) block "$path may contain secrets." ;;
+    esac
+    is_secret_name "/${path##*/}" && block "$path is an environment file and may contain secrets."
+    [ "$tool" = Read ] && exit 0
+
+    case $agent in
+      *reviewer) block "the reviewer is read-only and never edits files." ;;
+      *test-writer)
+        rel=$(relative_path "$path")
+        test_patterns=$(test_patterns "$(package_of "$rel")")
+        matches_any "$rel" "$test_patterns" ||
+          block "the test-writer may only edit test files ($test_patterns), not $rel."
+        ;;
+    esac
+    # A new source file must go where the structure map puts its kind (.claude/rules/structure.md).
+    if [ "$tool" = Write ] && [ ! -e "$path" ] && [ -x .claude/bin/structure ]; then
+      rel=$(relative_path "$path")
+      if [ -n "$rel" ]; then
+        out=$(.claude/bin/structure "$rel" 2>&1)
+        [ $? -eq 1 ] && block "$(printf '%s\n' "$out" | head -n 1)"
+      fi
+    fi
+    rel=$(relative_path "$path")
+    rel=${rel#./}
+    if matches_any "$rel" "$lockfiles"; then
+      decide_gates 1 deps
+    elif matches_any "$rel" "$config_files"; then
+      decide_gates 1 config
+    fi
+    exit 0
+    ;;
+  Bash) ;;
+  *) exit 0 ;;
+esac
+
+cmd=$(json_string command)
+runs_one_command() {
+  printf '%s' "$cmd" | awk -v RS='\001' '{
+    s = $0
+    gsub(/"\$\(cat <<'"'"'EOF'"'"'[[:space:]]([^E]|E[^O]|EO[^F])*[[:space:]]EOF[[:space:]]*\)"/, "", s)
+    gsub(/'"'"'[^'"'"']*'"'"'/, "", s)
+    gsub(/"[^"$`\\]*"/, "", s)
+    exit s ~ /[;&|<>$`]/
+  }'
+}
+
+# Quotes are removed so commands hidden in sh -c '...' are checked too.
+flat=$(printf '%s' "$cmd" | tr "\"'\`" '   ')
+
+# Protected paths: a command may not name one, except in a git exclude pathspec, and git commands that
+# print file contents must exclude every protected path.
+if [ -n "$protected" ]; then
+  named=$(printf '%s' "$flat" | sed -E 's/:(\([^)]*exclude[^)]*\)|!|\^)[^[:space:]]*//g')
+  missing=""
+  for p in $protected; do
+    p=${p%/}
+    re=$(printf '%s' "$p" | sed 's/[].[\*^$()+?{|]/\\&/g')
+    printf '%s' "$named" | grep -Eq "(^|[[:space:]=/:])(\./)?$re(/|[[:space:]]|$)" &&
+      block "the command names the protected path $p (KIT_PROTECTED_PATHS in .claude/kit.conf)."
+    printf '%s' "$flat" | grep -Eq ":(\([^)]*exclude[^)]*\)|!|\^)(\./)?$re/?([[:space:]]|$)" || missing="$missing ':(exclude)$p'"
+  done
+  if [ -n "$missing" ] && printf '%s' "$flat" | awk '
+    {
+      n = split($0, t, /[[:space:]]+/)
+      for (i = 1; i <= n; i++) if (t[i] == "git" || t[i] ~ /\/git$/) break
+      if (i > n) exit 1
+      for (j = i + 1; j <= n; j++) {
+        if (t[j] == "-C" || t[j] == "-c") { j++; continue }
+        if (t[j] !~ /^-/) break
+      }
+      sub_ = t[j]; rest = ""
+      for (k = j + 1; k <= n; k++) rest = rest " " t[k]
+      quiet = rest ~ / (--name-only|--name-status|--stat|--numstat|--shortstat|--no-patch|-s|--quiet)( |$)/
+      if (sub_ == "diff" || sub_ == "show" || sub_ == "format-patch") exit quiet
+      if (sub_ == "log" || sub_ == "whatchanged") exit !(rest ~ / (-p|-u|--patch|-L[^ ]*)( |$)/)
+      if (sub_ == "grep" || (sub_ == "stash" && rest ~ /^ show/)) exit 0
+      exit 1
+    }'; then
+    if runs_one_command && printf '%s' "$cmd" | grep -Eq '^[[:space:]]*git[[:space:]]+(diff|show|log)([[:space:]]|$)'; then
+      case " $cmd " in
+        *" -- "*) rewritten="$cmd$missing" ;;
+        *) rewritten="$cmd -- .$missing" ;;
+      esac
+      printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow","permissionDecisionReason":"%s","updatedInput":{"command":"%s"}}}\n' \
+        "$(printf 'Added the exclude pathspec for KIT_PROTECTED_PATHS:%s' "$missing" | json_escape)" "$(printf '%s' "$rewritten" | json_escape)"
+      exit 0
+    fi
+    block "git would print protected files. Add the pathspec -- .$missing to the command."
+  fi
+fi
+
+# Reviewer and test-writer may only read git history and run the project's checks.
+case $agent in
+  *reviewer | *test-writer)
+    printf '%s' "$flat" | grep -Eq '[;&|<>$]' &&
+      block "the $agent agent may not chain, pipe or redirect commands."
+    printf '%s' "$flat" |
+      grep -Eq '^[[:space:]]*(git([[:space:]]+-C[[:space:]]+[^[:space:]]+)?[[:space:]]+(status|diff|log|show|blame|rev-parse)([[:space:]]|$)|([^[:space:]]*/)?\.claude/bin/(check|spec-lint|structure)([[:space:]]|$))' ||
+      block "the $agent agent may only run read-only git commands, .claude/bin/check, .claude/bin/spec-lint and .claude/bin/structure."
+    ;;
+esac
+
+rm_recursive_force=$(printf '%s\n' "$flat" | awk '{
+  n = split($0, t, /[[:space:];|&()]+/)
+  for (i = 1; i <= n; i++) {
+    if (t[i] != "rm" && t[i] !~ /\/rm$/) continue
+    r = 0; f = 0
+    for (j = i + 1; j <= n && t[j] ~ /^-/; j++) {
+      if (t[j] == "--recursive") r = 1
+      else if (t[j] == "--force") f = 1
+      else if (t[j] !~ /^--/) { if (t[j] ~ /[rR]/) r = 1; if (t[j] ~ /f/) f = 1 }
+    }
+    if (r && f) { print "yes"; exit }
+  }
+}')
+[ -n "$rm_recursive_force" ] && block "recursive forced delete (rm -rf)."
+
+git='git([[:space:]]+(-C|-c)[[:space:]]+[^[:space:]]+|[[:space:]]+--?[[:alnum:]-]+(=[^[:space:]]*)?)*[[:space:]]+'
+check() {
+  printf '%s' "$flat" | grep -Eiq "$1" && block "$2"
+}
+check "${git}reset[[:space:]]([^;&|]*[[:space:]])?--hard" "git reset --hard discards work."
+check "${git}push([[:space:]][^;&|]*)?[[:space:]](--force|-[[:alnum:]]*f[[:alnum:]]*([[:space:]]|$)|\+[^[:space:]]+)" "force push rewrites shared history."
+check "${git}clean[[:space:]][^;&|]*-[[:alnum:]]*f" "git clean -f deletes untracked files."
+check "${git}(checkout|restore)[[:space:]]+(--[[:space:]]+)?\.([[:space:]]|$)" "this discards all uncommitted changes."
+check "${git}branch[[:space:]][^;&|]*-D" "force-deleting a branch loses unmerged work."
+check "(^|[^[:alnum:]_-])(sudo|mkfs[[:alnum:].]*)[[:space:]]" "privileged or disk-level command."
+check "(^|[^[:alnum:]_-])dd[[:space:]][^;&|]*of=/dev/" "writing to a raw device."
+check "chmod[[:space:]]+-R[[:space:]]+0?777" "world-writable permissions."
+[ "$(.claude/bin/gate level 2>/dev/null)" = autonomous ] ||
+  check "(^|[^[:alnum:]_-])(curl|wget|nc|ncat|ssh|scp|rsync)[[:space:]]" "network access outside the package manager (allowed only at KIT_APPROVAL=autonomous)."
+check "(^|[[:space:];|&(/])(printenv|env)([[:space:]]*$|[[:space:]]*[|>;&])" "printing the environment can expose secrets."
+check "(drop[[:space:]]+(table|database|schema)|truncate[[:space:]]+table)" "destructive database statement."
+is_secret_name "$flat" && block "the command touches an environment file that may contain secrets."
+
+# Stack-specific patterns from the adapter (one extended regex per line).
+set -f
+old_ifs=$IFS
+IFS='
+'
+# shellcheck disable=SC2046
+for pattern in $(for pkg in $(packages); do conf_value "$pkg" KIT_DANGEROUS_PATTERNS; printf '\n'; done); do
+  check "$pattern" "matches a destructive command listed in .claude/kit.conf."
+done
+IFS=$old_ifs
+set +f
+
+uses() {
+  printf '%s' "$flat" | grep -Eiq "$1"
+}
+command_gates=""
+uses "${git}push([[:space:]]|$)" && command_gates="$command_gates push"
+uses "(^|[^[:alnum:]_-])gh[[:space:]]+pr[[:space:]]+create([[:space:]]|$)" && command_gates="$command_gates push"
+uses "\.claude/bin/evidence[[:space:]]+push([[:space:]]|$)" && command_gates="$command_gates push"
+if uses "${git}commit([[:space:]]|$)"; then
+  case $(git branch --show-current 2>/dev/null) in
+    main | master) command_gates="$command_gates commit-main" ;;
+    *) command_gates="$command_gates commit" ;;
+  esac
+fi
+uses "(^|[^[:alnum:]_-])(npm[[:space:]]+(install|i|ci|uninstall|update)|pnpm[[:space:]]+(install|i|add|remove|update|up)|yarn[[:space:]]+(add|remove|install)|bun[[:space:]]+(add|install)|pip3?[[:space:]]+install|uv[[:space:]]+(add|pip)|poetry[[:space:]]+add|cargo[[:space:]]+add|go[[:space:]]+get|bundle[[:space:]]+add|composer[[:space:]]+require|dotnet[[:space:]]+add)([[:space:]]|$)" &&
+  command_gates="$command_gates deps"
+
+single=1
+runs_one_command || single=0
+# shellcheck disable=SC2086
+decide_gates "$single" $command_gates

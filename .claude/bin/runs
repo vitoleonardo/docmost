@@ -1,0 +1,106 @@
+#!/bin/sh
+# Run records for /improve-kit: one file per feature in reports/runs/, committed with the feature's PR.
+# Optional: everything here is off until KIT_IMPROVE is set in .claude/kit.conf.
+# Usage:
+#   .claude/bin/runs record   write reports/runs/<branch>.tsv from the usage record and the state file's Stops
+#   .claude/bin/runs report   write reports/runs.md over all reports/runs/*.tsv
+# A record has kind-prefixed, TAB-separated rows:
+#   run  <date> <feature> <branch> <tasks> <escalations> <review rounds> <tokens> <fast> <standard> <deep> <main>
+#   stop <step> <class> <trigger> <what was tried> <resolution>   (one per line under "## Stops" in .work/<branch>.md)
+# Tokens count input, output and cache writes, as in .claude/bin/usage. RUNS_TODAY overrides the date (tests).
+set -u
+
+root=$(CDPATH='' cd -- "$(dirname -- "$0")/../.." && pwd) || exit 2
+cd "$root" || exit 2
+if [ -f .claude/kit.conf ]; then
+  # shellcheck source=/dev/null
+  . ./.claude/kit.conf
+fi
+if [ -z "${KIT_IMPROVE:-}" ]; then
+  echo "Run records are off. Set KIT_IMPROVE=\"1\" in .claude/kit.conf to record runs for /improve-kit."
+  exit 0
+fi
+
+classes="spec plan tier test kit env budget"
+
+case ${1:-} in
+  record)
+    branch=$(git branch --show-current 2>/dev/null)
+    [ -n "$branch" ] || { echo "runs: not on a branch." >&2; exit 2; }
+    state=.work/$branch.md
+    # The feature is the spec's file name from the plan's title line: "# Plan: <feature> (spec: specs/<name>.md)".
+    feature=$(sed -n 's|^# Plan:.*(spec: specs/\([^)]*\)\.md).*|\1|p' "$state" 2>/dev/null | head -n 1)
+    usage=$(.claude/bin/usage tsv) || exit 2
+    file=reports/runs/$(printf '%s' "$branch" | tr '/' '-').tsv
+    mkdir -p reports/runs
+    {
+      printf '%s\n' "$usage" | awk -F '\t' -v d="${RUNS_TODAY:-$(date -u +%Y-%m-%d)}" -v f="${feature:-–}" -v b="$branch" \
+        '{ printf "run\t%s\t%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\n", d, f, b, $9, $8, $7, $1, $2, $3, $4, $5 }'
+      [ -f "$state" ] && awk -v classes="$classes" '
+        BEGIN { n = split(classes, c, " "); for (i = 1; i <= n; i++) known[c[i]] = 1 }
+        /^## / { in_stops = ($0 ~ /^## Stops[ \t]*$/); next }
+        in_stops && /^- / && !/^- </ {
+          line = substr($0, 3); gsub(/\t/, " ", line)
+          n = split(line, p, "|")
+          for (i = 1; i <= 5; i++) { v = (i <= n) ? p[i] : ""; gsub(/^ +| +$/, "", v); f[i] = v }
+          if (!(f[2] in known)) printf "runs: stop \"%s\" has the class \"%s\"; expected one of: %s\n", f[1], f[2], classes > "/dev/stderr"
+          printf "stop\t%s\t%s\t%s\t%s\t%s\n", f[1], f[2], f[3], f[4], f[5]
+        }
+      ' "$state"
+    } >"$file"
+    echo "Wrote $file ($(grep -c '^stop' "$file") stops)."
+    ;;
+  report)
+    set -- reports/runs/*.tsv
+    [ -f "$1" ] || { echo "No run records in reports/runs/ yet."; exit 0; }
+    awk -F '\t' -v classes="$classes" '
+      function sortv(arr, n,    i, j, x) { for (i = 2; i <= n; i++) { x = arr[i]; for (j = i - 1; j > 0 && arr[j] > x; j--) arr[j + 1] = arr[j]; arr[j + 1] = x } }
+      function med(arr, n) { sortv(arr, n); return (n % 2) ? arr[(n + 1) / 2] : (arr[n / 2] + arr[n / 2 + 1]) / 2 }
+      function p75(arr, n,    p) { sortv(arr, n); p = int(0.75 * n); if (p < 0.75 * n) p++; return arr[p] }
+      $1 == "run" {
+        r = ++runs; date[r] = $2; feat[r] = $3; tasks[r] = $5; esc[r] = $6; rounds[r] = $7; tok[r] = $8; mainr[r] = $12
+        stopsr[r] = 0; cur = r
+        all_tasks += $5; all_esc += $6
+        tokv[r] = $8; roundv[r] = $7; escv[r] = $6
+        if ($5 > 0) pertask[++npt] = $8 / $5
+        if ($8 > 0) share[++nsh] = $12 * 100 / $8
+        next
+      }
+      $1 == "stop" {
+        stopsr[cur]++; byclass[$3]++
+        list[$3] = list[$3] sprintf("- %s, %s: %s. Tried: %s. Resolution: %s.\n", feat[cur], $2, $4, ($5 == "" ? "–" : $5), ($6 == "" ? "–" : $6))
+      }
+      END {
+        print "# Runs"
+        print ""
+        if (runs < 5) printf "**Too few runs for reliable numbers** (%d).\n\n", runs
+        printf "Runs: %d. Tasks: %d. Escalations: %d (%.0f%% of tasks).\n\n", runs, all_tasks, all_esc, (all_tasks ? all_esc * 100 / all_tasks : 0)
+        print "| Metric | Median | p75 | Runs |"
+        print "|--------|--------|-----|------|"
+        printf "| Tokens per run | %d | %d | %d |\n", med(tokv, runs), p75(tokv, runs), runs
+        if (npt) printf "| Tokens per task | %d | %d | %d |\n", med(pertask, npt), p75(pertask, npt), npt
+        if (nsh) printf "| Main-session share of tokens (%%) | %.0f | %.0f | %d |\n", med(share, nsh), p75(share, nsh), nsh
+        printf "| Review rounds | %s | %s | %d |\n", med(roundv, runs), p75(roundv, runs), runs
+        printf "| Escalations per run | %s | %s | %d |\n", med(escv, runs), p75(escv, runs), runs
+        print ""
+        print "| Date | Feature | Tasks | Escalations | Review rounds | Tokens | Main session | Stops |"
+        print "|------|---------|-------|-------------|---------------|--------|--------------|-------|"
+        for (r = 1; r <= runs; r++) printf "| %s | %s | %d | %d | %d | %d | %d | %d |\n", date[r], feat[r], tasks[r], esc[r], rounds[r], tok[r], mainr[r], stopsr[r]
+        print ""
+        print "## Stops by class"
+        print ""
+        n = split(classes, c, " ")
+        for (i = 1; i <= n; i++) known[c[i]] = 1
+        for (k in byclass) if (!(k in known)) c[++n] = k
+        print "| Class | Stops |"
+        print "|-------|-------|"
+        for (i = 1; i <= n; i++) printf "| %s | %d |\n", c[i], byclass[c[i]]
+        for (i = 1; i <= n; i++) if (list[c[i]] != "") { printf "\n### %s\n\n%s", c[i], list[c[i]] }
+        print ""
+        print "These numbers describe what happened, not why."
+      }
+    ' "$@" >reports/runs.md
+    echo "Wrote reports/runs.md ($# runs)."
+    ;;
+  *) sed -n '4,6p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2 ;;
+esac

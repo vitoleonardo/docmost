@@ -1,0 +1,191 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(git status *)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git show *)",
+      "Bash(git blame *)",
+      "Bash(git rev-parse *)",
+      "Bash(git branch --show-current)",
+      "Bash(.claude/bin/check *)",
+      "Bash(.claude/bin/spec-lint *)",
+      "Bash(.claude/bin/route *)",
+      "Bash(.claude/bin/usage *)",
+      "Bash(git add *)",
+      "Bash(.claude/bin/gate *)"
+    ],
+    "ask": [
+      "Bash(gh pr merge *)",
+      "Edit(/apps/server/src/database/migrations/**)",
+      "Edit(.claude/settings.json)",
+      "Edit(.claude/kit.conf)",
+      "Edit(**/.claude/kit.conf)",
+      "Edit(.claude/baseline.tsv)",
+      "Edit(.claude/bin/**)",
+      "Edit(.claude/hooks/**)",
+      "Edit(.claude/rules/**)"
+    ],
+    "deny": [
+      "Read(.env)",
+      "Read(.env.local)",
+      "Read(.env.*.local)",
+      "Read(.env.development)",
+      "Read(.env.production)",
+      "Read(.env.test)",
+      "Read(.env.staging)",
+      "Read(.npmrc)",
+      "Read(.pypirc)",
+      "Read(*.pem)",
+      "Read(*.key)",
+      "Read(*.p12)",
+      "Read(secrets/**)",
+      "Read(~/.ssh/**)",
+      "Read(~/.aws/**)",
+      "Bash(cat .env*)",
+      "Bash(head .env*)",
+      "Bash(tail .env*)",
+      "Bash(less .env*)",
+      "Bash(more .env*)",
+      "Bash(source .env*)",
+      "Bash(. .env*)",
+      "Bash(rm -rf *)",
+      "Bash(rm -fr *)",
+      "Bash(sudo *)",
+      "Bash(git reset --hard *)",
+      "Bash(git push --force *)",
+      "Bash(git push -f *)",
+      "Bash(git push --force-with-lease *)",
+      "Bash(git clean *)",
+      "Bash(curl *)",
+      "Bash(wget *)",
+      "Bash(nc *)",
+      "Bash(ssh *)",
+      "Bash(scp *)",
+      "Bash(printenv *)",
+      "Bash(env)",
+      "Read(/apps/server/src/ee/**)",
+      "Read(/apps/client/src/ee/**)",
+      "Read(/packages/ee/**)",
+      "Edit(/apps/server/src/ee/**)",
+      "Edit(/apps/client/src/ee/**)",
+      "Edit(/packages/ee/**)",
+      "Read(/apps/server/src/ee)",
+      "Edit(/apps/server/src/ee)",
+      "Read(/apps/client/src/ee)",
+      "Edit(/apps/client/src/ee)",
+      "Read(/packages/ee)",
+      "Edit(/packages/ee)"
+    ]
+  },
+  "sandbox": {
+    "enabled": false,
+    "failIfUnavailable": true,
+    "allowUnsandboxedCommands": false,
+    "excludedCommands": [
+      ".claude/bin/check",
+      ".claude/bin/check *",
+      ".claude/bin/baseline",
+      ".claude/bin/baseline *",
+      "gh *"
+    ],
+    "filesystem": {
+      "denyRead": [
+        "./apps/server/src/ee",
+        "./apps/client/src/ee",
+        "./packages/ee"
+      ],
+      "denyWrite": [
+        "./apps/server/src/ee",
+        "./apps/client/src/ee",
+        "./packages/ee"
+      ]
+    }
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Read|Edit|Write|Grep|Glob",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/guard",
+            "timeout": 10,
+            "onFailure": "block"
+          }
+        ]
+      },
+      {
+        "matcher": "Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/usage",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/record-edit",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/usage",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "PostToolBatch": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/check-edits",
+            "timeout": 300
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/summary",
+            "timeout": 300
+          },
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/usage",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/usage",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}

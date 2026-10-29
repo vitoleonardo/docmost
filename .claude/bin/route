@@ -1,0 +1,66 @@
+#!/bin/sh
+# Model routing from .claude/kit.conf: which model a dispatched agent runs on.
+# Usage:
+#   .claude/bin/route <explore|implement|tests|review|verify>   the model alias for a role
+#   .claude/bin/route <fast|standard|deep>                      the model alias for a tier
+#   .claude/bin/route tier <role>                               the tier of a role
+#   .claude/bin/route up <tier>                                 the tier one above (deep stays deep)
+#   .claude/bin/route check                                     exit 1 with a warning when routing is disabled
+# The orchestrator passes the alias as the Agent tool's model parameter, which takes aliases only
+# (sonnet, opus, haiku, fable), so KIT_MODEL_* must be aliases. Spec, plan and PR run on the session model.
+set -u
+
+root=$(CDPATH='' cd -- "$(dirname -- "$0")/../.." && pwd) || exit 2
+if [ -f "$root/.claude/kit.conf" ]; then
+  # shellcheck source=/dev/null
+  . "$root/.claude/kit.conf"
+fi
+
+model_of() {
+  case $1 in
+    fast) alias=${KIT_MODEL_FAST:-haiku} ;;
+    standard) alias=${KIT_MODEL_STANDARD:-sonnet} ;;
+    deep) alias=${KIT_MODEL_DEEP:-opus} ;;
+    *) echo "route: unknown tier '$1' (fast, standard, deep)" >&2; exit 2 ;;
+  esac
+  case $alias in
+    sonnet | opus | haiku | fable) printf '%s\n' "$alias" ;;
+    *) echo "route: KIT_MODEL_$(printf '%s' "$1" | tr a-z A-Z)='$alias' is not an alias the Agent tool accepts (sonnet, opus, haiku, fable)." >&2; exit 2 ;;
+  esac
+}
+
+tier_of() {
+  case $1 in
+    explore) t=${KIT_ROUTE_EXPLORE:-fast} ;;
+    implement) t=${KIT_ROUTE_IMPLEMENT:-standard} ;;
+    tests) t=${KIT_ROUTE_TESTS:-standard} ;;
+    review) t=${KIT_ROUTE_REVIEW:-deep} ;;
+    verify) t=${KIT_ROUTE_VERIFY:-standard} ;;
+    *) echo "route: unknown role '$1' (explore, implement, tests, review, verify)" >&2; exit 2 ;;
+  esac
+  case $t in
+    fast | standard | deep) printf '%s\n' "$t" ;;
+    *) echo "route: KIT_ROUTE_$(printf '%s' "$1" | tr a-z A-Z)='$t' is not a tier (fast, standard, deep)." >&2; exit 2 ;;
+  esac
+}
+
+case ${1:-} in
+  fast | standard | deep) model_of "$1" ;;
+  explore | implement | tests | review | verify) model_of "$(tier_of "$1")" ;;
+  tier) tier_of "${2:?usage: route tier <role>}" ;;
+  up)
+    case ${2:-} in
+      fast) echo standard ;;
+      standard | deep) echo deep ;;
+      *) echo "usage: route up <fast|standard|deep>" >&2; exit 2 ;;
+    esac
+    ;;
+  check)
+    if [ "${CLAUDE_CODE_SUBAGENT_MODEL_FORCE:-}" = 1 ] || [ "${CLAUDE_CODE_SUBAGENT_MODEL_FORCE:-}" = true ]; then
+      echo "Warning: CLAUDE_CODE_SUBAGENT_MODEL_FORCE is set, so every subagent runs on ${CLAUDE_CODE_SUBAGENT_MODEL:-the forced model} and the tiers in .claude/kit.conf are ignored. Unset it to route by tier."
+      exit 1
+    fi
+    echo "Routing by tier: fast=$(model_of fast) standard=$(model_of standard) deep=$(model_of deep)"
+    ;;
+  *) sed -n '3,9p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2 ;;
+esac

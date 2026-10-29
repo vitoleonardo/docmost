@@ -1,0 +1,23 @@
+{
+  "mcpServers": {
+    "github": {
+      "type": "http",
+      "url": "https://api.githubcopilot.com/mcp/readonly",
+      "headers": {
+        "Authorization": "Bearer ${GITHUB_PAT}"
+      }
+    },
+    "db": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@bytebase/dbhub@1.5.0",
+        "--transport",
+        "stdio",
+        "--dsn",
+        "${DATABASE_URL_READONLY}"
+      ]
+    }
+  }
+}
