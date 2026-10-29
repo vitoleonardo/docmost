@@ -1,0 +1,289 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="jest tests" tests="141" failures="0" errors="0" time="34.487">
+  <testsuite name="AI bridge page access (e2e)" errors="0" failures="0" skipped="0" timestamp="2026-10-29T13:54:34" time="20.713" tests="86">
+    <testcase classname="AI bridge page access (e2e) BRIDGE-AC17: each restricted page is kept exactly for the users the page matrix grants view" name="AI bridge page access (e2e) BRIDGE-AC17: each restricted page is kept exactly for the users the page matrix grants view" time="0.11">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) BRIDGE-AC17: the inherited child and the group grant reach WS, not VT" name="AI bridge page access (e2e) BRIDGE-AC17: the inherited child and the group grant reach WS, not VT" time="0.024">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) BRIDGE-AC18: one unrestricted page per space is kept exactly for the members of its space" name="AI bridge page access (e2e) BRIDGE-AC18: one unrestricted page per space is kept exactly for the members of its space" time="0.036">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) BRIDGE-AC15: a page in the trash is dropped for every member of its space" name="AI bridge page access (e2e) BRIDGE-AC15: a page in the trash is dropped for every member of its space" time="0.036">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) BRIDGE-AC19: a page of a space marked as deleted is dropped for its members" name="AI bridge page access (e2e) BRIDGE-AC19: a page of a space marked as deleted is dropped for its members" time="0.043">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) BRIDGE-AC61: findViewablePage returns the page with content for a viewer and null otherwise" name="AI bridge page access (e2e) BRIDGE-AC61: findViewablePage returns the page with content for a viewer and null otherwise" time="0.012">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) internal HTTP API BRIDGE-AC14: a page moved into Geschäftsführung is dropped for WS and kept for GF" name="AI bridge page access (e2e) internal HTTP API BRIDGE-AC14: a page moved into Geschäftsführung is dropped for WS and kept for GF" time="0.053">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) internal HTTP API ASK-AC30: with a spaceId, filter-pages keeps a viewable page only while it is in that space" name="AI bridge page access (e2e) internal HTTP API ASK-AC30: with a spaceId, filter-pages keeps a viewable page only while it is in that space" time="0.038">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) internal HTTP API ASK-AC30: a malformed spaceId answers 400 invalid_request" name="AI bridge page access (e2e) internal HTTP API ASK-AC30: a malformed spaceId answers 400 invalid_request" time="0.007">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) internal HTTP API BRIDGE-AC14: a forged spaceIds claim grants nothing" name="AI bridge page access (e2e) internal HTTP API BRIDGE-AC14: a forged spaceIds claim grants nothing" time="0.007">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) internal HTTP API BRIDGE-AC16: a member removed from Vertrieb no longer gets its pages" name="AI bridge page access (e2e) internal HTTP API BRIDGE-AC16: a member removed from Vertrieb no longer gets its pages" time="0.029">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) internal HTTP API BRIDGE-AC13: filter-pages returns the viewable ids in first-occurrence order, without envelope" name="AI bridge page access (e2e) internal HTTP API BRIDGE-AC13: filter-pages returns the viewable ids in first-occurrence order, without envelope" time="0.012">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) internal HTTP API BRIDGE-AC13: filter-pages matches uppercase ids and returns them lowercase" name="AI bridge page access (e2e) internal HTTP API BRIDGE-AC13: filter-pages matches uppercase ids and returns them lowercase" time="0.01">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) internal HTTP API BRIDGE-AC28: filter-pages with a task token answers as with the user token" name="AI bridge page access (e2e) internal HTTP API BRIDGE-AC28: filter-pages with a task token answers as with the user token" time="0.113">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) internal HTTP API BRIDGE-AC27: task-token returns a task token for the user and run, expiring within 15 min" name="AI bridge page access (e2e) internal HTTP API BRIDGE-AC27: task-token returns a task token for the user and run, expiring within 15 min" time="0.004">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) internal HTTP API BRIDGE-AC45: every internal endpoint answers 503 assistant_disabled while the assistant is switched off" name="AI bridge page access (e2e) internal HTTP API BRIDGE-AC45: every internal endpoint answers 503 assistant_disabled while the assistant is switched off" time="0.005">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) internal HTTP API BRIDGE-AC46: a request without a service token answers 401 service_token_missing" name="AI bridge page access (e2e) internal HTTP API BRIDGE-AC46: a request without a service token answers 401 service_token_missing" time="0.005">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) internal HTTP API BRIDGE-AC47: a request with a wrong service token answers 401 service_token_invalid" name="AI bridge page access (e2e) internal HTTP API BRIDGE-AC47: a request with a wrong service token answers 401 service_token_invalid" time="0.004">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) internal HTTP API BRIDGE-AC48: a user id in the body without a user token answers 401 user_token_missing" name="AI bridge page access (e2e) internal HTTP API BRIDGE-AC48: a user id in the body without a user token answers 401 user_token_missing" time="0.002">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) internal HTTP API BRIDGE-AC49: a valid user token next to a user id answers 400 user_id_not_allowed" name="AI bridge page access (e2e) internal HTTP API BRIDGE-AC49: a valid user token next to a user id answers 400 user_id_not_allowed" time="0.004">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) internal HTTP API BRIDGE-AC50: an expired user token or task token answers 401 user_token_expired" name="AI bridge page access (e2e) internal HTTP API BRIDGE-AC50: an expired user token or task token answers 401 user_token_expired" time="0.009">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) internal HTTP API BRIDGE-AC51: a wiki login token answers 401 user_token_invalid" name="AI bridge page access (e2e) internal HTTP API BRIDGE-AC51: a wiki login token answers 401 user_token_invalid" time="0.264">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) internal HTTP API BRIDGE-AC51: a malformed token answers 401 user_token_invalid" name="AI bridge page access (e2e) internal HTTP API BRIDGE-AC51: a malformed token answers 401 user_token_invalid" time="0.001">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) internal HTTP API BRIDGE-AC52: tokens of a user deactivated after issuing answer 401 user_token_invalid" name="AI bridge page access (e2e) internal HTTP API BRIDGE-AC52: tokens of a user deactivated after issuing answer 401 user_token_invalid" time="0.021">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) internal HTTP API BRIDGE-AC53: exchanging a task token for another task token answers 401 user_token_invalid" name="AI bridge page access (e2e) internal HTTP API BRIDGE-AC53: exchanging a task token for another task token answers 401 user_token_invalid" time="0.008">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) internal HTTP API BRIDGE-AC58: a malformed page id answers 400 invalid_request" name="AI bridge page access (e2e) internal HTTP API BRIDGE-AC58: a malformed page id answers 400 invalid_request" time="0.011">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) internal HTTP API BRIDGE-AC58: task-token without a run id answers 400 invalid_request" name="AI bridge page access (e2e) internal HTTP API BRIDGE-AC58: task-token without a run id answers 400 invalid_request" time="0.009">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) internal HTTP API BRIDGE-AC59: exactly 500 ids answer 200" name="AI bridge page access (e2e) internal HTTP API BRIDGE-AC59: exactly 500 ids answer 200" time="0.01">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) internal HTTP API BRIDGE-AC60: 501 ids answer 400 too_many_page_ids" name="AI bridge page access (e2e) internal HTTP API BRIDGE-AC60: 501 ids answer 400 too_many_page_ids" time="0.009">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) internal HTTP API content endpoints and read tools BRIDGE-AC20: page-content returns the page fields and markdown with its headings, without envelope" name="AI bridge page access (e2e) internal HTTP API content endpoints and read tools BRIDGE-AC20: page-content returns the page fields and markdown with its headings, without envelope" time="0.042">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) internal HTTP API content endpoints and read tools BRIDGE-AC21: page-content lists the PDF attachment with id, file name, type and size and skips other attachments" name="AI bridge page access (e2e) internal HTTP API content endpoints and read tools BRIDGE-AC21: page-content lists the PDF attachment with id, file name, type and size and skips other attachments" time="0.023">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) internal HTTP API content endpoints and read tools BRIDGE-AC22: page-content returns the restricted page and a Geschäftsführung page" name="AI bridge page access (e2e) internal HTTP API content endpoints and read tools BRIDGE-AC22: page-content returns the restricted page and a Geschäftsführung page" time="0.03">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) internal HTTP API content endpoints and read tools BRIDGE-AC23: attachment returns the stored bytes with the PDF content type" name="AI bridge page access (e2e) internal HTTP API content endpoints and read tools BRIDGE-AC23: attachment returns the stored bytes with the PDF content type" time="0.006">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) internal HTTP API content endpoints and read tools BRIDGE-AC24: read-page returns id, title, space and markdown for a viewer" name="AI bridge page access (e2e) internal HTTP API content endpoints and read tools BRIDGE-AC24: read-page returns id, title, space and markdown for a viewer" time="0.019">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) internal HTTP API content endpoints and read tools BRIDGE-AC25: searching HR for Urlaubsantrag im Personalportal returns pages of that space only, and AC26: it finds the page" name="AI bridge page access (e2e) internal HTTP API content endpoints and read tools BRIDGE-AC25: searching HR for Urlaubsantrag im Personalportal returns pages of that space only, and AC26: it finds the page" time="0.02">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) internal HTTP API content endpoints and read tools BRIDGE-AC25: searching Vertrieb for Preisliste Standardkomponenten returns pages of that space only, and AC26: it finds the page" name="AI bridge page access (e2e) internal HTTP API content endpoints and read tools BRIDGE-AC25: searching Vertrieb for Preisliste Standardkomponenten returns pages of that space only, and AC26: it finds the page" time="0.021">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) internal HTTP API content endpoints and read tools BRIDGE-AC25: a page in the trash is not found" name="AI bridge page access (e2e) internal HTTP API content endpoints and read tools BRIDGE-AC25: a page in the trash is not found" time="0.017">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) internal HTTP API content endpoints and read tools BRIDGE-AC28: read-page and search with a task token answer as with the user token" name="AI bridge page access (e2e) internal HTTP API content endpoints and read tools BRIDGE-AC28: read-page and search with a task token answer as with the user token" time="0.059">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) internal HTTP API content endpoints and read tools BRIDGE-AC61: read-page answers every unreadable variant with the same 404 page_not_found" name="AI bridge page access (e2e) internal HTTP API content endpoints and read tools BRIDGE-AC61: read-page answers every unreadable variant with the same 404 page_not_found" time="0.038">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) internal HTTP API content endpoints and read tools BRIDGE-AC62: search answers a foreign, deleted or unknown space with the same 404 space_not_found" name="AI bridge page access (e2e) internal HTTP API content endpoints and read tools BRIDGE-AC62: search answers a foreign, deleted or unknown space with the same 404 space_not_found" time="0.013">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) internal HTTP API content endpoints and read tools BRIDGE-AC63: search with an empty or blank query answers 400 invalid_request" name="AI bridge page access (e2e) internal HTTP API content endpoints and read tools BRIDGE-AC63: search with an empty or blank query answers 400 invalid_request" time="0.008">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) internal HTTP API content endpoints and read tools BRIDGE-AC64: a word only in a restricted page finds nothing for WS and the page for GF" name="AI bridge page access (e2e) internal HTTP API content endpoints and read tools BRIDGE-AC64: a word only in a restricted page finds nothing for WS and the page for GF" time="0.029">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) internal HTTP API content endpoints and read tools BRIDGE-AC65: page-content answers a page in the trash and an unknown id with 404 page_not_found" name="AI bridge page access (e2e) internal HTTP API content endpoints and read tools BRIDGE-AC65: page-content answers a page in the trash and an unknown id with 404 page_not_found" time="0.013">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) internal HTTP API content endpoints and read tools BRIDGE-AC67: attachment answers an unknown id, a deleted attachment and one of a trashed page with 404 attachment_not_found" name="AI bridge page access (e2e) internal HTTP API content endpoints and read tools BRIDGE-AC67: attachment answers an unknown id, a deleted attachment and one of a trashed page with 404 attachment_not_found" time="0.014">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) internal HTTP API content endpoints and read tools page list INDEX-AC43: the parts together hold every page outside the trash and deleted spaces exactly once" name="AI bridge page access (e2e) internal HTTP API content endpoints and read tools page list INDEX-AC43: the parts together hold every page outside the trash and deleted spaces exactly once" time="0.004">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) internal HTTP API content endpoints and read tools page list INDEX-AC44: with 501 pages the first part holds 500 entries and a cursor, the next part the rest" name="AI bridge page access (e2e) internal HTTP API content endpoints and read tools page list INDEX-AC44: with 501 pages the first part holds 500 entries and a cursor, the next part the rest" time="0.057">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) internal HTTP API content endpoints and read tools page list INDEX-AC45: each update time equals the one page-content returns" name="AI bridge page access (e2e) internal HTTP API content endpoints and read tools page list INDEX-AC45: each update time equals the one page-content returns" time="0.343">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) internal HTTP API content endpoints and read tools page list INDEX-AC46: a page in the trash and the pages of a space marked as deleted are not listed" name="AI bridge page access (e2e) internal HTTP API content endpoints and read tools page list INDEX-AC46: a page in the trash and the pages of a space marked as deleted are not listed" time="0.017">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) internal HTTP API content endpoints and read tools page list INDEX-AC47: page-content answers a page of a space marked as deleted with 404 page_not_found" name="AI bridge page access (e2e) internal HTTP API content endpoints and read tools page list INDEX-AC47: page-content answers a page of a space marked as deleted with 404 page_not_found" time="0.014">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) internal HTTP API content endpoints and read tools page list INDEX-AC48: the cursor &quot;not-a-cursor&quot; answers 400 invalid_request" name="AI bridge page access (e2e) internal HTTP API content endpoints and read tools page list INDEX-AC48: the cursor &quot;not-a-cursor&quot; answers 400 invalid_request" time="0.002">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) internal HTTP API content endpoints and read tools page list INDEX-AC48: the cursor &quot;&quot; answers 400 invalid_request" name="AI bridge page access (e2e) internal HTTP API content endpoints and read tools page list INDEX-AC48: the cursor &quot;&quot; answers 400 invalid_request" time="0.001">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) internal HTTP API content endpoints and read tools page list INDEX-AC48: the cursor 42 answers 400 invalid_request" name="AI bridge page access (e2e) internal HTTP API content endpoints and read tools page list INDEX-AC48: the cursor 42 answers 400 invalid_request" time="0.002">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) internal HTTP API content endpoints and read tools page list INDEX-AC48: the cursor [&quot;a&quot;] answers 400 invalid_request" name="AI bridge page access (e2e) internal HTTP API content endpoints and read tools page list INDEX-AC48: the cursor [&quot;a&quot;] answers 400 invalid_request" time="0.001">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) internal HTTP API content endpoints and read tools page list INDEX-AC48: a null cursor answers the first part like an absent one" name="AI bridge page access (e2e) internal HTTP API content endpoints and read tools page list INDEX-AC48: a null cursor answers the first part like an absent one" time="0.005">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) internal HTTP API content endpoints and read tools page list INDEX-AC48: a bare page id as cursor answers 400 invalid_request" name="AI bridge page access (e2e) internal HTTP API content endpoints and read tools page list INDEX-AC48: a bare page id as cursor answers 400 invalid_request" time="0.003">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) internal HTTP API content endpoints and read tools page list INDEX-AC48: a returned cursor with a tampered signature answers 400 invalid_request" name="AI bridge page access (e2e) internal HTTP API content endpoints and read tools page list INDEX-AC48: a returned cursor with a tampered signature answers 400 invalid_request" time="0.052">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) internal HTTP API content endpoints and read tools page list INDEX-AC49: the page list answers 503 assistant_disabled while the assistant is switched off" name="AI bridge page access (e2e) internal HTTP API content endpoints and read tools page list INDEX-AC49: the page list answers 503 assistant_disabled while the assistant is switched off" time="0.001">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) internal HTTP API content endpoints and read tools page list INDEX-AC50: the page list without a service token answers 401 service_token_missing" name="AI bridge page access (e2e) internal HTTP API content endpoints and read tools page list INDEX-AC50: the page list without a service token answers 401 service_token_missing" time="0.002">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) internal HTTP API content endpoints and read tools page list INDEX-AC51: the page list with a wrong service token answers 401 service_token_invalid" name="AI bridge page access (e2e) internal HTTP API content endpoints and read tools page list INDEX-AC51: the page list with a wrong service token answers 401 service_token_invalid" time="0.001">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) internal HTTP API content endpoints and read tools page list INDEX-AC52: the page list with a user id in its body answers 400 user_id_not_allowed" name="AI bridge page access (e2e) internal HTTP API content endpoints and read tools page list INDEX-AC52: the page list with a user id in its body answers 400 user_id_not_allowed" time="0.001">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) assistant status and job forwarding BRIDGE-AC37: the status endpoint answers 401 without a session" name="AI bridge page access (e2e) assistant status and job forwarding BRIDGE-AC37: the status endpoint answers 401 without a session" time="0.002">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) assistant status and job forwarding BRIDGE-AC1: the status endpoint answers disabled and sends nothing while the assistant is switched off" name="AI bridge page access (e2e) assistant status and job forwarding BRIDGE-AC1: the status endpoint answers disabled and sends nothing while the assistant is switched off" time="0.256">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) assistant status and job forwarding BRIDGE-AC3: the status endpoint answers available when the AI service accepts the session" name="AI bridge page access (e2e) assistant status and job forwarding BRIDGE-AC3: the status endpoint answers available when the AI service accepts the session" time="0.262">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) assistant status and job forwarding BRIDGE-AC4: neither the status body nor its headers contain the user token sent to the AI service or any JWT" name="AI bridge page access (e2e) assistant status and job forwarding BRIDGE-AC4: neither the status body nor its headers contain the user token sent to the AI service or any JWT" time="0.265">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) assistant status and job forwarding BRIDGE-AC38: the status endpoint answers unavailable when the connection is refused" name="AI bridge page access (e2e) assistant status and job forwarding BRIDGE-AC38: the status endpoint answers unavailable when the connection is refused" time="0.257">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) assistant status and job forwarding BRIDGE-AC39: the status endpoint answers unavailable within 5 s when the AI service never answers" name="AI bridge page access (e2e) assistant status and job forwarding BRIDGE-AC39: the status endpoint answers unavailable within 5 s when the AI service never answers" time="3.262">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) assistant status and job forwarding BRIDGE-AC40: the status endpoint answers unavailable on HTTP 500" name="AI bridge page access (e2e) assistant status and job forwarding BRIDGE-AC40: the status endpoint answers unavailable on HTTP 500" time="0.262">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) assistant status and job forwarding BRIDGE-AC41: the status endpoint answers unavailable on HTTP 401" name="AI bridge page access (e2e) assistant status and job forwarding BRIDGE-AC41: the status endpoint answers unavailable on HTTP 401" time="0.261">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) assistant status and job forwarding BRIDGE-AC29: creating a page forwards page-created with the page id and workspace to the AI service within 5 s" name="AI bridge page access (e2e) assistant status and job forwarding BRIDGE-AC29: creating a page forwards page-created with the page id and workspace to the AI service within 5 s" time="0.27">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) assistant status and job forwarding ask endpoint ASK-AC64: a question without a session answers 401 and calls nothing" name="AI bridge page access (e2e) assistant status and job forwarding ask endpoint ASK-AC64: a question without a session answers 401 and calls nothing" time="0.003">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) assistant status and job forwarding ask endpoint ASK-AC61: every malformed question request answers 400 invalid_request" name="AI bridge page access (e2e) assistant status and job forwarding ask endpoint ASK-AC61: every malformed question request answers 400 invalid_request" time="0.328">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) assistant status and job forwarding ask endpoint ASK-AC62: a foreign, deleted or unknown space answers the same 404 space_not_found" name="AI bridge page access (e2e) assistant status and job forwarding ask endpoint ASK-AC62: a foreign, deleted or unknown space answers the same 404 space_not_found" time="0.04">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) assistant status and job forwarding ask endpoint ASK-AC63: a restricted, trashed or unknown page answers the same 404 page_not_found" name="AI bridge page access (e2e) assistant status and job forwarding ask endpoint ASK-AC63: a restricted, trashed or unknown page answers the same 404 page_not_found" time="0.044">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) assistant status and job forwarding ask endpoint ASK-AC65: a switched-off assistant answers 503 assistant_disabled and calls nothing" name="AI bridge page access (e2e) assistant status and job forwarding ask endpoint ASK-AC65: a switched-off assistant answers 503 assistant_disabled and calls nothing" time="0.007">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) assistant status and job forwarding ask endpoint ASK-AC66: a refused connection answers 503 assistant_unavailable" name="AI bridge page access (e2e) assistant status and job forwarding ask endpoint ASK-AC66: a refused connection answers 503 assistant_unavailable" time="0.133">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) assistant status and job forwarding ask endpoint ASK-AC66: HTTP 401 and 500 from the AI service answer 503 assistant_unavailable" name="AI bridge page access (e2e) assistant status and job forwarding ask endpoint ASK-AC66: HTTP 401 and 500 from the AI service answer 503 assistant_unavailable" time="0.034">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) assistant status and job forwarding ask endpoint ASK-AC17: GF gets the streamed text and a source for &quot;Bänder&quot; in Geschäftsführung linking the heading" name="AI bridge page access (e2e) assistant status and job forwarding ask endpoint ASK-AC17: GF gets the streamed text and a source for &quot;Bänder&quot; in Geschäftsführung linking the heading" time="0.292">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) assistant status and job forwarding ask endpoint ASK-AC20: a PDF source gets the file name and page and links the page top" name="AI bridge page access (e2e) assistant status and job forwarding ask endpoint ASK-AC20: a PDF source gets the file name and page and links the page top" time="0.021">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) assistant status and job forwarding ask endpoint ASK-AC26: a cited page moved to the trash during the answer is withdrawn with no_source" name="AI bridge page access (e2e) assistant status and job forwarding ask endpoint ASK-AC26: a cited page moved to the trash during the answer is withdrawn with no_source" time="0.018">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) assistant status and job forwarding ask endpoint ASK-AC27: a cited page of a space the user was removed from during the answer is withdrawn with no_source" name="AI bridge page access (e2e) assistant status and job forwarding ask endpoint ASK-AC27: a cited page of a space the user was removed from during the answer is withdrawn with no_source" time="0.262">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) assistant status and job forwarding ask endpoint ASK-AC28: a cited page restricted against the user during the answer is withdrawn with no_source" name="AI bridge page access (e2e) assistant status and job forwarding ask endpoint ASK-AC28: a cited page restricted against the user during the answer is withdrawn with no_source" time="0.02">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) assistant status and job forwarding ask endpoint ASK-AC67: an error event after text ends the stream with model_unavailable" name="AI bridge page access (e2e) assistant status and job forwarding ask endpoint ASK-AC67: an error event after text ends the stream with model_unavailable" time="0.008">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) assistant status and job forwarding ask endpoint ASK-AC69: a stream that breaks off after text ends with model_unavailable, not a 500" name="AI bridge page access (e2e) assistant status and job forwarding ask endpoint ASK-AC69: a stream that breaks off after text ends with model_unavailable, not a 500" time="0.033">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) assistant status and job forwarding with the AI service down BRIDGE-AC8: login, page create, content update and reload still work" name="AI bridge page access (e2e) assistant status and job forwarding with the AI service down BRIDGE-AC8: login, page create, content update and reload still work" time="0.343">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) assistant status and job forwarding with the AI service down BRIDGE-AC9: GET /api/health answers 200 healthy" name="AI bridge page access (e2e) assistant status and job forwarding with the AI service down BRIDGE-AC9: GET /api/health answers 200 healthy" time="0.004">
+    </testcase>
+    <testcase classname="AI bridge page access (e2e) assistant status and job forwarding with the AI service down BRIDGE-AC68: page create still answers 200 and the failed forward is logged as a warning without content or tokens" name="AI bridge page access (e2e) assistant status and job forwarding with the AI service down BRIDGE-AC68: page create still answers 200 and the failed forward is logged as a warning without content or tokens" time="0.258">
+    </testcase>
+  </testsuite>
+  <testsuite name="seed preflight and reset (e2e)" errors="0" failures="0" skipped="0" timestamp="2026-10-29T13:54:34" time="33.619" tests="55">
+    <testcase classname="seed preflight and reset (e2e) SEED-AC32: an unreachable database fails with its host" name="seed preflight and reset (e2e) SEED-AC32: an unreachable database fails with its host" time="0.022">
+    </testcase>
+    <testcase classname="seed preflight and reset (e2e) SEED-AC33: a database without migrations fails with the migration message" name="seed preflight and reset (e2e) SEED-AC33: a database without migrations fails with the migration message" time="0.439">
+    </testcase>
+    <testcase classname="seed preflight and reset (e2e) SEED-AC34: a held lock fails with &quot;Another rebuild is running&quot; and changes nothing" name="seed preflight and reset (e2e) SEED-AC34: a held lock fails with &quot;Another rebuild is running&quot; and changes nothing" time="0.055">
+    </testcase>
+    <testcase classname="seed preflight and reset (e2e) SEED-AC28: the reset keeps the migration records in public and ai and empties both schemas" name="seed preflight and reset (e2e) SEED-AC28: the reset keeps the migration records in public and ai and empties both schemas" time="0.079">
+    </testcase>
+    <testcase classname="seed preflight and reset (e2e) SEED-AC28: the reset removes only the stored folders of existing workspaces" name="seed preflight and reset (e2e) SEED-AC28: the reset removes only the stored folders of existing workspaces" time="0.057">
+    </testcase>
+    <testcase classname="seed preflight and reset (e2e) SEED-AC28: a failed storage delete leaves the database and the workspace ids for the next run" name="seed preflight and reset (e2e) SEED-AC28: a failed storage delete leaves the database and the workspace ids for the next run" time="0.076">
+    </testcase>
+    <testcase classname="seed preflight and reset (e2e) SEED-AC34: the lock is held until release and free afterwards" name="seed preflight and reset (e2e) SEED-AC34: the lock is held until release and free afterwards" time="0.112">
+    </testcase>
+    <testcase classname="seed preflight and reset (e2e) seed writer SEED-AC1: seeds exactly 1 workspace, 4 users, 2 groups and the 6 spaces" name="seed preflight and reset (e2e) seed writer SEED-AC1: seeds exactly 1 workspace, 4 users, 2 groups and the 6 spaces" time="0.007">
+    </testcase>
+    <testcase classname="seed preflight and reset (e2e) seed writer SEED-AC1: gives every user the workspace role from the users table" name="seed preflight and reset (e2e) seed writer SEED-AC1: gives every user the workspace role from the users table" time="0.001">
+    </testcase>
+    <testcase classname="seed preflight and reset (e2e) seed writer SEED-AC2: GF logs in with the demo password and gets an auth cookie" name="seed preflight and reset (e2e) seed writer SEED-AC2: GF logs in with the demo password and gets an auth cookie" time="0.286">
+    </testcase>
+    <testcase classname="seed preflight and reset (e2e) seed writer SEED-AC2: PL logs in with the demo password and gets an auth cookie" name="seed preflight and reset (e2e) seed writer SEED-AC2: PL logs in with the demo password and gets an auth cookie" time="0.253">
+    </testcase>
+    <testcase classname="seed preflight and reset (e2e) seed writer SEED-AC2: VT logs in with the demo password and gets an auth cookie" name="seed preflight and reset (e2e) seed writer SEED-AC2: VT logs in with the demo password and gets an auth cookie" time="0.252">
+    </testcase>
+    <testcase classname="seed preflight and reset (e2e) seed writer SEED-AC2: WS logs in with the demo password and gets an auth cookie" name="seed preflight and reset (e2e) seed writer SEED-AC2: WS logs in with the demo password and gets an auth cookie" time="0.249">
+    </testcase>
+    <testcase classname="seed preflight and reset (e2e) seed writer SEED-AC2: a wrong password fails without an auth cookie" name="seed preflight and reset (e2e) seed writer SEED-AC2: a wrong password fails without an auth cookie" time="0.249">
+    </testcase>
+    <testcase classname="seed preflight and reset (e2e) seed writer SEED-AC3: GF has exactly the spaces and roles of the space matrix" name="seed preflight and reset (e2e) seed writer SEED-AC3: GF has exactly the spaces and roles of the space matrix" time="0.003">
+    </testcase>
+    <testcase classname="seed preflight and reset (e2e) seed writer SEED-AC3: PL has exactly the spaces and roles of the space matrix" name="seed preflight and reset (e2e) seed writer SEED-AC3: PL has exactly the spaces and roles of the space matrix" time="0.003">
+    </testcase>
+    <testcase classname="seed preflight and reset (e2e) seed writer SEED-AC3: VT has exactly the spaces and roles of the space matrix" name="seed preflight and reset (e2e) seed writer SEED-AC3: VT has exactly the spaces and roles of the space matrix" time="0.002">
+    </testcase>
+    <testcase classname="seed preflight and reset (e2e) seed writer SEED-AC3: WS has exactly the spaces and roles of the space matrix" name="seed preflight and reset (e2e) seed writer SEED-AC3: WS has exactly the spaces and roles of the space matrix" time="0.002">
+    </testcase>
+    <testcase classname="seed preflight and reset (e2e) seed writer SEED-AC4: WS is writer in Projekte only through the group Projektteam" name="seed preflight and reset (e2e) seed writer SEED-AC4: WS is writer in Projekte only through the group Projektteam" time="0.008">
+    </testcase>
+    <testcase classname="seed preflight and reset (e2e) seed writer SEED-AC5: the default group holds all 4 users and has no space membership" name="seed preflight and reset (e2e) seed writer SEED-AC5: the default group holds all 4 users and has no space membership" time="0.003">
+    </testcase>
+    <testcase classname="seed preflight and reset (e2e) seed writer SEED-AC6: only the granted users can view &quot;Umstrukturierung 2027&quot;" name="seed preflight and reset (e2e) seed writer SEED-AC6: only the granted users can view &quot;Umstrukturierung 2027&quot;" time="0.018">
+    </testcase>
+    <testcase classname="seed preflight and reset (e2e) seed writer SEED-AC6: only the granted users can view &quot;Angebot Kalkulation Kläranlage Nordhafen&quot;" name="seed preflight and reset (e2e) seed writer SEED-AC6: only the granted users can view &quot;Angebot Kalkulation Kläranlage Nordhafen&quot;" time="0.018">
+    </testcase>
+    <testcase classname="seed preflight and reset (e2e) seed writer SEED-AC6: only the granted users can view &quot;Baustelle Nordhafen intern&quot;" name="seed preflight and reset (e2e) seed writer SEED-AC6: only the granted users can view &quot;Baustelle Nordhafen intern&quot;" time="0.011">
+    </testcase>
+    <testcase classname="seed preflight and reset (e2e) seed writer SEED-AC6: only the granted users can view &quot;Baustelle Nordhafen Zugangscodes&quot;" name="seed preflight and reset (e2e) seed writer SEED-AC6: only the granted users can view &quot;Baustelle Nordhafen Zugangscodes&quot;" time="0.012">
+    </testcase>
+    <testcase classname="seed preflight and reset (e2e) seed writer SEED-AC7: only the users with view and edit can edit &quot;Umstrukturierung 2027&quot;" name="seed preflight and reset (e2e) seed writer SEED-AC7: only the users with view and edit can edit &quot;Umstrukturierung 2027&quot;" time="0.007">
+    </testcase>
+    <testcase classname="seed preflight and reset (e2e) seed writer SEED-AC7: only the users with view and edit can edit &quot;Angebot Kalkulation Kläranlage Nordhafen&quot;" name="seed preflight and reset (e2e) seed writer SEED-AC7: only the users with view and edit can edit &quot;Angebot Kalkulation Kläranlage Nordhafen&quot;" time="0.007">
+    </testcase>
+    <testcase classname="seed preflight and reset (e2e) seed writer SEED-AC7: only the users with view and edit can edit &quot;Baustelle Nordhafen intern&quot;" name="seed preflight and reset (e2e) seed writer SEED-AC7: only the users with view and edit can edit &quot;Baustelle Nordhafen intern&quot;" time="0.008">
+    </testcase>
+    <testcase classname="seed preflight and reset (e2e) seed writer SEED-AC7: only the users with view and edit can edit &quot;Baustelle Nordhafen Zugangscodes&quot;" name="seed preflight and reset (e2e) seed writer SEED-AC7: only the users with view and edit can edit &quot;Baustelle Nordhafen Zugangscodes&quot;" time="0.007">
+    </testcase>
+    <testcase classname="seed preflight and reset (e2e) seed writer SEED-AC7: every grant of the page matrix is a row and the child has none" name="seed preflight and reset (e2e) seed writer SEED-AC7: every grant of the page matrix is a row and the child has none" time="0.002">
+    </testcase>
+    <testcase classname="seed preflight and reset (e2e) seed writer SEED-AC13: the users denied &quot;Umstrukturierung 2027&quot; by PageAccessService are the deniedUsers of canaries.json" name="seed preflight and reset (e2e) seed writer SEED-AC13: the users denied &quot;Umstrukturierung 2027&quot; by PageAccessService are the deniedUsers of canaries.json" time="0.008">
+    </testcase>
+    <testcase classname="seed preflight and reset (e2e) seed writer SEED-AC13: the users denied &quot;Angebot Kalkulation Kläranlage Nordhafen&quot; by PageAccessService are the deniedUsers of canaries.json" name="seed preflight and reset (e2e) seed writer SEED-AC13: the users denied &quot;Angebot Kalkulation Kläranlage Nordhafen&quot; by PageAccessService are the deniedUsers of canaries.json" time="0.009">
+    </testcase>
+    <testcase classname="seed preflight and reset (e2e) seed writer SEED-AC13: the users denied &quot;Baustelle Nordhafen intern&quot; by PageAccessService are the deniedUsers of canaries.json" name="seed preflight and reset (e2e) seed writer SEED-AC13: the users denied &quot;Baustelle Nordhafen intern&quot; by PageAccessService are the deniedUsers of canaries.json" time="0.008">
+    </testcase>
+    <testcase classname="seed preflight and reset (e2e) seed writer SEED-AC13: the users denied &quot;Baustelle Nordhafen Zugangscodes&quot; by PageAccessService are the deniedUsers of canaries.json" name="seed preflight and reset (e2e) seed writer SEED-AC13: the users denied &quot;Baustelle Nordhafen Zugangscodes&quot; by PageAccessService are the deniedUsers of canaries.json" time="0.007">
+    </testcase>
+    <testcase classname="seed preflight and reset (e2e) seed writer SEED-AC13: the users denied &quot;Strategie 2027 bis 2030&quot; by PageAccessService are the deniedUsers of canaries.json" name="seed preflight and reset (e2e) seed writer SEED-AC13: the users denied &quot;Strategie 2027 bis 2030&quot; by PageAccessService are the deniedUsers of canaries.json" time="0.012">
+    </testcase>
+    <testcase classname="seed preflight and reset (e2e) seed writer SEED-AC13: the users denied &quot;Beratervertrag Unternehmensentwicklung&quot; by PageAccessService are the deniedUsers of canaries.json" name="seed preflight and reset (e2e) seed writer SEED-AC13: the users denied &quot;Beratervertrag Unternehmensentwicklung&quot; by PageAccessService are the deniedUsers of canaries.json" time="0.01">
+    </testcase>
+    <testcase classname="seed preflight and reset (e2e) seed writer SEED-AC13: the users denied &quot;Gehaltsbänder Führungsebene&quot; by PageAccessService are the deniedUsers of canaries.json" name="seed preflight and reset (e2e) seed writer SEED-AC13: the users denied &quot;Gehaltsbänder Führungsebene&quot; by PageAccessService are the deniedUsers of canaries.json" time="0.01">
+    </testcase>
+    <testcase classname="seed preflight and reset (e2e) seed writer SEED-AC13: the users denied &quot;Liquiditätsplanung 2026&quot; by PageAccessService are the deniedUsers of canaries.json" name="seed preflight and reset (e2e) seed writer SEED-AC13: the users denied &quot;Liquiditätsplanung 2026&quot; by PageAccessService are the deniedUsers of canaries.json" time="0.009">
+    </testcase>
+    <testcase classname="seed preflight and reset (e2e) seed writer SEED-AC26: the summary line names 30 pages and 9 attachments" name="seed preflight and reset (e2e) seed writer SEED-AC26: the summary line names 30 pages and 9 attachments" time="0">
+    </testcase>
+    <testcase classname="seed preflight and reset (e2e) seed writer SEED-AC17: every page loads twice with its title and first paragraph and stays unchanged" name="seed preflight and reset (e2e) seed writer SEED-AC17: every page loads twice with its title and first paragraph and stays unchanged" time="0.23">
+    </testcase>
+    <testcase classname="seed preflight and reset (e2e) seed writer SEED-AC18: GF finds the one page containing &quot;Zweiströmeland&quot;" name="seed preflight and reset (e2e) seed writer SEED-AC18: GF finds the one page containing &quot;Zweiströmeland&quot;" time="0.007">
+    </testcase>
+    <testcase classname="seed preflight and reset (e2e) seed writer SEED-AC18: GF finds the one page containing &quot;Kalenderfuchs&quot;" name="seed preflight and reset (e2e) seed writer SEED-AC18: GF finds the one page containing &quot;Kalenderfuchs&quot;" time="0.006">
+    </testcase>
+    <testcase classname="seed preflight and reset (e2e) seed writer SEED-AC18: GF finds the one page containing &quot;Pegelhase&quot;" name="seed preflight and reset (e2e) seed writer SEED-AC18: GF finds the one page containing &quot;Pegelhase&quot;" time="0.005">
+    </testcase>
+    <testcase classname="seed preflight and reset (e2e) seed writer SEED-AC19: exactly 9 PDFs hang on their named pages and are stored with their size" name="seed preflight and reset (e2e) seed writer SEED-AC19: exactly 9 PDFs hang on their named pages and are stored with their size" time="0.005">
+    </testcase>
+    <testcase classname="seed preflight and reset (e2e) seed rebuild over a changed workspace SEED-AC27: a rebuild removes an added page and a changed membership and equals a fresh seed" name="seed preflight and reset (e2e) seed rebuild over a changed workspace SEED-AC27: a rebuild removes an added page and a changed membership and equals a fresh seed" time="4.544">
+    </testcase>
+    <testcase classname="seed preflight and reset (e2e) seed writer against a non-local host SEED-AC31: without confirmation the non-local host is refused" name="seed preflight and reset (e2e) seed writer against a non-local host SEED-AC31: without confirmation the non-local host is refused" time="0.002">
+    </testcase>
+    <testcase classname="seed preflight and reset (e2e) seed writer against a non-local host SEED-AC31: with confirmation the rebuild seeds the non-local database" name="seed preflight and reset (e2e) seed writer against a non-local host SEED-AC31: with confirmation the rebuild seeds the non-local database" time="2.419">
+    </testcase>
+    <testcase classname="seed preflight and reset (e2e) seed rebuild command SEED-AC26: the built rebuild command ends with the summary line" name="seed preflight and reset (e2e) seed rebuild command SEED-AC26: the built rebuild command ends with the summary line" time="0.003">
+    </testcase>
+    <testcase classname="seed preflight and reset (e2e) seed rebuild command SEED-AC35: the rebuild runs without AI settings and connects only to loopback hosts" name="seed preflight and reset (e2e) seed rebuild command SEED-AC35: the rebuild runs without AI settings and connects only to loopback hosts" time="0.001">
+    </testcase>
+    <testcase classname="seed preflight and reset (e2e) seed rebuild command SEED-AC29: the command refuses the non-local host 0.0.0.0 without the flag and changes no data" name="seed preflight and reset (e2e) seed rebuild command SEED-AC29: the command refuses the non-local host 0.0.0.0 without the flag and changes no data" time="1.061">
+    </testcase>
+    <testcase classname="seed preflight and reset (e2e) seed rebuild command SEED-AC30: the command refuses non-local storage without the flag and changes no data" name="seed preflight and reset (e2e) seed rebuild command SEED-AC30: the command refuses non-local storage without the flag and changes no data" time="1.061">
+    </testcase>
+    <testcase classname="seed preflight and reset (e2e) seed rebuild command SEED-AC36: the command refuses non-local storage with the flag, because its files cannot be removed" name="seed preflight and reset (e2e) seed rebuild command SEED-AC36: the command refuses non-local storage with the flag, because its files cannot be removed" time="1.055">
+    </testcase>
+    <testcase classname="seed preflight and reset (e2e) seed rebuild command SEED-AC32: the command names the host of an unreachable database" name="seed preflight and reset (e2e) seed rebuild command SEED-AC32: the command names the host of an unreachable database" time="1.088">
+    </testcase>
+    <testcase classname="seed preflight and reset (e2e) seed rebuild command SEED-AC33: the command refuses a database without migrations" name="seed preflight and reset (e2e) seed rebuild command SEED-AC33: the command refuses a database without migrations" time="1.361">
+    </testcase>
+    <testcase classname="seed preflight and reset (e2e) seed rebuild command SEED-AC31: the command seeds the non-local host 0.0.0.0 with --confirm-non-local" name="seed preflight and reset (e2e) seed rebuild command SEED-AC31: the command seeds the non-local host 0.0.0.0 with --confirm-non-local" time="3.301">
+    </testcase>
+    <testcase classname="seed preflight and reset (e2e) seed rebuild command SEED-AC31: pnpm seed passes --confirm-non-local through to the rebuild entry" name="seed preflight and reset (e2e) seed rebuild command SEED-AC31: pnpm seed passes --confirm-non-local through to the rebuild entry" time="0.615">
+    </testcase>
+  </testsuite>
+</testsuites>

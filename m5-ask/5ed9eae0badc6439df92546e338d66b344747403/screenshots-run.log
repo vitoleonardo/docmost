@@ -1,0 +1,194 @@
+screenshots on m5-ask
+$ nx run-many -t build
+
+ NX   4 tasks: 4 succeeded, 4 cached
+
+
+Re-run with --output-style=static to inline logs.
+
+  Run duration:      343ms
+  Cache:             4/4 hit (100%)
+  Critical path:     325ms (3 tasks)
+  Recoverable time:  <1ms
+$ pnpm --filter ./apps/server run seed:rebuild
+$ nest build && node dist/integrations/seed/seed-main
+◇ injected env (0) from ../../.env // tip: ⌁ auth for agents [www.vestauth.com]
+Seeded: 1 workspace, 4 users, 2 groups, 6 spaces, 30 pages, 9 attachments
+[WebServer] $ pnpm --filter ./apps/server run start:prod
+[WebServer] $ cross-env NODE_ENV=production node dist/main
+
+Running 20 tests using 1 worker
+
+(node:55245) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   1 [desktop] › apps/client/e2e/ask.screenshots.ts:170:7 › WS asks the wiki › ASK-AC1: A1 shows the heading, the hint, the examples and the input (1.4s)
+  ✓   2 [desktop] › apps/client/e2e/ask.screenshots.ts:187:7 › WS asks the wiki › ASK-AC10: A2 shows Stoppen while the answer is generated (5.3s)
+  ✓   3 [desktop] › apps/client/e2e/ask.screenshots.ts:204:7 › WS asks the wiki › ASK-AC15: A2 shows the answer with its sources (1.4s)
+  ✓   4 [desktop] › apps/client/e2e/ask.screenshots.ts:220:7 › WS asks the wiki › ASK-AC36: A3 shows the no-source text without sources (1.9s)
+  ✓   5 [desktop] › apps/client/e2e/ask.screenshots.ts:234:7 › WS asks the wiki › ASK-AC7: A4 shows the unavailable text with the input disabled (1.4s)
+  ✓   6 [desktop] › apps/client/e2e/ask.screenshots.ts:250:7 › WS asks the wiki › ASK-AC21: clicking a source opens the page with the cited heading in view (3.0s)
+  ✓   7 [desktop] › apps/client/e2e/seed-data.screenshots.ts:26:9 › GF › SEED-AC3: GF sees the spaces the matrix grants (1.0s)
+  ✓   8 [desktop] › apps/client/e2e/seed-data.screenshots.ts:26:9 › PL › SEED-AC3: PL sees the spaces the matrix grants (989ms)
+  ✓   9 [desktop] › apps/client/e2e/seed-data.screenshots.ts:26:9 › VT › SEED-AC3: VT sees the spaces the matrix grants (975ms)
+  ✓  10 [desktop] › apps/client/e2e/seed-data.screenshots.ts:26:9 › WS › SEED-AC3: WS sees the spaces the matrix grants (974ms)
+(node:55393) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  11 [mobile] › apps/client/e2e/ask.screenshots.ts:170:7 › WS asks the wiki › ASK-AC1: A1 shows the heading, the hint, the examples and the input (1.5s)
+  ✓  12 [mobile] › apps/client/e2e/ask.screenshots.ts:187:7 › WS asks the wiki › ASK-AC10: A2 shows Stoppen while the answer is generated (4.9s)
+  ✓  13 [mobile] › apps/client/e2e/ask.screenshots.ts:204:7 › WS asks the wiki › ASK-AC15: A2 shows the answer with its sources (1.5s)
+  ✓  14 [mobile] › apps/client/e2e/ask.screenshots.ts:220:7 › WS asks the wiki › ASK-AC36: A3 shows the no-source text without sources (1.5s)
+  ✓  15 [mobile] › apps/client/e2e/ask.screenshots.ts:234:7 › WS asks the wiki › ASK-AC7: A4 shows the unavailable text with the input disabled (1.4s)
+  ✓  16 [mobile] › apps/client/e2e/ask.screenshots.ts:250:7 › WS asks the wiki › ASK-AC21: clicking a source opens the page with the cited heading in view (3.1s)
+  ✓  17 [mobile] › apps/client/e2e/seed-data.screenshots.ts:26:9 › GF › SEED-AC3: GF sees the spaces the matrix grants (1.0s)
+  ✓  18 [mobile] › apps/client/e2e/seed-data.screenshots.ts:26:9 › PL › SEED-AC3: PL sees the spaces the matrix grants (1.0s)
+  ✓  19 [mobile] › apps/client/e2e/seed-data.screenshots.ts:26:9 › VT › SEED-AC3: VT sees the spaces the matrix grants (1.0s)
+  ✓  20 [mobile] › apps/client/e2e/seed-data.screenshots.ts:26:9 › WS › SEED-AC3: WS sees the spaces the matrix grants (1.0s)
+
+  20 passed (45.6s)
+screenshots on the base (b88b8dd4)
+Scope: all 5 workspace projects
+✓ Lockfile passes supply-chain policies (verified 21h ago)
+Lockfile is up to date, resolution step is skipped
+Progress: resolved 1, reused 0, downloaded 0, added 0
+Packages: +1900
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Packages are cloned from the content-addressable store to the virtual store.
+  Content-addressable store is at: /Users/vito/Library/pnpm/store/v11
+  Virtual store is at:             node_modules/.pnpm
+Progress: resolved 1900, reused 1900, downloaded 0, added 64
+Progress: resolved 1900, reused 1900, downloaded 0, added 178
+Progress: resolved 1900, reused 1900, downloaded 0, added 355
+Progress: resolved 1900, reused 1900, downloaded 0, added 533
+Progress: resolved 1900, reused 1900, downloaded 0, added 818
+Progress: resolved 1900, reused 1900, downloaded 0, added 1303
+Progress: resolved 1900, reused 1900, downloaded 0, added 1802
+Progress: resolved 1900, reused 1900, downloaded 0, added 1898
+Progress: resolved 1900, reused 1900, downloaded 0, added 1899
+Progress: resolved 1900, reused 1900, downloaded 0, added 1900, done
+.../core-js@3.43.0/node_modules/core-js postinstall$ node -e "try{require('./postinstall')}catch(e){}"
+.../node_modules/@swc/core postinstall$ node postinstall.js
+.../bcrypt@6.0.0/node_modules/bcrypt install$ node-gyp-build
+.../node_modules/unrs-resolver postinstall$ napi-postinstall unrs-resolver 1.11.1 check
+.../.pnpm/nx@23.3.0/node_modules/nx postinstall$ node -e "try{require('./dist/bin/post-install')}catch(e){}"
+.../core-js@3.43.0/node_modules/core-js postinstall: Done
+.../node_modules/unrs-resolver postinstall: Done
+.../node_modules/@swc/core postinstall: Done
+.../.pnpm/nx@23.3.0/node_modules/nx postinstall: Done
+.../bcrypt@6.0.0/node_modules/bcrypt install: Done
+
+dependencies:
++ @braintree/sanitize-url 7.1.2
++ @casl/ability 6.8.0
++ @floating-ui/dom 1.7.3
++ @hocuspocus/common 4.5.0
++ @hocuspocus/provider 4.5.0
++ @hocuspocus/provider-react 4.5.0
++ @hocuspocus/server 4.5.0
++ @hocuspocus/transformer 4.5.0
++ @joplin/turndown 4.0.82
++ @joplin/turndown-plugin-gfm 1.0.64
++ @sindresorhus/slugify 3.0.0
++ @tiptap/core 3.31.3
++ @tiptap/extension-audio 3.31.3
++ @tiptap/extension-code-block 3.31.3
++ @tiptap/extension-collaboration 3.31.3
++ @tiptap/extension-collaboration-caret 3.31.3
++ @tiptap/extension-color 3.31.3
++ @tiptap/extension-document 3.31.3
++ @tiptap/extension-heading 3.31.3
++ @tiptap/extension-highlight 3.31.3
++ @tiptap/extension-history 3.31.3
++ @tiptap/extension-image 3.31.3
++ @tiptap/extension-link 3.31.3
++ @tiptap/extension-list 3.31.3
++ @tiptap/extension-placeholder 3.31.3
++ @tiptap/extension-subscript 3.31.3
++ @tiptap/extension-superscript 3.31.3
++ @tiptap/extension-table 3.31.3
++ @tiptap/extension-text 3.31.3
++ @tiptap/extension-text-align 3.31.3
++ @tiptap/extension-text-style 3.31.3
++ @tiptap/extension-typography 3.31.3
++ @tiptap/extension-unique-id 3.31.3
++ @tiptap/extension-youtube 3.31.3
++ @tiptap/html 3.31.3
++ @tiptap/pm 3.31.3
++ @tiptap/react 3.31.3
++ @tiptap/starter-kit 3.31.3
++ @tiptap/suggestion 3.31.3
++ @tiptap/y-tiptap 3.0.7
++ bytes 3.1.2
++ cross-env 10.1.0
++ date-fns 4.1.0
++ diff 8.0.3
++ docx 9.7.1
++ dompurify 3.4.17
++ fractional-indexing-jittered 1.0.0
++ highlight.js 11.11.1
++ image-dimensions 2.5.0
++ jszip 3.10.1
++ linkifyjs 4.3.2
++ marked 17.0.5
++ ms 3.0.0-canary.1
++ qrcode 1.5.4
++ rfc6902 5.2.0
++ uuid 14.0.0
++ y-indexeddb 9.0.12
++ y-prosemirror 1.3.7
++ yjs 13.6.30
+
+devDependencies:
++ @nx/js 23.3.0
++ @playwright/test 1.64.1
++ @types/bytes 3.1.5
++ @types/qrcode 1.5.6
++ @types/turndown 5.0.6
++ concurrently 10.0.6
++ jscpd 5.4.2
++ nx 23.3.0
++ tsx 4.21.0
+
+Done in 12.5s using pnpm v11.28.2
+$ nx run-many -t build
+
+ NX   4 tasks: 4 succeeded, 2 cached
+
+
+Re-run with --output-style=static to inline logs.
+
+  Run duration:      18.3s
+  Cache:             2/4 hit (50%)
+  Critical path:     18.2s (3 tasks)
+  Recoverable time:  <1ms
+$ pnpm --filter ./apps/server run seed:rebuild
+$ nest build && node dist/integrations/seed/seed-main
+The Environment variables has failed the following validations:
+{"isUrl":"DATABASE_URL must be a valid postgres connection string","isNotEmpty":"DATABASE_URL should not be empty"}
+{"isUrl":"REDIS_URL must be a valid redis connection string","isNotEmpty":"REDIS_URL should not be empty"}
+{"minLength":"APP_SECRET must be longer than or equal to 32 characters","isNotEmpty":"APP_SECRET should not be empty"}
+Please fix the environment variables and try again. Exiting program...
+/private/var/folders/dt/nwmxsb8n35xdw6k2hf6y0dg80000gn/T/tmp.eOEAy8AcXu/base/apps/server:
+[ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL] server@0.96.0 seed:rebuild: `nest build && node dist/integrations/seed/seed-main`
+Exit status 1
+[ELIFECYCLE] Command failed with exit code 1.
+screenshots: the base run failed; pages that do not exist there have no .main image.
+  ASK-AC1-a1-desktop.png
+  ASK-AC1-a1-mobile.png
+  ASK-AC10-a2-streaming-desktop.png
+  ASK-AC10-a2-streaming-mobile.png
+  ASK-AC15-a2-sources-desktop.png
+  ASK-AC15-a2-sources-mobile.png
+  ASK-AC21-heading-in-view-desktop.png
+  ASK-AC21-heading-in-view-mobile.png
+  ASK-AC36-a3-desktop.png
+  ASK-AC36-a3-mobile.png
+  ASK-AC7-a4-desktop.png
+  ASK-AC7-a4-mobile.png
+  SEED-AC3-gf-desktop.png
+  SEED-AC3-gf-mobile.png
+  SEED-AC3-pl-desktop.png
+  SEED-AC3-pl-mobile.png
+  SEED-AC3-vt-desktop.png
+  SEED-AC3-vt-mobile.png
+  SEED-AC3-ws-desktop.png
+  SEED-AC3-ws-mobile.png

@@ -1,0 +1,26 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.14.6, pytest-9.2.0, pluggy-1.7.0
+rootdir: /Users/vito/Documents/GitHub/docmost/ai-service
+configfile: pyproject.toml
+plugins: anyio-4.15.1
+collected 23 items
+
+tests/test_stack.py ......INDEX-AC23 freshness: 0.6 s
+.
+tests/test_stack_ask.py ..............ASK-AC57 first text: 0.82 s
+.ASK-AC57 first text: 1.47 s
+.
+
+=============================== warnings summary ===============================
+.venv/lib/python3.14/site-packages/fastapi/testclient.py:1
+  /Users/vito/Documents/GitHub/docmost/ai-service/.venv/lib/python3.14/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+tests/test_stack.py::test_index_ac2_index_entries_equal_the_bridge_page_list
+tests/test_stack_ask.py::test_ask_ac32_a_restricted_page_in_an_open_space_gives_no_section_in_the_prompt
+  /Users/vito/Documents/GitHub/docmost/ai-service/src/ai_service/embedding.py:32: UserWarning: The model 'jinaai/jina-embeddings-v2-base-de' used to run with fp16 model, but due to onnxruntime updates, now it runs with the original fp32 model.
+    self._model = TextEmbedding(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+- generated xml file: /Users/vito/Documents/GitHub/docmost/.work/m5-ask/evidence/local-suites/junit-ai-service-stack.xml -
+======================= 23 passed, 3 warnings in 32.81s ========================
