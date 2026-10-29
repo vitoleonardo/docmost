@@ -12,4 +12,4 @@ Status values: `draft` (spec being written) · `approved` (spec approved) · `pl
 | Ask | `ask.md` | in-review | m5-ask | 0 |
 | Leak tests | `leak-tests.md` | in-review | m6-leak-tests | 0 |
 | Contract extraction | `extraction.md` | in-review | m7-extraction | 0 |
-| Agent: outdated pages | `agent.md` | approved | m8-agent | 0 |
+| Agent: outdated pages | `agent.md` | planned | m8-agent | 0 |
