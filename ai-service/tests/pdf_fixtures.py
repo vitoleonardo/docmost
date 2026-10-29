@@ -21,12 +21,19 @@ def build_pdf(page_texts: list[str]) -> bytes:
             "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] "
             f"/Resources << /Font << /F1 3 0 R >> >> /Contents {content_id} 0 R >>"
         )
-        stream = f"BT /F1 12 Tf 72 720 Td ({escape_pdf_text(text)}) Tj ET".encode() if text else b""
+        stream = page_stream(text)
         objects.append(page.encode())
         objects.append(
             b"<< /Length " + str(len(stream)).encode() + b" >>\nstream\n" + stream + b"\nendstream"
         )
     return serialize(objects)
+
+
+def page_stream(text: str) -> bytes:
+    if not text:
+        return b""
+    shown = " T* ".join(f"({escape_pdf_text(line)}) Tj" for line in text.split("\n"))
+    return f"BT /F1 12 Tf 14 TL 72 720 Td {shown} ET".encode()
 
 
 def serialize(objects: list[bytes]) -> bytes:
