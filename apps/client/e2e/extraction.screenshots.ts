@@ -247,6 +247,9 @@ test.describe("GF extracts contract data", () => {
     const dialog = page.getByRole("dialog");
     await expect(dialog.getByText("Schema: Vertrag")).toBeVisible();
     await expect(dialog.getByText("Seite 1")).toHaveCount(5);
+    await expect(
+      dialog.getByText(`„Der Gesamtauftragswert beträgt ${CONTRACT_VALUE}.“`),
+    ).toBeVisible();
     await expect(dialog.getByLabel("Vertragswert")).toHaveValue(CONTRACT_VALUE);
     await expect(dialog.getByText("Nicht gefunden")).toHaveCount(0);
     await expect(dialog.getByText("ohne Quelle")).toHaveCount(0);
