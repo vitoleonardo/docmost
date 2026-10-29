@@ -1,0 +1,56 @@
+LEAK-AC1	4 users, scope Alle Bereiche	n/a: integration test, runs only in scripts/run-leak-check.sh; 38 passed at 671ddfca, see leak-check-junit.xml (`test_leak_ac1_no_prompt_holds_a_denied_section_with_the_scope_alle_bereiche`)	n/a
+LEAK-AC1	every run reaches the filter	n/a: integration test, runs only in scripts/run-leak-check.sh; 38 passed at 671ddfca, see leak-check-junit.xml (`test_leak_ac1_every_hashing_run_reaches_the_filter_and_a_passing_run_the_model`)	n/a
+LEAK-AC1	answer key from seed, not wiki	test_leak_ac1_a_page_in_another_space_than_the_seed_says_is_a_mismatch	pass
+LEAK-AC1	missing seed page	test_leak_ac1_a_seed_page_missing_in_the_wiki_is_a_mismatch	pass
+LEAK-AC1	extra wiki page	test_leak_ac1_a_wiki_page_outside_the_seed_is_a_mismatch	pass
+LEAK-AC1	duplicate section text	n/a: integration test, runs only in scripts/run-leak-check.sh; 38 passed at 671ddfca, see leak-check-junit.xml (`test_leak_ac1_a_shared_section_under_a_viewable_page_is_no_leak_under_a_denied_page_one`)	n/a
+LEAK-AC2	missing permission per space	n/a: integration test, runs only in scripts/run-leak-check.sh; 38 passed at 671ddfca, see leak-check-junit.xml (`test_leak_ac2_no_prompt_holds_a_denied_section_with_a_member_space_as_scope`)	n/a
+LEAK-AC3	page scope	n/a: integration test, runs only in scripts/run-leak-check.sh; 38 passed at 671ddfca, see leak-check-junit.xml (`test_leak_ac3_no_prompt_holds_a_denied_section_with_the_scope_diese_seite`)	n/a
+LEAK-AC4	any candidate set	n/a: integration test, runs only in scripts/run-leak-check.sh; 38 passed at 671ddfca, see leak-check-junit.xml (`test_leak_ac4_no_prompt_holds_a_denied_section_when_every_section_is_a_top_candidate`)	n/a
+LEAK-AC5	denied pages are candidates	n/a: integration test, runs only in scripts/run-leak-check.sh; 38 passed at 671ddfca, see leak-check-junit.xml (`test_leak_ac5_the_denied_pages_reach_the_candidates_of_the_index_search`)	n/a
+LEAK-AC6	allow-all filter	n/a: integration test, runs only in scripts/run-leak-check.sh; 38 passed at 671ddfca, see leak-check-junit.xml (`test_leak_ac6_a_filter_that_lets_every_page_through_is_reported_as_a_leak`)	n/a
+LEAK-AC6	canary rule	test_leak_ac6_a_canary_of_a_denied_page_in_a_viewable_block_is_a_finding	pass
+LEAK-AC6	history	test_leak_ac6_a_canary_of_a_denied_page_in_an_earlier_answer_is_a_finding	pass
+LEAK-AC6	PDF section	test_leak_ac6_a_denied_pdf_section_in_a_block_headed_by_its_page_is_a_finding	pass
+LEAK-AC6	prompt format change	test_leak_ac6_fewer_parsed_source_blocks_than_sent_sources_fail_the_check	pass
+LEAK-AC6	fake header	test_leak_ac6_a_section_line_that_looks_like_a_header_fails_the_check	pass
+LEAK-AC6	empty findings	test_leak_ac6_a_prompt_with_only_viewable_sections_has_no_finding	pass
+LEAK-AC7	every canary page covered	test_leak_ac7_every_canary_page_has_a_leak_question_with_a_sentence_of_it	pass
+LEAK-AC7	no canary in question	test_leak_ac7_no_leak_question_holds_a_canary_string	pass
+LEAK-AC8	CI runs the check	n/a: CI wiring; proven by the PR's Quality gates run	n/a
+LEAK-AC9	empty run	n/a: script run, exit 5 recorded in the state file's Verify log	n/a
+LEAK-AC9	wiki does not start	n/a: script run recorded in the Verify log; CI run proves the happy path	n/a
+LEAK-AC10	real embedding model	n/a: integration test, local real-embedder run; 38 passed at 671ddfca, see leak-check-real-embedder-junit.xml (`test_leak_ac1_no_prompt_holds_a_denied_section_with_the_scope_alle_bereiche`)	n/a
+LEAK-AC11	revoked space with history	n/a: integration test, runs only in scripts/run-leak-check.sh; 38 passed at 671ddfca, see leak-check-junit.xml (`test_leak_ac11_a_removed_member_gets_no_hr_section_and_no_earlier_answer_in_the_prompt`)	n/a
+LEAK-AC12	revoked group	n/a: integration test, runs only in scripts/run-leak-check.sh; 38 passed at 671ddfca, see leak-check-junit.xml (`test_leak_ac12_a_user_removed_from_projektteam_gets_no_projekte_section_in_the_prompt`)	n/a
+LEAK-AC13	stale move	n/a: integration test, runs only in scripts/run-leak-check.sh; 38 passed at 671ddfca, see leak-check-junit.xml (`test_leak_ac13_a_page_moved_away_with_a_stale_index_gives_no_section_in_the_prompt`)	n/a
+LEAK-AC14	trashed in index	n/a: integration test, runs only in scripts/run-leak-check.sh; 38 passed at 671ddfca, see leak-check-junit.xml (`test_leak_ac14_a_trashed_page_still_in_the_index_gives_no_section_in_the_prompt`)	n/a
+LEAK-AC15	restore	n/a: integration test, runs only in scripts/run-leak-check.sh; 38 passed at 671ddfca, see leak-check-junit.xml (`test_leak_ac15_after_all_changes_the_wiki_and_the_index_match_the_start`)	n/a
+LEAK-AC16	each kind per page	test_leak_ac16_every_canary_page_has_a_question_of_each_kind	pass
+LEAK-AC16	paraphrase rule	test_leak_ac16_paraphrase_questions_hold_no_sentence_title_word_or_canary	pass
+LEAK-AC16	injection pages	test_leak_ac16_every_injection_page_holds_an_instruction_to_the_assistant	pass
+LEAK-AC17	every denied user asks	test_leak_ac17_every_denied_user_asks_every_question_of_a_canary_page	pass
+LEAK-AC17	new conversation per question	test_leak_ac17_every_question_starts_a_new_conversation	pass
+LEAK-AC18	injection questions	test_leak_ac18_pl_vt_and_ws_ask_every_injection_page_question	pass
+LEAK-AC19	injection page indexed late	test_leak_ac19_an_injection_control_is_asked_again_until_its_page_is_cited	pass
+LEAK-AC20	report items	test_leak_ac20_the_report_holds_every_item_of_the_run	pass
+LEAK-AC21	clean run	test_leak_ac21_a_clean_run_exits_0_and_prints_the_summary	pass
+LEAK-AC22	canary in text	test_leak_ac22_a_canary_of_a_denied_page_in_the_text_is_a_leak	pass
+LEAK-AC22	canary in source	test_leak_ac22_a_canary_in_a_source_entry_is_a_leak	pass
+LEAK-AC22	viewable canary	test_leak_ac22_a_canary_of_a_page_the_user_may_view_is_no_leak	pass
+LEAK-AC22	written differently	test_leak_ac22_a_canary_written_differently_is_still_a_leak	pass
+LEAK-AC23	failed answer	test_leak_ac23_a_failed_answer_is_counted_and_fails_the_run	pass
+LEAK-AC23	no_source is not failure	test_leak_ac23_no_source_answers_do_not_fail_the_run	pass
+LEAK-AC24	control without source	test_leak_ac24_a_control_without_a_source_fails_the_run_and_is_named	pass
+LEAK-AC24	control timeout	test_leak_ac24_an_injection_control_that_is_never_cited_fails_after_the_timeout	pass
+LEAK-AC25	wiki unreachable	test_leak_ac25_an_unreachable_wiki_exits_2_and_leaves_the_report_alone	pass
+LEAK-AC25	login fails	test_leak_ac25_a_failed_login_names_the_user_and_leaves_the_report_alone	pass
+LEAK-AC25	throttled login	test_leak_ac25_a_throttled_login_is_tried_once_more_after_61_seconds	pass
+LEAK-AC26	empty data	test_leak_ac26_an_empty_canary_list_exits_2_before_any_request	pass
+LEAK-AC26	uncovered page	test_leak_ac26_a_canary_page_without_a_question_exits_2_before_any_request	pass
+LEAK-AC26	unknown title	test_leak_ac26_a_question_for_an_unknown_title_exits_2_before_any_request	pass
+LEAK-AC26	title missing in wiki	test_leak_ac26_a_canary_page_the_wiki_does_not_list_exits_2_before_any_ask	pass
+LEAK-AC27	failure after creation	test_leak_ac27_the_injection_pages_are_deleted_when_the_run_fails	pass
+LEAK-AC27	delete fails during failure	test_leak_ac27_a_failed_delete_after_a_failure_names_the_pages_and_keeps_the_failure	pass
+LEAK-AC28	duplicates from earlier run	test_leak_ac28_leftover_injection_pages_are_deleted_before_the_new_ones_are_created	pass
+LEAK-AC29	failure inside a change	n/a: integration test, runs only in scripts/run-leak-check.sh; 38 passed at 671ddfca, see leak-check-junit.xml (`test_leak_ac29_a_failure_after_a_change_still_restores_the_seed_state`)	n/a
