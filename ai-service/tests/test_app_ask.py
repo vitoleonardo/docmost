@@ -19,15 +19,24 @@ from ai_service import __main__ as api_main
 from ai_service.app import create_app
 from ai_service.auth import UserSession, decode_user_token
 from ai_service.embedding import EmbeddingModelError
+from ai_service.inference import StreamUsage
+from ai_service.request_log import RequestLog, TokenTally
 from tests.conftest import (
     BRIDGE_KEY,
+    REQUEST_LOG_KEY,
     SERVICE_CREDENTIAL,
+    UNREACHABLE_DATABASE_URL,
     USER_ID,
+    WORKSPACE_ID,
+    HeldRequestLog,
     idle_extraction_pipeline,
     make_settings,
+    warnings,
 )
+from tests.hashing_embedder import HashingEmbedder
 from tests.index_db import SPACE_A, page_id
 from tests.test_ask import CONVERSATION_ID, OTHER_USER_ID, Harness, hit
+from tests.test_request_log import AT_ONCE_SECONDS, database_url_on, silent_server
 
 PATH = "/v1/ask"
 QUESTION = "Wie lautet die Regel?"
@@ -44,10 +53,13 @@ def harness(redis_client: Redis) -> Harness:
     return prepared
 
 
-def make_client(harness: Harness) -> TestClient:
+def make_client(harness: Harness, request_log: RequestLog | None = None) -> TestClient:
     return TestClient(
         create_app(
-            make_settings(), fakeredis.FakeRedis(), harness.pipeline(), idle_extraction_pipeline()
+            make_settings(),
+            fakeredis.FakeRedis(),
+            harness.pipeline(request_log),
+            idle_extraction_pipeline(),
         )
     )
 
@@ -197,8 +209,10 @@ def test_ask_ac9_the_first_line_reaches_the_client_before_the_last_delta_exists(
     assert third is not None and third["type"] == "citations"
 
 
-def _blocking_stream(release: threading.Event) -> Callable[[list[dict[str, str]]], Generator[str]]:
-    def stream(messages: list[dict[str, str]]) -> Generator[str]:
+def _blocking_stream(
+    release: threading.Event,
+) -> Callable[[list[dict[str, str]], StreamUsage | None], Generator[str]]:
+    def stream(messages: list[dict[str, str]], usage: StreamUsage | None = None) -> Generator[str]:
         yield "Anfang [1] "
         assert release.wait(TOKEN_TIMEOUT_SECONDS), "first line was not delivered before the end"
         yield "Ende."
@@ -529,10 +543,85 @@ def test_ask_ac56_confirm_with_an_invalid_body_is_400_invalid_request(
     assert response.json()["code"] == "invalid_request"
 
 
+def without_turn_ids(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [{key: value for key, value in event.items() if key != "turnId"} for event in events]
+
+
+def test_reqlog_ac11_a_request_with_an_invalid_user_token_starts_no_record(
+    harness: Harness, service_headers: dict[str, str]
+):
+    response = ask(make_client(harness), {**service_headers, "X-User-Token": "not-a-token"})
+
+    assert response.status_code == 401
+    assert harness.request_log.started == []
+    assert harness.request_log.records == []
+
+
+def test_reqlog_ac21_the_workspace_of_the_user_token_reaches_the_record(
+    harness: Harness, headers: dict[str, str]
+):
+    ask(make_client(harness), headers)
+
+    assert harness.request_log.started == [("ask", USER_ID, WORKSPACE_ID)]
+
+
+def test_reqlog_ac35_an_unreachable_log_database_changes_nothing_the_client_receives(
+    harness: Harness, headers: dict[str, str], caplog: pytest.LogCaptureFixture
+):
+    working = without_turn_ids(lines(ask(make_client(harness), headers)))
+    unreachable = RequestLog(
+        UNREACHABLE_DATABASE_URL,
+        REQUEST_LOG_KEY,
+        "local",
+        "stub-model",
+    )
+    caplog.set_level(logging.WARNING)
+
+    response = ask(make_client(harness, unreachable), headers)
+    assert unreachable.flush(TOKEN_TIMEOUT_SECONDS)
+
+    assert response.status_code == 200
+    assert without_turn_ids(lines(response)) == working
+    assert any(line.startswith("request log write failed task=ask") for line in warnings(caplog))
+
+
+def test_reqlog_ac4_a_client_disconnect_does_not_wait_for_a_database_that_never_answers(
+    harness: Harness, headers: dict[str, str]
+):
+    harness.model.deltas = ["Erster Teil [1] ", "zweiter Teil ", "dritter Teil."]
+
+    async def disconnect(app: FastAPI) -> float:
+        call = AsgiCall(app, headers, BODY)
+        call.start()
+        assert await call.next_line() == {"type": "delta", "text": "Erster Teil [1] "}
+        started = time.monotonic()
+        call.disconnected.set()
+        await call.finish()
+        return time.monotonic() - started
+
+    with silent_server() as port:
+        held = HeldRequestLog(database_url_on(port))
+        app = create_app(
+            make_settings(),
+            fakeredis.FakeRedis(),
+            harness.pipeline(held),
+            idle_extraction_pipeline(),
+        )
+        try:
+            elapsed = asyncio.run(disconnect(app))
+        finally:
+            held.release.set()
+        assert elapsed < AT_ONCE_SECONDS
+        assert held.flush(TOKEN_TIMEOUT_SECONDS)
+
+    assert [(record.task, record.status) for record in held.written] == [("ask", "stopped")]
+
+
 def settings_environment(**overrides: str) -> dict[str, str]:
     return {
         "AI_BRIDGE_SECRET": BRIDGE_KEY,
         "AI_SERVICE_TOKEN": SERVICE_CREDENTIAL,
+        "AI_REQUEST_LOG_SECRET": REQUEST_LOG_KEY,
         "REDIS_URL": "redis://127.0.0.1:6380/15",
         "AI_DATABASE_URL": "postgresql://docmost_ai:test-ai-password@127.0.0.1:5433/docmost",
         "AI_WIKI_URL": "http://wiki.test",
@@ -603,3 +692,25 @@ def test_ask_ac9_start_serves_the_app_with_the_loaded_model(
 
     assert loaded == ["jinaai/jina-embeddings-v2-base-de"]
     assert "/v1/ask" in [route.path for route in served[0].routes]
+
+
+def test_reqlog_ac35_the_api_writes_the_queued_rows_before_it_exits(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+):
+    monkeypatch.chdir(tmp_path)
+    for name, value in settings_environment().items():
+        monkeypatch.setenv(name, value)
+    monkeypatch.setattr(api_main, "check_database_role", lambda url: None)
+    monkeypatch.setattr(api_main, "load_embedder", lambda model_name: HashingEmbedder())
+    held = HeldRequestLog()
+    monkeypatch.setattr(api_main, "build_request_log", lambda settings: held)
+
+    def serve(app: FastAPI, **options: Any) -> None:
+        held.finish(held.start("ask", USER_ID, WORKSPACE_ID), "answered", TokenTally())
+        threading.Timer(0.2, held.release.set).start()
+
+    monkeypatch.setattr(api_main.uvicorn, "run", serve)
+
+    api_main.main()
+
+    assert [(record.task, record.status) for record in held.written] == [("ask", "answered")]

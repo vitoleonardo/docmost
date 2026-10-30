@@ -1,4 +1,5 @@
 import logging
+import threading
 import time
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
@@ -18,15 +19,19 @@ from ai_service.conversations import ConversationStore
 from ai_service.extraction import ExtractionPipeline
 from ai_service.index_store import IndexStore
 from ai_service.inference import ChatModel
+from ai_service.request_log import RequestLog, RequestRecord, RequestTimer, Task, TokenTally
 from ai_service.settings import AskSettings, Settings
 from tests.hashing_embedder import HashingEmbedder
 
 BRIDGE_KEY = "test-bridge-secret-0123456789abcdef"
 SERVICE_CREDENTIAL = "test-service-token-0123456789abcdef"
+REQUEST_LOG_KEY = "test-request-log-secret-0123456789abcdef"
 USER_ID = "0192f000-0000-7000-8000-000000000001"
 WORKSPACE_ID = "0192f000-0000-7000-8000-000000000002"
 TEST_REDIS_URL = "redis://127.0.0.1:6380/15"
 TEST_DATABASE_URL = "postgresql://docmost_ai:test-ai-password@127.0.0.1:5433/docmost"
+UNREACHABLE_DATABASE_URL = "postgresql://docmost_ai:test-ai-password@127.0.0.1:1/docmost"
+HOLD_SECONDS = 5
 
 
 class IsolatedSettings(Settings):
@@ -49,8 +54,43 @@ class IsolatedAskSettings(AskSettings):
 
 
 def make_ask_settings(**overrides: Any) -> AskSettings:
-    values = {**make_settings().model_dump(), "ai_wiki_url": "http://wiki.test", **overrides}
+    values = {
+        **make_settings().model_dump(),
+        "ai_wiki_url": "http://wiki.test",
+        "ai_request_log_secret": REQUEST_LOG_KEY,
+        **overrides,
+    }
     return IsolatedAskSettings(**values)
+
+
+class RecordingRequestLog(RequestLog):
+    def __init__(self, database_url: str = TEST_DATABASE_URL, **overrides: Any) -> None:
+        self.fake_clock = FakeClock()
+        values = {"clock": self.fake_clock, **overrides}
+        super().__init__(database_url, REQUEST_LOG_KEY, "local", "stub-model", **values)
+        self.started: list[tuple[Task, str, str]] = []
+        self.records: list[RequestRecord] = []
+
+    def start(self, task: Task, user_id: str, workspace_id: str) -> RequestTimer:
+        self.started.append((task, user_id, workspace_id))
+        return super().start(task, user_id, workspace_id)
+
+    def finish(self, timer: RequestTimer, status: str, tally: TokenTally) -> None:
+        self.records.append(self.record(timer, status, tally))
+
+
+class HeldRequestLog(RequestLog):
+    def __init__(self, database_url: str = UNREACHABLE_DATABASE_URL, **overrides: Any) -> None:
+        super().__init__(database_url, REQUEST_LOG_KEY, "local", "stub-model", **overrides)
+        self.writing = threading.Event()
+        self.release = threading.Event()
+        self.written: list[RequestRecord] = []
+
+    def _write(self, record: RequestRecord) -> None:
+        self.writing.set()
+        if not self.release.wait(HOLD_SECONDS):
+            raise TimeoutError
+        self.written.append(record)
 
 
 def idle_ask_pipeline(redis: Redis) -> AskPipeline:
@@ -61,6 +101,7 @@ def idle_ask_pipeline(redis: Redis) -> AskPipeline:
         conversations=ConversationStore(redis),
         threshold=0.45,
         inference_mode="local",
+        request_log=RecordingRequestLog(),
     )
 
 
@@ -70,6 +111,7 @@ def idle_extraction_pipeline() -> ExtractionPipeline:
         model=ChatModel("http://127.0.0.1:1/v1", "unused"),
         mode="local",
         model_name="unused",
+        request_log=RecordingRequestLog(),
     )
 
 

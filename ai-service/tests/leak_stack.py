@@ -28,6 +28,7 @@ from ai_service.indexer import Indexer, IndexOutcome
 from ai_service.leak_suite import SEED_EMAILS
 from ai_service.prompt import build_messages, format_source
 from ai_service.search import search_index
+from tests.conftest import WORKSPACE_ID, RecordingRequestLog
 from tests.hashing_embedder import HashingEmbedder
 from tests.seed_matrix import (
     CANARIES_PATH,
@@ -488,6 +489,7 @@ class LeakStack(LeakDetector):
             conversations=conversations,
             threshold=self.threshold,
             inference_mode="local",
+            request_log=RecordingRequestLog(),
         )
         request = AskRequest(
             question=question,
@@ -496,7 +498,11 @@ class LeakStack(LeakDetector):
             page_id=page_id,
         )
         user_id = self.user_ids[user]
-        events = list(pipeline.ask(request, user_id, self.token_space_ids(user), self.token(user)))
+        events = list(
+            pipeline.ask(
+                request, user_id, WORKSPACE_ID, self.token_space_ids(user), self.token(user)
+            )
+        )
         errors = [event for event in events if event["type"] == "error"]
         assert errors == [], f"{user} asking {question!r}: {errors}"
         for event in events:

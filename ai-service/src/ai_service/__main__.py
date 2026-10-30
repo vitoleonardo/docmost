@@ -17,6 +17,7 @@ from ai_service.embedding import Embedder, EmbeddingModelError
 from ai_service.extraction import ExtractionPipeline
 from ai_service.index_store import IndexStore, SearchHit
 from ai_service.inference import ChatModel
+from ai_service.request_log import RequestLog
 from ai_service.search import search_index
 from ai_service.settings import AskSettings
 from ai_service.worker import (
@@ -25,6 +26,8 @@ from ai_service.worker import (
     exit_with,
     load_embedder,
 )
+
+REQUEST_LOG_DRAIN_SECONDS = 10.0
 
 
 def load_settings() -> AskSettings:
@@ -41,7 +44,18 @@ def index_search(settings: AskSettings, embedder: Embedder) -> SearchSections:
     return search
 
 
-def build_pipeline(settings: AskSettings, embedder: Embedder, redis: Redis) -> AskPipeline:
+def build_request_log(settings: AskSettings) -> RequestLog:
+    return RequestLog(
+        settings.ai_database_url,
+        settings.ai_request_log_secret,
+        settings.ai_inference_mode,
+        settings.ai_llm_model,
+    )
+
+
+def build_pipeline(
+    settings: AskSettings, embedder: Embedder, redis: Redis, request_log: RequestLog
+) -> AskPipeline:
     bridge = BridgeClient(settings.ai_wiki_url, settings.ai_service_token)
     return AskPipeline(
         search=index_search(settings, embedder),
@@ -50,20 +64,22 @@ def build_pipeline(settings: AskSettings, embedder: Embedder, redis: Redis) -> A
         conversations=ConversationStore(redis),
         threshold=settings.ai_relevance_threshold,
         inference_mode=settings.ai_inference_mode,
+        request_log=request_log,
     )
 
 
-def build_extraction_pipeline(settings: AskSettings) -> ExtractionPipeline:
+def build_extraction_pipeline(settings: AskSettings, request_log: RequestLog) -> ExtractionPipeline:
     bridge = BridgeClient(settings.ai_wiki_url, settings.ai_service_token)
     return ExtractionPipeline(
         fetch_attachment=bridge.attachment,
         model=ChatModel(settings.ai_llm_base_url, settings.ai_llm_model),
         mode=settings.ai_inference_mode,
         model_name=settings.ai_llm_model,
+        request_log=request_log,
     )
 
 
-def build_agent_services(settings: AskSettings) -> AgentServices:
+def build_agent_services(settings: AskSettings, request_log: RequestLog) -> AgentServices:
     bridge = BridgeClient(settings.ai_wiki_url, settings.ai_service_token)
     model = ChatModel(settings.ai_llm_base_url, settings.ai_llm_model)
 
@@ -79,6 +95,7 @@ def build_agent_services(settings: AskSettings) -> AgentServices:
             store=records,
             inference_mode=settings.ai_inference_mode,
             model_name=settings.ai_llm_model,
+            request_log=request_log,
         )
 
     return AgentServices(open_records=open_records, make_runner=make_runner)
@@ -99,17 +116,21 @@ def main() -> None:
     except EmbeddingModelError as error:
         exit_with(str(error), error)
     redis: Redis = Redis.from_url(settings.redis_url, decode_responses=True)
-    uvicorn.run(
-        create_app(
-            settings,
-            redis,
-            build_pipeline(settings, embedder, redis),
-            build_extraction_pipeline(settings),
-            build_agent_services(settings),
-        ),
-        host=settings.ai_service_host,
-        port=settings.ai_service_port,
-    )
+    request_log = build_request_log(settings)
+    try:
+        uvicorn.run(
+            create_app(
+                settings,
+                redis,
+                build_pipeline(settings, embedder, redis, request_log),
+                build_extraction_pipeline(settings, request_log),
+                build_agent_services(settings, request_log),
+            ),
+            host=settings.ai_service_host,
+            port=settings.ai_service_port,
+        )
+    finally:
+        request_log.close(REQUEST_LOG_DRAIN_SECONDS)
 
 
 if __name__ == "__main__":

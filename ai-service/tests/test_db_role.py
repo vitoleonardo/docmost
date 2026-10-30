@@ -14,6 +14,7 @@ import ai_service.__main__ as entry
 from ai_service.db_check import ROLE_NOT_ISOLATED_MESSAGE, RoleNotIsolatedError
 from tests.conftest import (
     BRIDGE_KEY,
+    REQUEST_LOG_KEY,
     SERVICE_CREDENTIAL,
     TEST_REDIS_URL,
     make_ask_settings,
@@ -224,6 +225,7 @@ def test_bridge_ac76_startup_refuses_a_role_that_reads_wiki_tables(
         tmp_path,
         AI_BRIDGE_SECRET=BRIDGE_KEY,
         AI_SERVICE_TOKEN=SERVICE_CREDENTIAL,
+        AI_REQUEST_LOG_SECRET=REQUEST_LOG_KEY,
         REDIS_URL=TEST_REDIS_URL,
         AI_DATABASE_URL=wiki_database,
         AI_WIKI_URL="http://wiki.test",

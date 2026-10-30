@@ -28,9 +28,10 @@ from ai_service.conversations import (
 )
 from ai_service.embedding import EmbeddingFailed
 from ai_service.index_store import IndexStore, SearchHit, StoredSection
-from ai_service.inference import ChatModel, ModelUnavailable
+from ai_service.inference import ChatModel, ModelUnavailable, StreamUsage
+from ai_service.request_log import RequestLog
 from ai_service.search import search_index
-from tests.conftest import USER_ID, FakeClock
+from tests.conftest import USER_ID, WORKSPACE_ID, FakeClock, RecordingRequestLog
 from tests.fake_bridge import FilterBridge, answer, mock_client, refuse, server_error
 from tests.hashing_embedder import HashingEmbedder
 from tests.index_db import (
@@ -46,6 +47,7 @@ from tests.seed_matrix import SEED_USERS, SeedPage, load_seed_pages, member_spac
 
 USER_TOKEN = "test-user"
 OTHER_USER_ID = "0192f000-0000-7000-8000-0000000000b2"
+OTHER_WORKSPACE_ID = "0192f000-0000-7000-8000-0000000000c2"
 CONVERSATION_ID = "0192f000-0000-7000-8000-0000000c0001"
 THRESHOLD = 0.45
 MODE = "local"
@@ -106,24 +108,28 @@ class StubModel(ChatModel):
         failure: Exception | None = None,
         clock: FakeClock | None = None,
         seconds_per_delta: float = 0.0,
+        reported_usage: tuple[int, int] | None = None,
     ) -> None:
         self.model = MODEL_NAME
         self.deltas = list(deltas)
         self.failure = failure
         self.clock = clock
         self.seconds_per_delta = seconds_per_delta
+        self.reported_usage = reported_usage
         self.calls: list[list[dict[str, str]]] = []
         self.yielded = 0
         self.closed = False
         self.streams: list[Generator[str]] = []
 
-    def stream(self, messages: list[dict[str, str]]) -> Generator[str]:
+    def stream(
+        self, messages: list[dict[str, str]], usage: StreamUsage | None = None
+    ) -> Generator[str]:
         self.calls.append(messages)
-        produced = self._produce()
+        produced = self._produce(usage)
         self.streams.append(produced)
         return produced
 
-    def _produce(self) -> Generator[str]:
+    def _produce(self, usage: StreamUsage | None) -> Generator[str]:
         try:
             for delta in self.deltas:
                 if self.clock is not None:
@@ -132,6 +138,8 @@ class StubModel(ChatModel):
                 yield delta
             if self.failure is not None:
                 raise self.failure
+            if usage is not None and self.reported_usage is not None:
+                usage.prompt_tokens, usage.completion_tokens = self.reported_usage
         finally:
             self.closed = True
 
@@ -143,12 +151,13 @@ class Harness:
     bridge: FilterBridge = field(default_factory=FilterBridge)
     model: StubModel = field(default_factory=StubModel)
     clock: FakeClock = field(default_factory=FakeClock)
+    request_log: RecordingRequestLog = field(default_factory=RecordingRequestLog)
 
     @property
     def conversations(self) -> ConversationStore:
         return ConversationStore(self.redis)
 
-    def pipeline(self) -> AskPipeline:
+    def pipeline(self, request_log: RequestLog | None = None) -> AskPipeline:
         return AskPipeline(
             search=self.search,
             filter_pages=self.bridge.client().filter_pages,
@@ -156,6 +165,7 @@ class Harness:
             conversations=self.conversations,
             threshold=THRESHOLD,
             inference_mode=MODE,
+            request_log=request_log or self.request_log,
             clock=self.clock,
         )
 
@@ -166,6 +176,7 @@ class Harness:
         space_id: str | None = None,
         scope_page_id: str | None = None,
         user_id: str = USER_ID,
+        workspace_id: str = WORKSPACE_ID,
     ) -> Generator[dict[str, Any]]:
         request = AskRequest(
             question=question,
@@ -173,7 +184,7 @@ class Harness:
             space_id=space_id,
             page_id=scope_page_id,
         )
-        return self.pipeline().ask(request, user_id, list(space_ids), USER_TOKEN)
+        return self.pipeline().ask(request, user_id, workspace_id, list(space_ids), USER_TOKEN)
 
     def run(self, **arguments: Any) -> list[dict[str, Any]]:
         return list(self.events(**arguments))
@@ -1022,3 +1033,123 @@ def test_ask_ac31_store_search_with_a_page_id_returns_only_that_page_and_its_pdf
     assert search_index(store, embedder, "Urlaub", [SPACE_A], page_id=page_id(4)) == []
     unscoped = search_index(store, embedder, "Urlaub", [SPACE_A, SPACE_B], limit=50)
     assert {hit.page_id for hit in unscoped} == {page_id(1), page_id(2), page_id(3)}
+
+
+def rows(harness: Harness) -> list[tuple[str, str | None, int | None, int | None]]:
+    return [
+        (record.task, record.status, record.prompt_tokens, record.completion_tokens)
+        for record in harness.request_log.records
+    ]
+
+
+def answerable(harness: Harness) -> None:
+    harness.search.hits = [hit(1)]
+    harness.bridge.viewable = {page_id(1)}
+
+
+def test_reqlog_ac1_an_answered_question_finishes_one_ask_row_with_status_answered(
+    harness: Harness,
+):
+    answerable(harness)
+    harness.model.reported_usage = (10, 5)
+
+    harness.run()
+
+    assert harness.request_log.started == [("ask", USER_ID, WORKSPACE_ID)]
+    assert rows(harness) == [("ask", "answered", 10, 5)]
+
+
+def test_reqlog_ac2_a_no_source_answer_finishes_with_zero_tokens_and_no_model_call(
+    harness: Harness,
+):
+    harness.search.hits = []
+
+    harness.run()
+
+    assert harness.model.calls == []
+    assert rows(harness) == [("ask", "no_source", 0, 0)]
+
+
+def test_reqlog_ac2_a_no_source_decided_after_the_model_ran_keeps_its_token_counts(
+    harness: Harness,
+):
+    answerable(harness)
+    harness.model.deltas = ["Ohne Beleg."]
+    harness.model.reported_usage = (40, 3)
+
+    harness.run()
+
+    assert rows(harness) == [("ask", "no_source", 40, 3)]
+
+
+def test_reqlog_ac3_a_failing_model_finishes_with_status_model_failed_and_empty_tokens(
+    harness: Harness,
+):
+    answerable(harness)
+    harness.model.failure = ModelUnavailable("down")
+    harness.model.reported_usage = (10, 5)
+
+    harness.run()
+
+    assert rows(harness) == [("ask", "model_failed", None, None)]
+
+
+def test_reqlog_ac4_ac18_closing_the_stream_after_a_delta_finishes_stopped_with_empty_tokens(
+    harness: Harness,
+):
+    answerable(harness)
+    harness.model.deltas = ["Erster Teil [1] ", "zweiter Teil "]
+    harness.model.reported_usage = (10, 5)
+
+    events = harness.events()
+    next(events)
+    events.close()
+
+    assert rows(harness) == [("ask", "stopped", None, None)]
+
+
+def test_reqlog_ac15_the_counts_the_model_reports_are_recorded(harness: Harness):
+    answerable(harness)
+    harness.model.reported_usage = (1200, 300)
+
+    harness.run()
+
+    assert rows(harness) == [("ask", "answered", 1200, 300)]
+
+
+def test_reqlog_ac15_a_model_that_reports_no_counts_gives_unknown_tokens(harness: Harness):
+    answerable(harness)
+
+    harness.run()
+
+    assert rows(harness) == [("ask", "answered", None, None)]
+
+
+def test_reqlog_ac19_latency_is_measured_from_the_start_to_the_end_of_the_request(
+    harness: Harness,
+):
+    answerable(harness)
+    harness.model.clock = harness.request_log.fake_clock
+    harness.model.seconds_per_delta = 2.5
+
+    harness.run()
+
+    assert [record.latency_ms for record in harness.request_log.records] == [2500]
+
+
+def test_reqlog_ac21_the_workspace_of_the_session_is_recorded(harness: Harness):
+    harness.search.hits = []
+
+    harness.run(workspace_id=OTHER_WORKSPACE_ID)
+
+    assert harness.request_log.started == [("ask", USER_ID, OTHER_WORKSPACE_ID)]
+    assert [record.workspace_id for record in harness.request_log.records] == [OTHER_WORKSPACE_ID]
+
+
+def test_reqlog_ac1_an_exception_that_escapes_finishes_with_status_error(harness: Harness):
+    harness.search.failure = RuntimeError("boom")
+
+    with pytest.raises(RuntimeError):
+        harness.run()
+
+    assert rows(harness) == [("ask", "error", 0, 0)]
