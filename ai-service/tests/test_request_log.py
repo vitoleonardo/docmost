@@ -10,6 +10,7 @@ from dataclasses import replace
 from datetime import UTC, date, datetime, timedelta, timezone
 from decimal import Decimal
 from pathlib import Path
+from typing import Any
 
 import psycopg
 import pytest
@@ -40,6 +41,8 @@ RFC4231_KEY = "Jefe"
 RFC4231_DATA = "what do ya want for nothing?"
 RFC4231_DIGEST = "5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843"
 AT_ONCE_SECONDS = 0.5
+SHORT_CONNECT_TIMEOUT_SECONDS = 2
+CLIENT_DEADLINE_SECONDS = 1
 AGENT_REVISION = "0002_agent_tables"
 REQUEST_LOG_COLUMNS = [
     "id",
@@ -71,6 +74,7 @@ def recorder(
     model: str = MODEL,
     accepted: datetime = ACCEPTED,
     clock: FakeClock | None = None,
+    **overrides: Any,
 ) -> RequestLog:
     return RequestLog(
         database_url=database_url,
@@ -80,6 +84,7 @@ def recorder(
         prices=(API_ENTRY,),
         wall_clock=lambda: accepted,
         clock=clock or FakeClock(),
+        **overrides,
     )
 
 
@@ -312,6 +317,7 @@ def test_reqlog_ac44_close_writes_the_queued_rows_and_stops_the_writer():
 
 
 def test_reqlog_ac36_close_gives_up_on_a_hanging_write_within_its_timeout():
+    before = writer_threads()
     log = HeldRequestLog()
     log.finish(log.start("ask", USER, WORKSPACE), "answered", tally())
     assert log.writing.wait(1)
@@ -319,8 +325,28 @@ def test_reqlog_ac36_close_gives_up_on_a_hanging_write_within_its_timeout():
     log.close(0.2)
     elapsed = time.monotonic() - started
     log.release.set()
+    for writer in writer_threads() - before:
+        writer.join(1)
     assert elapsed < AT_ONCE_SECONDS
-    assert log.flush(1)
+    assert writer_threads() == before
+    assert [record.status for record in log.written] == ["answered"]
+
+
+def test_reqlog_ac36_flush_after_close_has_started_returns_false_at_once():
+    before = writer_threads()
+    log = HeldRequestLog()
+    log.finish(log.start("ask", USER, WORKSPACE), "answered", tally())
+    assert log.writing.wait(1)
+    log.close(0.2)
+    started = time.monotonic()
+    flushed = log.flush(1)
+    elapsed = time.monotonic() - started
+    log.release.set()
+    for writer in writer_threads() - before:
+        writer.join(1)
+    assert not flushed
+    assert elapsed < AT_ONCE_SECONDS
+    assert writer_threads() == before
 
 
 def test_reqlog_ac36_a_row_after_close_is_dropped_with_one_failure_line(
@@ -498,7 +524,9 @@ def test_reqlog_ac53_silent_database_holds_no_request_and_is_given_up_within_six
 ):
     caplog.set_level(logging.WARNING, logger="ai_service.request_log")
     with silent_server() as port:
-        log = recorder(database_url=database_url_on(port))
+        log = recorder(
+            database_url=database_url_on(port), connect_timeout=SHORT_CONNECT_TIMEOUT_SECONDS
+        )
         timer = log.start("extraction", USER, WORKSPACE)
         started = time.monotonic()
         log.finish(timer, "extracted", tally((4_814, 250)))
@@ -513,6 +541,28 @@ def test_reqlog_ac53_silent_database_holds_no_request_and_is_given_up_within_six
     assert line.startswith("request log write failed task=extraction error=")
     assert USER not in caplog.text
     assert pseudonym(REQUEST_LOG_KEY, USER) not in caplog.text
+
+
+@pytest.mark.integration
+def test_reqlog_ac53_a_write_the_database_never_answers_is_aborted_by_the_client_deadline(
+    raw: psycopg.Connection, caplog: pytest.LogCaptureFixture
+):
+    caplog.set_level(logging.WARNING, logger="ai_service.request_log")
+    log = recorder(write_timeout=CLIENT_DEADLINE_SECONDS)
+    timer = log.start("extraction", USER, WORKSPACE)
+    with psycopg.connect(AI_URL) as locker:
+        locker.execute("LOCK TABLE ai.request_log IN ACCESS EXCLUSIVE MODE")
+        started = time.monotonic()
+        log.finish(timer, "extracted", tally((4_814, 250)))
+        flushed = log.flush(CLIENT_DEADLINE_SECONDS + 1)
+        given_up = time.monotonic() - started
+        locker.rollback()
+    assert flushed
+    assert given_up < CLIENT_DEADLINE_SECONDS + 1
+    assert warnings(caplog) == ["request log write failed task=extraction error=OperationalError"]
+    log.finish(log.start("ask", USER, WORKSPACE), "answered", tally())
+    assert log.flush(6)
+    assert "answered" in [row[9] for row in stored_rows(raw)]
 
 
 @pytest.mark.integration

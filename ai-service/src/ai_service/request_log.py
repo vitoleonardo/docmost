@@ -1,6 +1,8 @@
 import hmac
 import logging
+import os
 import queue
+import socket
 import threading
 import time
 import uuid
@@ -8,7 +10,6 @@ from collections.abc import Callable, Sequence
 from dataclasses import astuple, dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from functools import partial
 from hashlib import sha256
 from typing import Literal
 
@@ -23,7 +24,10 @@ WRITE_TIMEOUT_SECONDS = 5
 QUEUE_ROWS = 1_000
 WRITER_NAME = "request-log-writer"
 LOGGER = logging.getLogger("ai_service.request_log")
-UTC_NOW = partial(datetime.now, UTC)
+
+
+def utc_now() -> datetime:
+    return datetime.now(UTC)
 
 
 class QueueFull(Exception):
@@ -113,6 +117,28 @@ class RequestLogStore:
         return deleted
 
 
+class WriteDeadline:
+    def __init__(self, conn: psycopg.Connection, seconds: float) -> None:
+        self._conn = conn
+        self._lock = threading.Lock()
+        self._ended = False
+        self._timer = threading.Timer(max(seconds, 0.0), self._expire)
+        self._timer.daemon = True
+        self._timer.start()
+
+    def end(self) -> None:
+        with self._lock:
+            self._ended = True
+        self._timer.cancel()
+
+    def _expire(self) -> None:
+        with self._lock:
+            if self._ended:
+                return
+            with socket.socket(fileno=os.dup(self._conn.fileno())) as sock:
+                sock.shutdown(socket.SHUT_RDWR)
+
+
 @dataclass(frozen=True)
 class RequestTimer:
     task: Task
@@ -130,10 +156,12 @@ class RequestLog:
         mode: str,
         model: str,
         prices: Sequence[Price] = PRICES,
-        wall_clock: Callable[[], datetime] = UTC_NOW,
+        wall_clock: Callable[[], datetime] = utc_now,
         clock: Callable[[], float] = time.monotonic,
         logger: logging.Logger = LOGGER,
         queue_rows: int = QUEUE_ROWS,
+        write_timeout: float = WRITE_TIMEOUT_SECONDS,
+        connect_timeout: int = WRITE_TIMEOUT_SECONDS,
     ) -> None:
         self._database_url = database_url
         self._secret = secret
@@ -143,6 +171,8 @@ class RequestLog:
         self._wall_clock = wall_clock
         self._clock = clock
         self._logger = logger
+        self._write_timeout = write_timeout
+        self._connect_timeout = connect_timeout
         self._rows: queue.Queue[RequestRecord | threading.Event | None] = queue.Queue(queue_rows)
         self._lock = threading.Lock()
         self._accepting = True
@@ -192,11 +222,10 @@ class RequestLog:
         with self._lock:
             writer = self._writer
             accepting = self._accepting
+        if not accepting:
+            return False
         if writer is None:
             return True
-        if not accepting:
-            writer.join(timeout)
-            return not writer.is_alive()
         deadline = time.monotonic() + timeout
         written = threading.Event()
         try:
@@ -243,13 +272,19 @@ class RequestLog:
                 self._failed(item.task, error)
 
     def _write(self, record: RequestRecord) -> None:
-        with psycopg.connect(
+        ends_at = time.monotonic() + self._write_timeout
+        conn = psycopg.connect(
             self._database_url,
             autocommit=True,
-            connect_timeout=WRITE_TIMEOUT_SECONDS,
+            connect_timeout=self._connect_timeout,
             options=f"-c statement_timeout={WRITE_TIMEOUT_SECONDS * 1000}",
-        ) as conn:
+        )
+        deadline = WriteDeadline(conn, ends_at - time.monotonic())
+        try:
             RequestLogStore(conn).insert(record)
+        finally:
+            deadline.end()
+            conn.close()
 
     def _failed(self, task: Task, error: Exception) -> None:
         self._logger.warning(

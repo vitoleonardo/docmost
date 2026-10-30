@@ -1156,7 +1156,7 @@ def test_reqlog_ac8_an_unexpected_exception_writes_one_error_record() -> None:
     with pytest.raises(RuntimeError):
         harness.run()
 
-    assert [record.status for record in harness.recording.records] == ["error"]
+    assert logged(harness) == [("agent", "error", None, None)]
 
 
 def test_reqlog_ac9_a_cancelled_run_writes_one_cancelled_record() -> None:

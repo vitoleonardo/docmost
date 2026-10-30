@@ -4,7 +4,7 @@ import time
 from collections.abc import Callable
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from types import TracebackType
 from typing import NoReturn
 
@@ -21,7 +21,7 @@ from ai_service.indexer import Indexer
 from ai_service.jobs import REDIS_ERRORS, RETRY_DELAY_SECONDS, JobConsumer, wait_for_redis
 from ai_service.migrations_check import MigrationsMissingError, assert_migrated
 from ai_service.reconcile import ReconcileAborted, ReconcileResult, reconcile
-from ai_service.request_log import REQUEST_LOG_RETENTION, RequestLogStore
+from ai_service.request_log import REQUEST_LOG_RETENTION, RequestLogStore, utc_now
 from ai_service.settings import WorkerSettings
 
 RECONCILE_INTERVAL_SECONDS = 600
@@ -31,10 +31,6 @@ LOG_FORMAT = "%(asctime)s %(levelname)s %(name)s %(message)s"
 LOGGER = logging.getLogger("ai_service.worker")
 
 Connect = Callable[[], psycopg.Connection]
-
-
-def utc_now() -> datetime:
-    return datetime.now(UTC)
 
 
 def load_settings() -> WorkerSettings:

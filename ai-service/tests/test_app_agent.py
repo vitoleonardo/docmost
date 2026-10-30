@@ -21,6 +21,7 @@ from ai_service.request_log import RequestLog
 from tests.conftest import (
     REQUEST_LOG_KEY,
     SERVICE_CREDENTIAL,
+    UNREACHABLE_DATABASE_URL,
     USER_ID,
     WORKSPACE_ID,
     idle_ask_pipeline,
@@ -625,7 +626,7 @@ def test_reqlog_ac52_an_unreachable_log_database_changes_nothing_the_client_rece
         )
     )
     harness.request_log = RequestLog(
-        "postgresql://docmost_ai:test-ai-password@127.0.0.1:1/docmost",
+        UNREACHABLE_DATABASE_URL,
         REQUEST_LOG_KEY,
         "local",
         "stub-model",

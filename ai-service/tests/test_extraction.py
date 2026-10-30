@@ -34,7 +34,7 @@ def field_answer(value: object, quote: object) -> dict[str, object]:
 class StubModel:
     text: str = field(default_factory=answer)
     prompt_tokens: int | None = 10_000
-    error: ModelUnavailable | None = None
+    error: Exception | None = None
     calls: list[tuple[list[dict[str, str]], dict[str, Any]]] = field(default_factory=list)
     model: str = "qwen3:8b"
     completion_tokens: int | None = None
@@ -613,6 +613,16 @@ def test_reqlog_ac46_an_unexpected_error_is_logged_as_error_and_reraised() -> No
     with pytest.raises(RuntimeError):
         built.extract(ATTACHMENT_ID, 1000, USER_ID, WORKSPACE_ID)
     assert [r.status for r in request_log.records] == ["error"]
+
+
+def test_reqlog_ac17_an_unexpected_model_error_is_logged_as_error_with_unknown_tokens() -> None:
+    request_log = RecordingRequestLog()
+    model = StubModel(error=RuntimeError("boom"))
+    built, _ = pipeline(build_pdf([PLAIN_QUOTE]), model, request_log=request_log)
+    with pytest.raises(RuntimeError):
+        built.extract(ATTACHMENT_ID, 1000, USER_ID, WORKSPACE_ID)
+    [record] = request_log.records
+    assert (record.status, record.prompt_tokens, record.completion_tokens) == ("error", None, None)
 
 
 def test_reqlog_ac5_the_extraction_log_line_leaves_out_the_request_log(

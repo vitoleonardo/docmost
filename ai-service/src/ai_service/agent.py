@@ -355,7 +355,7 @@ class PreparedRun:
                 deadline_seconds=min(MODEL_CALL_SECONDS, self._remaining_seconds()),
                 cancel=cancel,
             )
-        except ModelCallCancelled, ModelUnavailable:
+        except Exception:
             self._tally.mark_unknown()
             raise
         self._tally.add(completion.prompt_tokens, completion.completion_tokens)

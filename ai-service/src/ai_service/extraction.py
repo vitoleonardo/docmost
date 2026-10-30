@@ -248,6 +248,9 @@ class ExtractionPipeline:
             run.tally.mark_unknown()
             run.outcome = "model_failed"
             return Failed()
+        except Exception:
+            run.tally.mark_unknown()
+            raise
         run.tally.add(completion.prompt_tokens, completion.completion_tokens)
         sent = sum(len(message["content"]) for message in messages)
         tokens = completion.prompt_tokens

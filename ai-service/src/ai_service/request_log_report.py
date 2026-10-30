@@ -14,9 +14,9 @@ from pydantic import ValidationError
 from ai_service.prices import COST_PRECISION
 from ai_service.request_log import (
     REQUEST_LOG_RETENTION,
-    UTC_NOW,
     RequestLogStore,
     RequestRecord,
+    utc_now,
 )
 from ai_service.settings import RequestLogReportSettings
 from ai_service.worker import configure_logging, describe_settings_error, exit_with
@@ -123,7 +123,7 @@ def main() -> None:
         settings = RequestLogReportSettings()  # pyright: ignore[reportCallIssue]
     except ValidationError as error:
         exit_with(describe_settings_error(error), error)
-    now = UTC_NOW()
+    now = utc_now()
     try:
         with psycopg.connect(
             settings.ai_database_url, connect_timeout=CONNECT_TIMEOUT_SECONDS

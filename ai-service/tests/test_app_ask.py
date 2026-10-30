@@ -25,6 +25,7 @@ from tests.conftest import (
     BRIDGE_KEY,
     REQUEST_LOG_KEY,
     SERVICE_CREDENTIAL,
+    UNREACHABLE_DATABASE_URL,
     USER_ID,
     WORKSPACE_ID,
     HeldRequestLog,
@@ -569,7 +570,7 @@ def test_reqlog_ac35_an_unreachable_log_database_changes_nothing_the_client_rece
 ):
     working = without_turn_ids(lines(ask(make_client(harness), headers)))
     unreachable = RequestLog(
-        "postgresql://docmost_ai:test-ai-password@127.0.0.1:1/docmost",
+        UNREACHABLE_DATABASE_URL,
         REQUEST_LOG_KEY,
         "local",
         "stub-model",
@@ -693,7 +694,7 @@ def test_ask_ac9_start_serves_the_app_with_the_loaded_model(
     assert "/v1/ask" in [route.path for route in served[0].routes]
 
 
-def test_reqlog_ac1_the_api_writes_the_queued_rows_before_it_exits(
+def test_reqlog_ac35_the_api_writes_the_queued_rows_before_it_exits(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ):
     monkeypatch.chdir(tmp_path)

@@ -369,7 +369,7 @@ def test_reqlog_ac5_the_user_and_workspace_from_the_token_reach_the_record(
     assert [r.workspace_id for r in request_log.records] == [WORKSPACE_ID]
 
 
-def test_reqlog_ac5_an_invalid_user_token_never_starts_a_record(
+def test_reqlog_ac11_an_invalid_user_token_never_starts_an_extraction_record(
     service_headers: dict[str, str], make_token: Callable[..., str]
 ):
     request_log = RecordingRequestLog()
