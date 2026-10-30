@@ -1,9 +1,11 @@
+import { Redis } from 'ioredis';
 import { CamelCasePlugin, Kysely, sql } from 'kysely';
 import { PostgresJSDialect } from 'kysely-postgres-js';
 import * as postgres from 'postgres';
 import type { Type, ValidationPipeOptions } from '@nestjs/common';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { DB } from '@docmost/db/types/db';
+import type { SeedWorkspaceResult } from '../src/integrations/seed/seed.service';
 import { createSeedMigrator } from '../src/integrations/seed/seed-preflight';
 
 export const TEST_POSTGRES_SERVER =
@@ -82,4 +84,77 @@ export function providerOf(app: NestFastifyApplication) {
 export async function recreateDatabase(admin: Kysely<DB>, name: string) {
   await removeDatabase(admin, name);
   await sql`create database ${sql.id(name)}`.execute(admin);
+}
+
+export async function dropTestDatabase(
+  admin: Kysely<DB> | undefined,
+  db: Kysely<DB> | undefined,
+  name: string,
+) {
+  await db?.destroy();
+  if (admin) await removeDatabase(admin, name);
+  await admin?.destroy();
+}
+
+export async function flushRedis(url: string) {
+  const redis = new Redis(url);
+  try {
+    await redis.flushdb();
+  } finally {
+    redis.disconnect();
+  }
+}
+
+export async function bootSeededHttpApp(
+  storageRoot: string,
+): Promise<{ app: NestFastifyApplication; seed: SeedWorkspaceResult }> {
+  const { SeedService } = await import('../src/integrations/seed/seed.service');
+  const { SeedContentService } =
+    await import('../src/integrations/seed/seed-content.service');
+  const app = await bootSeedHttpApp(storageRoot, {
+    whitelist: true,
+    stopAtFirstError: true,
+    transform: true,
+  });
+  const seed = await app.get(SeedService).seedWorkspace();
+  await app.get(SeedContentService).seedPages(seed);
+  return { app, seed };
+}
+
+export async function pageIdByTitle(db: Kysely<DB>, title: string) {
+  const row = await db
+    .selectFrom('pages')
+    .select('id')
+    .where('title', '=', title)
+    .executeTakeFirstOrThrow();
+  return row.id;
+}
+
+export function expectError(
+  response: { statusCode: number; json: () => unknown },
+  status: number,
+  code: string,
+) {
+  expect({ status: response.statusCode, body: response.json() }).toEqual({
+    status,
+    body: { code, message: expect.any(String) },
+  });
+}
+
+export async function loginCookie(
+  app: NestFastifyApplication,
+  credentials: { email: string; password: string },
+  remoteAddress: string,
+): Promise<{ cookie: string }> {
+  const response = await app.inject({
+    method: 'POST',
+    url: '/api/auth/login',
+    remoteAddress,
+    payload: credentials,
+  });
+  const authToken = /authToken=([^;]+)/.exec(
+    String(response.headers['set-cookie']),
+  )?.[1];
+  if (!authToken) throw new Error(`login answered ${response.statusCode}`);
+  return { cookie: `authToken=${authToken}` };
 }

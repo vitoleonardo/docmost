@@ -170,12 +170,17 @@ gates() {
     assignment='(api[_-]?key|secret|token|password)["'"'"']?[[:space:]]*[:=][[:space:]]*["'"'"'][^"'"'"'[:space:]]{12,}'
     {
       grep -Ei "$key_format" "$tmp/added" | cut -f1
-      grep -Ei "$assignment" "$tmp/added" | cut -f1 | sort -u | while IFS= read -r f; do
+      allowed=.claude/secrets-allow.tsv
+      [ -f "$allowed" ] || allowed=/dev/null
+      grep -Ei "$assignment" "$tmp/added" | awk -F '\t' '
+        NR == FNR { if ($0 !~ /^#/ && NF >= 2) { n++; path[n] = $1; value[n] = $2 } next }
+        { for (i = 1; i <= n; i++) if (path[i] == $1 && index($2, value[i])) next; print }' "$allowed" - |
+        cut -f1 | sort -u | while IFS= read -r f; do
         matches_any "$f" "$(test_patterns "$(package_of "$f")")" || printf '%s\n' "$f"
       done
     } | sort -u >"$tmp/log-secrets"
     git diff --name-only --diff-filter=A "$mb" -- 2>/dev/null | grep -E '(^|/)\.env(\.[^/]*)?$' | grep -vE '\.env\.(example|sample|template)$' >>"$tmp/log-secrets"
-    if [ -s "$tmp/log-secrets" ]; then gate secrets fail 0 "possible secrets (pattern scan, gitleaks not installed): $(tr '\n' ' ' <"$tmp/log-secrets")"; else gate secrets pass 0 "pattern scan, gitleaks not installed: nothing found (fake values assigned in test files are not flagged; key formats are)"; fi
+    if [ -s "$tmp/log-secrets" ]; then gate secrets fail 0 "possible secrets (pattern scan, gitleaks not installed): $(tr '\n' ' ' <"$tmp/log-secrets")"; else gate secrets pass 0 "pattern scan, gitleaks not installed: nothing found (fake values assigned in test files or listed in .claude/secrets-allow.tsv are not flagged; key formats are)"; fi
   fi
 
   max=$(conf_value . KIT_MAX_CHANGED_LINES)

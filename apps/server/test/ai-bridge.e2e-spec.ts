@@ -9,7 +9,6 @@ import type { AddressInfo } from 'node:net';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { Redis } from 'ioredis';
 import { Kysely } from 'kysely';
 import { DB } from '@docmost/db/types/db';
 import type { User } from '@docmost/db/types/entity.types';
@@ -41,11 +40,15 @@ import {
   SEED_PDFS,
 } from '../src/integrations/seed/seed-pages';
 import {
-  bootSeedHttpApp,
+  bootSeededHttpApp,
   createMigratedTestDatabase,
+  dropTestDatabase,
+  expectError,
+  flushRedis,
   loadAppModulesFor,
+  loginCookie,
+  pageIdByTitle,
   providerOf,
-  removeDatabase,
   TEST_POSTGRES_SERVER,
 } from './test-database';
 
@@ -53,15 +56,6 @@ const TEST_DATABASE = 'docmost_ai_bridge_test';
 const TEST_DATABASE_URL = `${TEST_POSTGRES_SERVER}/${TEST_DATABASE}`;
 
 const TEST_REDIS_URL = 'redis://127.0.0.1:6380/14';
-
-async function flushTestRedis() {
-  const redis = new Redis(TEST_REDIS_URL);
-  try {
-    await redis.flushdb();
-  } finally {
-    redis.disconnect();
-  }
-}
 
 const TEST_AI_BRIDGE_KEY = 'test-ai-bridge-secret-0123456789abcdef';
 const TEST_AI_SERVICE_CREDENTIAL = 'test-ai-service-token-0123456789abcdef';
@@ -87,10 +81,6 @@ function bootSeededBridge(storageRoot: string): Promise<BridgeApp> {
   process.env.AI_SERVICE_TOKEN = TEST_AI_SERVICE_CREDENTIAL;
   process.env.AI_SERVICE_URL = TEST_AI_SERVICE_URL;
   return loadAppModulesFor(TEST_DATABASE_URL, async (): Promise<BridgeApp> => {
-    const { SeedService } =
-      await import('../src/integrations/seed/seed.service');
-    const { SeedContentService } =
-      await import('../src/integrations/seed/seed-content.service');
     const { AiPageAccessService } =
       await import('../src/integrations/ai-bridge/services/ai-page-access.service');
     const { AiQueueProcessor } =
@@ -103,15 +93,8 @@ function bootSeededBridge(storageRoot: string): Promise<BridgeApp> {
     const { SpaceMemberRepo } =
       await import('@docmost/db/repos/space/space-member.repo');
     const { UserRepo } = await import('@docmost/db/repos/user/user.repo');
-    const app = await bootSeedHttpApp(storageRoot, {
-      whitelist: true,
-      stopAtFirstError: true,
-      transform: true,
-    });
+    const { app, seed } = await bootSeededHttpApp(storageRoot);
     const provider = providerOf(app);
-
-    const seed = await app.get(SeedService).seedWorkspace();
-    await app.get(SeedContentService).seedPages(seed);
     return {
       app,
       seed,
@@ -123,17 +106,6 @@ function bootSeededBridge(storageRoot: string): Promise<BridgeApp> {
       spaceMemberRepo: provider(SpaceMemberRepo),
       userRepo: provider(UserRepo),
     };
-  });
-}
-
-function expectError(
-  response: { statusCode: number; json: () => unknown },
-  status: number,
-  code: string,
-) {
-  expect({ status: response.statusCode, body: response.json() }).toEqual({
-    status,
-    body: { code, message: expect.any(String) },
   });
 }
 
@@ -169,14 +141,7 @@ describe('AI bridge page access (e2e)', () => {
   let bridge: BridgeApp;
   const users = {} as Record<SeedUserKey, User>;
 
-  const pageId = async (title: string) =>
-    (
-      await db
-        .selectFrom('pages')
-        .select('id')
-        .where('title', '=', title)
-        .executeTakeFirstOrThrow()
-    ).id;
+  const pageId = (title: string) => pageIdByTitle(db, title);
 
   const spaceId = (spaceName: string) =>
     bridge.seed.spaceIds[spaceSlug(spaceName)];
@@ -198,7 +163,7 @@ describe('AI bridge page access (e2e)', () => {
   };
 
   beforeAll(async () => {
-    await flushTestRedis();
+    await flushRedis(TEST_REDIS_URL);
     ({ admin, db } = await createMigratedTestDatabase(TEST_DATABASE));
 
     storageRoot = await mkdtemp(join(tmpdir(), 'ai-bridge-storage-'));
@@ -223,9 +188,7 @@ describe('AI bridge page access (e2e)', () => {
 
   afterAll(async () => {
     await bridge?.app.close();
-    await db?.destroy();
-    if (admin) await removeDatabase(admin, TEST_DATABASE);
-    await admin?.destroy();
+    await dropTestDatabase(admin, db, TEST_DATABASE);
     if (storageRoot) await rm(storageRoot, { recursive: true, force: true });
   });
 
@@ -1457,19 +1420,12 @@ describe('AI bridge page access (e2e)', () => {
       return `http://127.0.0.1:${port}`;
     };
 
-    const login = async (key: SeedUserKey, remoteAddress = clientAddress) => {
-      const response = await bridge.app.inject({
-        method: 'POST',
-        url: '/api/auth/login',
+    const login = (key: SeedUserKey, remoteAddress = clientAddress) =>
+      loginCookie(
+        bridge.app,
+        { email: users[key].email, password: SEED_DEMO_PASSWORD },
         remoteAddress,
-        payload: { email: users[key].email, password: SEED_DEMO_PASSWORD },
-      });
-      const authToken = /authToken=([^;]+)/.exec(
-        String(response.headers['set-cookie']),
-      )?.[1];
-      expect(authToken).toBeTruthy();
-      return { cookie: `authToken=${authToken}` };
-    };
+      );
 
     const api = (
       path: string,

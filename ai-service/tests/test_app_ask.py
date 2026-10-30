@@ -115,6 +115,7 @@ class AsgiCall:
     app: FastAPI
     headers: dict[str, str]
     body: dict[str, Any]
+    path: str = PATH
     sent: asyncio.Queue[MutableMapping[str, Any]] = field(default_factory=asyncio.Queue)
     disconnected: asyncio.Event = field(default_factory=asyncio.Event)
     task: asyncio.Task[None] | None = None
@@ -142,8 +143,8 @@ class AsgiCall:
             "asgi": {"version": "3.0", "spec_version": "2.3"},
             "http_version": "1.1",
             "method": "POST",
-            "path": PATH,
-            "raw_path": PATH.encode(),
+            "path": self.path,
+            "raw_path": self.path.encode(),
             "query_string": b"",
             "headers": raw_headers,
             "scheme": "http",

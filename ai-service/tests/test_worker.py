@@ -4,9 +4,12 @@ import socket
 import subprocess
 import sys
 from collections.abc import Callable, Iterator
+from contextlib import AbstractContextManager, nullcontext
 from dataclasses import dataclass, field
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any
+from types import SimpleNamespace
+from typing import Any, cast
 
 import fakeredis
 import psycopg
@@ -467,3 +470,161 @@ def test_index_ac77_start_with_a_model_that_cannot_load_exits_naming_the_model(
     assert run.returncode == 1
     assert UNKNOWN_MODEL in run.stderr
     assert "Traceback" not in run.stderr
+
+
+DAY_SECONDS = 24 * 60 * 60
+RUN_START = datetime(2026, 10, 30, 12, 0, tzinfo=UTC)
+
+
+@dataclass
+class FakeWallClock:
+    now: datetime
+
+    def __call__(self) -> datetime:
+        return self.now
+
+
+@dataclass
+class RetentionConnection:
+    rows_deleted: int = 0
+    failure: Exception | None = None
+    statements: list[tuple[str, tuple[Any, ...]]] = field(default_factory=list)
+    closed: bool = False
+
+    def transaction(self) -> AbstractContextManager[None]:
+        return nullcontext()
+
+    def execute(self, query: str, params: tuple[Any, ...]) -> SimpleNamespace:
+        if self.failure is not None:
+            raise self.failure
+        self.statements.append((query, params))
+        return SimpleNamespace(rowcount=self.rows_deleted)
+
+    def close(self) -> None:
+        self.closed = True
+
+    def cutoffs(self) -> list[Any]:
+        return [params[0] for _, params in self.statements]
+
+
+def info_messages(caplog: pytest.LogCaptureFixture) -> list[str]:
+    return [
+        record.getMessage()
+        for record in caplog.records
+        if record.name == "ai_service.worker" and record.levelno == logging.INFO
+    ]
+
+
+@pytest.fixture
+def retention_connection() -> RetentionConnection:
+    return RetentionConnection()
+
+
+@pytest.fixture
+def no_reconcile(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(worker_module, "reconcile", lambda *args, **kwargs: None)
+
+
+@pytest.fixture
+def make_retention_worker(
+    no_reconcile: None,
+    bridge: FakeBridge,
+    redis: Redis,
+    clock: FakeClock,
+    retention_connection: RetentionConnection,
+) -> Callable[..., Worker]:
+    def make(**overrides: Any) -> Worker:
+        connection = cast(psycopg.Connection, retention_connection)
+        runtime = Runtime(worker_settings(), HashingEmbedder(), bridge.client(), lambda: connection)
+        return Worker(
+            runtime, redis, clock=clock, sleep=clock.sleep, block_ms=BLOCK_MS, **overrides
+        )
+
+    return make
+
+
+def test_agent_ac109_retention_runs_when_the_worker_starts(
+    make_retention_worker: Callable[..., Worker],
+    retention_connection: RetentionConnection,
+    caplog: pytest.LogCaptureFixture,
+):
+    caplog.set_level(logging.INFO, logger="ai_service.worker")
+    retention_connection.rows_deleted = 2
+    worker = make_retention_worker()
+
+    worker.run_once()
+
+    assert len(retention_connection.statements) == 1
+    assert info_messages(caplog) == ["retention deleted_runs=2"]
+
+
+def test_agent_ac109_retention_does_not_run_again_before_24_h(
+    make_retention_worker: Callable[..., Worker],
+    retention_connection: RetentionConnection,
+    clock: FakeClock,
+):
+    worker = make_retention_worker()
+    worker.run_once()
+
+    clock.now += DAY_SECONDS - 1
+    worker.run_once()
+
+    assert len(retention_connection.statements) == 1
+
+
+def test_agent_ac109_retention_runs_again_24_h_after_the_last_one(
+    make_retention_worker: Callable[..., Worker],
+    retention_connection: RetentionConnection,
+    clock: FakeClock,
+):
+    worker = make_retention_worker()
+    worker.run_once()
+
+    clock.now += DAY_SECONDS
+    worker.run_once()
+    assert len(retention_connection.statements) == 2
+
+    worker.run_once()
+    assert len(retention_connection.statements) == 2
+
+
+def test_agent_ac109_retention_passes_now_minus_30_days_as_the_cutoff(
+    make_retention_worker: Callable[..., Worker],
+    retention_connection: RetentionConnection,
+    clock: FakeClock,
+):
+    wall_clock = FakeWallClock(RUN_START)
+    worker = make_retention_worker(wall_clock=wall_clock)
+    worker.run_once()
+
+    wall_clock.now += timedelta(days=1)
+    clock.now += DAY_SECONDS
+    worker.run_once()
+
+    assert retention_connection.cutoffs() == [
+        RUN_START - timedelta(days=30),
+        RUN_START + timedelta(days=1) - timedelta(days=30),
+    ]
+
+
+def test_agent_ac109_a_failing_retention_is_logged_and_the_worker_goes_on(
+    make_retention_worker: Callable[..., Worker],
+    retention_connection: RetentionConnection,
+    clock: FakeClock,
+    caplog: pytest.LogCaptureFixture,
+):
+    retention_connection.failure = RuntimeError("agent task text")
+    worker = make_retention_worker()
+
+    worker.run_once()
+
+    lines = warnings(caplog)
+    assert any("RuntimeError" in line for line in lines)
+    assert not any("agent task text" in line for line in lines)
+    assert not retention_connection.closed
+
+    retention_connection.failure = None
+    clock.now += DAY_SECONDS
+    worker.run_once()
+
+    assert len(retention_connection.statements) == 1

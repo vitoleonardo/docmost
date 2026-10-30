@@ -15,6 +15,10 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { AiAskDto } from './dto/ai-ask.dto';
 import { AiBridgeExceptionFilter } from './filters/ai-bridge-exception.filter';
 import { AiExtractDto } from './dto/ai-extract.dto';
+import {
+  abortedWhenClientLeaves,
+  streamServerSentEvents,
+} from './server-sent-events';
 import { AiAskService } from './services/ai-ask.service';
 import { AiExtractService } from './services/ai-extract.service';
 import { AiServiceExtractResult } from './services/ai-service.client';
@@ -41,29 +45,14 @@ export class AiBridgeController {
   @UseFilters(AiBridgeExceptionFilter)
   @HttpCode(HttpStatus.OK)
   @Post('ask')
-  async ask(
+  ask(
     @Body() dto: AiAskDto,
     @AuthUser() user: User,
     @Res() reply: FastifyReply,
   ): Promise<void> {
-    const clientGone = new AbortController();
-    reply.raw.on('close', () => clientGone.abort());
-    const events = await this.aiAskService.ask(user, dto, clientGone.signal);
-    if (!events) return;
-
-    reply.hijack();
-    for (const [name, value] of Object.entries(reply.getHeaders())) {
-      if (value !== undefined) reply.raw.setHeader(name, value);
-    }
-    reply.raw.writeHead(HttpStatus.OK, {
-      'content-type': 'text/event-stream; charset=utf-8',
-      'cache-control': 'no-cache',
-      'x-accel-buffering': 'no',
-    });
-    for await (const event of events) {
-      reply.raw.write(`data: ${JSON.stringify(event)}\n\n`);
-    }
-    reply.raw.end();
+    return streamServerSentEvents(reply, (signal) =>
+      this.aiAskService.ask(user, dto, signal),
+    );
   }
 
   @UseFilters(AiBridgeExceptionFilter)
@@ -74,8 +63,10 @@ export class AiBridgeController {
     @AuthUser() user: User,
     @Res({ passthrough: true }) reply: FastifyReply,
   ): Promise<AiServiceExtractResult | null> {
-    const clientGone = new AbortController();
-    reply.raw.on('close', () => clientGone.abort());
-    return this.aiExtractService.extract(user, dto, clientGone.signal);
+    return this.aiExtractService.extract(
+      user,
+      dto,
+      abortedWhenClientLeaves(reply),
+    );
   }
 }

@@ -1,7 +1,12 @@
+import asyncio
 import json
 import logging
+import threading
+import uuid
 from collections.abc import AsyncIterator, Callable, Coroutine, Generator
-from typing import Annotated, Any, Self
+from contextlib import AbstractContextManager, ExitStack
+from dataclasses import dataclass
+from typing import Annotated, Any, Protocol, Self
 from uuid import UUID
 
 from fastapi import Depends, FastAPI, Request, Response
@@ -10,8 +15,17 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.routing import APIRoute
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 from redis import Redis
+from redis.exceptions import WatchError
+from starlette.background import BackgroundTask
 from starlette.concurrency import iterate_in_threadpool, run_in_threadpool
 
+from ai_service.agent import AgentRunner, PreparedRun, RunStore
+from ai_service.agent_store import (
+    ProposalNotFound,
+    ProposalNotOpen,
+    ProposalStatus,
+    StoredProposal,
+)
 from ai_service.ask import AskPipeline, AskRequest, Event
 from ai_service.auth import (
     ERROR_STATUS,
@@ -28,6 +42,9 @@ from ai_service.settings import Settings
 
 LOGGER = logging.getLogger("ai_service.app")
 MAX_QUESTION_LENGTH = 2000
+MAX_TASK_LENGTH = 2000
+AGENT_LOCK_PREFIX = "ai-service:agent-run:"
+AGENT_LOCK_SECONDS = 660
 
 
 class JobRequest(BaseModel):
@@ -75,6 +92,74 @@ class ExtractBody(BaseModel):
     fileSize: Annotated[int, Field(strict=True, ge=0)]
 
 
+class AgentRecords(RunStore, Protocol):
+    def get_proposal(self, proposal_id: str, user_id: str) -> StoredProposal | None: ...
+
+    def transition(self, proposal_id: str, user_id: str, to: ProposalStatus) -> StoredProposal: ...
+
+
+@dataclass(frozen=True)
+class AgentServices:
+    open_records: Callable[[], AbstractContextManager[AgentRecords]]
+    make_runner: Callable[[AgentRecords], AgentRunner]
+
+
+class RunBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    spaceId: UUID
+    task: Annotated[
+        str,
+        StringConstraints(strip_whitespace=True, min_length=1, max_length=MAX_TASK_LENGTH),
+    ]
+
+
+class ProposalBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    proposalId: UUID
+
+
+class TransitionBody(ProposalBody):
+    to: ProposalStatus
+
+
+class ProposalResponse(BaseModel):
+    id: str
+    runId: str
+    userId: str
+    pageId: str
+    pageTitle: str
+    spaceId: str
+    reason: str
+    fingerprint: str
+    changes: list[dict[str, Any]]
+    added: int
+    removed: int
+    status: ProposalStatus
+    appliedBy: str | None
+    appliedAt: str | None
+
+    @classmethod
+    def from_stored(cls, proposal: StoredProposal) -> Self:
+        return cls(
+            id=proposal.id,
+            runId=proposal.run_id,
+            userId=proposal.user_id,
+            pageId=proposal.page_id,
+            pageTitle=proposal.page_title,
+            spaceId=proposal.space_id,
+            reason=proposal.reason,
+            fingerprint=proposal.fingerprint,
+            changes=proposal.changes,
+            added=proposal.added,
+            removed=proposal.removed,
+            status=proposal.status,
+            appliedBy=proposal.applied_by,
+            appliedAt=proposal.applied_at.isoformat() if proposal.applied_at else None,
+        )
+
+
 class NdjsonResponse(StreamingResponse):
     media_type = "application/x-ndjson"
 
@@ -114,11 +199,110 @@ async def stream_until_closed(events: Generator[Event]) -> AsyncIterator[str]:
         events.close()
 
 
+class RunLock:
+    def __init__(self, redis: Redis, user_id: str) -> None:
+        self._redis = redis
+        self._key = AGENT_LOCK_PREFIX + user_id
+        self._holder = str(uuid.uuid4())
+
+    def acquire(self) -> bool:
+        return bool(self._redis.set(self._key, self._holder, nx=True, ex=AGENT_LOCK_SECONDS))
+
+    def release(self) -> None:
+        with self._redis.pipeline() as pipeline:
+            try:
+                pipeline.watch(self._key)
+                if pipeline.get(self._key) == self._holder:
+                    pipeline.multi()
+                    pipeline.delete(self._key)
+                    pipeline.execute()
+            except WatchError:
+                return
+
+
+class AgentRunStream:
+    def __init__(self, prepared: PreparedRun, lock: RunLock, resources: ExitStack) -> None:
+        self._prepared = prepared
+        self._lock = lock
+        self._resources = resources
+        self._cancel = threading.Event()
+        self._reader_gone = threading.Event()
+        self._loop = asyncio.get_running_loop()
+        self._queue: asyncio.Queue[str | Exception | None] = asyncio.Queue()
+        threading.Thread(target=self._pump, daemon=True).start()
+
+    def stop(self) -> None:
+        self._cancel.set()
+        self._lock.release()
+
+    async def lines(self) -> AsyncIterator[str]:
+        try:
+            while (item := await self._queue.get()) is not None:
+                if isinstance(item, Exception):
+                    raise item
+                yield item
+        finally:
+            self._reader_gone.set()
+            self.stop()
+
+    def _post(self, item: str | Exception | None) -> None:
+        if self._reader_gone.is_set():
+            return
+        self._loop.call_soon_threadsafe(self._queue.put_nowait, item)
+
+    def _pump(self) -> None:
+        events = self._prepared.events(self._cancel)
+        try:
+            try:
+                for event in events:
+                    if self._cancel.is_set():
+                        break
+                    self._post(json.dumps(event, ensure_ascii=False) + "\n")
+            finally:
+                events.close()
+        except Exception as error:
+            LOGGER.error(
+                "agent run=%s stream_error=%s", self._prepared.run_id, type(error).__name__
+            )
+            self._post(error)
+        finally:
+            self.stop()
+            self._resources.close()
+            self._post(None)
+
+
+def require_agent(agent: AgentServices | None) -> AgentServices:
+    if agent is None:
+        raise ApiError("assistant_unavailable", "The assistant is not available.")
+    return agent
+
+
+def prepare_agent_run(
+    agent: AgentServices | None, redis: Redis, user: UserSession, body: RunBody
+) -> tuple[RunLock, ExitStack, PreparedRun]:
+    services = require_agent(agent)
+    lock = RunLock(redis, user.user_id)
+    if not lock.acquire():
+        raise ApiError("run_in_progress", "A task is already running.")
+    resources = ExitStack()
+    try:
+        runner = services.make_runner(resources.enter_context(services.open_records()))
+        return lock, resources, runner.prepare(user, str(body.spaceId), body.task)
+    except Exception as error:
+        lock.release()
+        resources.close()
+        if isinstance(error, BridgeError):
+            LOGGER.warning("agent bridge_error=%s", type(error).__name__)
+            raise ApiError("assistant_unavailable", "The wiki is not available.") from error
+        raise
+
+
 def create_app(
     settings: Settings,
     redis: Redis,
     ask_pipeline: AskPipeline,
     extraction_pipeline: ExtractionPipeline,
+    agent: AgentServices | None = None,
 ) -> FastAPI:
     app = FastAPI(docs_url=None, redoc_url=None)
     app.state.settings = settings
@@ -168,6 +352,41 @@ def create_app(
                 "assistant_unavailable", "The wiki could not deliver the file."
             ) from error
         return result.to_wire()
+
+    @app.post("/v1/agent/runs", response_class=NdjsonResponse)
+    async def agent_runs(
+        body: RunBody, user: Annotated[UserSession, Depends(require_user_session)]
+    ) -> NdjsonResponse:
+        lock, resources, prepared = await run_in_threadpool(
+            prepare_agent_run, agent, redis, user, body
+        )
+        stream = AgentRunStream(prepared, lock, resources)
+        return NdjsonResponse(stream.lines(), background=BackgroundTask(stream.stop))
+
+    @app.post("/v1/agent/proposals/get")
+    def agent_proposal(
+        body: ProposalBody, user: Annotated[UserSession, Depends(require_user_session)]
+    ) -> ProposalResponse:
+        with require_agent(agent).open_records() as records:
+            proposal = records.get_proposal(str(body.proposalId), user.user_id)
+        if proposal is None:
+            raise ApiError("proposal_not_found", "The proposal does not exist.")
+        return ProposalResponse.from_stored(proposal)
+
+    @app.post("/v1/agent/proposals/transition")
+    def agent_proposal_transition(
+        body: TransitionBody, user: Annotated[UserSession, Depends(require_user_session)]
+    ) -> ProposalResponse:
+        try:
+            with require_agent(agent).open_records() as records:
+                proposal = records.transition(str(body.proposalId), user.user_id, body.to)
+        except ProposalNotFound as error:
+            raise ApiError("proposal_not_found", "The proposal does not exist.") from error
+        except ProposalNotOpen as error:
+            raise ApiError(
+                "proposal_not_open", "The proposal cannot change to that state."
+            ) from error
+        return ProposalResponse.from_stored(proposal)
 
     @app.post("/v1/conversations/confirm", status_code=204)
     def confirm(

@@ -20,11 +20,16 @@ import {
   FilterPagesDto,
   PageIdDto,
   PageListDto,
+  ReadBlocksToolDto,
   SearchToolDto,
   TaskTokenDto,
 } from './dto/ai-bridge-internal.dto';
 import { AiBridgeExceptionFilter } from './filters/ai-bridge-exception.filter';
 import { AiInternalAuthGuard } from './guards/ai-internal-auth.guard';
+import {
+  AiAgentToolsService,
+  AiReadBlocksResult,
+} from './services/ai-agent-tools.service';
 import {
   AiContentService,
   AiPageContent,
@@ -44,6 +49,7 @@ export class AiBridgeInternalController {
     private readonly aiTokenService: AiTokenService,
     private readonly aiContentService: AiContentService,
     private readonly aiPageListService: AiPageListService,
+    private readonly aiAgentToolsService: AiAgentToolsService,
   ) {}
 
   @SkipTransform()
@@ -121,5 +127,16 @@ export class AiBridgeInternalController {
     @AiBridgeUser() user: User,
   ): Promise<AiSearchResults> {
     return this.aiContentService.searchSpace(user, dto.spaceId, dto.query);
+  }
+
+  @SkipTransform()
+  @AiBridgeUserToken({ allowTask: true })
+  @HttpCode(HttpStatus.OK)
+  @Post('tools/read-blocks')
+  async readBlocks(
+    @Body() dto: ReadBlocksToolDto,
+    @AiBridgeUser() user: User,
+  ): Promise<AiReadBlocksResult> {
+    return this.aiAgentToolsService.readBlocks(user, dto.pageId, dto.spaceId);
   }
 }

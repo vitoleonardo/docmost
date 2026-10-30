@@ -237,6 +237,42 @@ Measured on the M3 Pro with `qwen3:8b`, context 16,384, model loaded, 29.10.2026
 
 10 pages of 5 contracts: 19.4 s with the model loaded (47.0 s on the first call after Ollama started). With the default 4,096 context the same PDF fails after 23.4 s with `context_too_small`.
 
+## Agent (M8)
+
+Spec `specs/agent.md`. The tab "Aufgabe" in the assistant panel lets the model search and read pages of one space and propose changes; a change is written only when the user clicks "Übernehmen" (`POST /api/ai/agent/proposal/apply`, with the user's session). ai-service has no endpoint that changes a page.
+
+### Limits
+
+- 20 tool calls per run, 10 minutes per run, 200,000 tokens per run (prompt and completion summed).
+- 120 s per model call, then the run ends with "Das Sprachmodell antwortet gerade nicht. Versuche es später noch einmal."
+- 6,000 characters of block text per page read; later blocks are left out and the model is told.
+- One running run per user. A second start shows "Es läuft bereits eine Aufgabe. Warte, bis sie fertig ist, oder brich sie ab."
+- Runs and proposals are deleted 30 days after the run started, by the retention of the worker (`ai-service/src/ai_service/worker.py`). Start the worker as for indexing.
+- A run ends when its stream ends: "Abbrechen" and a reload stop it, closing the panel does not.
+
+### Collaboration Redis
+
+Reading a page for the agent and applying a proposal go through the collaboration server, so they see edits that are not saved yet. `COLLAB_DISABLE_REDIS` must not be `true`. With it set, reads come from the database without unsaved edits and every apply fails with `write_failed` ("Die Änderung konnte nicht übernommen werden. Versuche es noch einmal."). `docker-compose.dev.yml` runs Redis on port 6380.
+
+### Agent tests
+
+- Server e2e, local only: `pnpm --filter ./apps/server run test:e2e -- ai-agent` (`apps/server/test/ai-agent.e2e-spec.ts`, own database `docmost_ai_agent_test`, Redis db 12, an in-process stub for ai-service). Stop `pnpm dev` first, as for the other e2e suites.
+- ai-service, CI: `cd ai-service && uv run pytest -m "not integration"` (`tests/test_agent.py`, `test_agent_store.py`, `test_app_agent.py`, `test_proposals.py`; scripted model).
+- Client: `pnpm --filter ./apps/client exec vitest run src/features/ai-assistant`.
+- Screenshots of the tabs and G1 to G6: `apps/client/e2e/agent.screenshots.ts`, run as in "Verify data runs and screenshots". It mocks `POST /api/ai/status`, `POST /api/ai/agent/run` (a stream of events) and the proposal routes, and switches the seed users GF and WS to German for each test and back afterwards. The G2 test keeps the stream open. ai-service need not run.
+- Local model, AGENT-AC114: `scripts/run-agent-check.sh [pytest args]` from the repo root. It runs `ai-service/tests/test_stack_agent.py` against a throwaway stack: database `docmost_agent_check` and role `docmost_ai_agent` (recreated, dropped on exit), Redis db 10 (flushed at start and end), wiki on port 3102, ai-service on port 8103, seed storage in a temporary folder, secrets generated per run. GF runs the example task in "Allgemein"; the test prints `AGENT-AC114 elapsed=… steps=… outcome=… tokens=… proposals=[…]` and one line per step, then views and applies the proposal on that throwaway database. Needs Ollama with `qwen3:8b` and context 16,384, as for the extraction check.
+- Variables: `AGENT_LLM_BASE_URL`, `AGENT_LLM_MODEL`, `AGENT_DATABASE` (must start with `docmost_agent`), `AGENT_PG_ADMIN_URL`, `AGENT_REDIS_URL` (a database number from 1 to 15), `AGENT_WIKI_PORT`, `AGENT_AI_PORT`, `AGENT_HEALTH_TIMEOUT`; `AGENT_APP_SECRET`, `AGENT_SERVICE_TOKEN`, `AGENT_BRIDGE_SECRET`, `AGENT_AI_PASSWORD` pin the secrets. The `EXTRACT_…` variables of the extraction check work the same way.
+- `scripts/run-agent-check.sh` and `scripts/run-extraction-check.sh` only set their names, ports and test file; the stack's lifecycle (guards, database and Redis reset, migrations, seed, AI schema, starting the wiki and ai-service, cleanup on exit) lives in `scripts/local-stack.sh`. When the tests fail, both print the last 40 lines of the ai-service log.
+- Each read answer ends with a hint to call `propose_update` for an outdated page, and a saved proposal is answered "Vorschlag gespeichert. Die Seite bleibt unverändert, bis die Person den Vorschlag übernimmt." Without the read hint `qwen3:8b` described the changes in its final message and made no proposal.
+
+Measured on the M3 Pro with `qwen3:8b`, Ollama's default context 4,096 (`OLLAMA_CONTEXT_LENGTH` not set), model loaded, 30.10.2026 (wall clock of the run through the wiki): search "Reisekosten" (2 pages), read 2022, read 2026, proposal for "Reisekosten Richtlinie 2022", outcome `finished`.
+
+| Run | Seconds | Steps | Tokens |
+|---|---|---|---|
+| 1 | 36.3 | 4 | 6,929 |
+| 2 | 36.3 | 4 | 7,053 |
+| 3 | 34.2 | 4 | 6,926 |
+
 ## Leak tests
 
 Spec `specs/leak-tests.md`. The prompt-content check proves that the prompt sent to the model never holds a section the asking user may not view: every seed user, every leak question, every scope, with the real wiki filter, a recording model and an index built from the seed. It also covers revoked membership, a stale index entry and a restored page.

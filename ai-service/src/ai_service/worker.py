@@ -4,6 +4,7 @@ import time
 from collections.abc import Callable
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from types import TracebackType
 from typing import NoReturn
 
@@ -11,6 +12,7 @@ import psycopg
 from pydantic import ValidationError
 from redis import Redis
 
+from ai_service.agent_store import RUN_RETENTION, AgentStore
 from ai_service.bridge_client import BridgeClient
 from ai_service.db_check import RoleNotIsolatedError, check_database_role
 from ai_service.embedding import Embedder, EmbeddingModelError, FastEmbedEmbedder
@@ -22,11 +24,16 @@ from ai_service.reconcile import ReconcileAborted, ReconcileResult, reconcile
 from ai_service.settings import WorkerSettings
 
 RECONCILE_INTERVAL_SECONDS = 600
+RETENTION_INTERVAL_SECONDS = 24 * 60 * 60
 JOB_BLOCK_MS = 1000
 LOG_FORMAT = "%(asctime)s %(levelname)s %(name)s %(message)s"
 LOGGER = logging.getLogger("ai_service.worker")
 
 Connect = Callable[[], psycopg.Connection]
+
+
+def utc_now() -> datetime:
+    return datetime.now(UTC)
 
 
 def load_settings() -> WorkerSettings:
@@ -118,6 +125,9 @@ class IndexSession:
             self.writer_lock,
         )
 
+    def delete_agent_runs_started_before(self, cutoff: datetime) -> int:
+        return AgentStore(self._conn).delete_runs_started_before(cutoff)
+
     def close(self) -> None:
         self._conn.close()
 
@@ -142,6 +152,7 @@ class Worker:
         sleep: Callable[[float], None] = time.sleep,
         block_ms: int = JOB_BLOCK_MS,
         logger: logging.Logger = LOGGER,
+        wall_clock: Callable[[], datetime] = utc_now,
     ) -> None:
         self._runtime = runtime
         self._redis = redis
@@ -149,8 +160,10 @@ class Worker:
         self._sleep = sleep
         self._block_ms = block_ms
         self._logger = logger
+        self._wall_clock = wall_clock
         self._active: tuple[IndexSession, JobConsumer] | None = None
         self._last_reconcile: float | None = None
+        self._last_retention: float | None = None
 
     def run(self) -> None:
         try:
@@ -167,6 +180,8 @@ class Worker:
         try:
             if self._reconcile_due():
                 self._reconcile(session)
+            if self._retention_due():
+                self._retain_agent_runs(session)
             consumer.process_next(self._block_ms)
         except psycopg.OperationalError as error:
             self._wait_for_database(error)
@@ -224,6 +239,27 @@ class Worker:
             )
         finally:
             self._last_reconcile = self._clock()
+
+    def _retention_due(self) -> bool:
+        if self._last_retention is None:
+            return True
+        return self._clock() - self._last_retention >= RETENTION_INTERVAL_SECONDS
+
+    def _retain_agent_runs(self, session: IndexSession) -> None:
+        try:
+            deleted = session.delete_agent_runs_started_before(self._wall_clock() - RUN_RETENTION)
+        except psycopg.OperationalError:
+            raise
+        except Exception as error:
+            self._logger.warning(
+                "Agent run retention failed, next retention in %d s: %s",
+                RETENTION_INTERVAL_SECONDS,
+                type(error).__name__,
+            )
+        else:
+            self._logger.info("retention deleted_runs=%d", deleted)
+        finally:
+            self._last_retention = self._clock()
 
 
 def main() -> None:
