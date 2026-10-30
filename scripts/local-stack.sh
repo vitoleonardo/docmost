@@ -145,6 +145,7 @@ start_ai_service() {
   (
     cd "$work_dir/ai-service" || exit
     export AI_DATABASE_URL="$ai_database_url"
+    export AI_REQUEST_LOG_SECRET="$request_log_secret"
     export AI_WIKI_URL="$wiki_url"
     export AI_SERVICE_PORT="$ai_port"
     export AI_LLM_BASE_URL="$llm_base_url"
@@ -163,6 +164,7 @@ start_stack() {
   app_secret=${app_secret:-$(openssl rand -hex 32)}
   service_token=${service_token:-$(openssl rand -hex 32)}
   bridge_secret=${bridge_secret:-$(openssl rand -hex 32)}
+  request_log_secret=${request_log_secret:-$(openssl rand -hex 32)}
   ai_password=${ai_password:-$(openssl rand -hex 32)}
 
   wiki_url="http://127.0.0.1:$wiki_port"
