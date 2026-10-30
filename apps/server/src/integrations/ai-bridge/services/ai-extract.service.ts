@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { AttachmentRepo } from '@docmost/db/repos/attachment/attachment.repo';
 import { Attachment, Page, User } from '@docmost/db/types/entity.types';
 import { EnvironmentService } from '../../environment/environment.service';
-import { AiBridgeError } from '../ai-bridge.errors';
+import { AiBridgeError, assertAssistantEnabled } from '../ai-bridge.errors';
 import { AiExtractDto } from '../dto/ai-extract.dto';
 import { PDF_MIME_TYPE } from './ai-content.service';
 import { AiPageAccessService } from './ai-page-access.service';
@@ -30,12 +30,7 @@ export class AiExtractService {
     { pageId, attachmentId }: AiExtractDto,
     signal: AbortSignal,
   ): Promise<AiServiceExtractResult | null> {
-    if (!this.environmentService.isAiBridgeConfigured()) {
-      throw new AiBridgeError(
-        'assistant_disabled',
-        'The assistant is switched off',
-      );
-    }
+    assertAssistantEnabled(this.environmentService.isAiBridgeConfigured());
     const page = await this.aiPageAccessService.findEditablePage(user, pageId);
     const attachment = await this.findPdfOfPage(user, page, attachmentId);
     const userToken = await this.aiTokenService.issueUserToken(user);

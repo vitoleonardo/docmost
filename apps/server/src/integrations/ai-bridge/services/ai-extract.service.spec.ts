@@ -483,6 +483,7 @@ describe('AiBridgeController.extract', () => {
       stub<AiStatusService>({}),
       stub<AiAskService>({}),
       stub<AiExtractService>(extractService),
+      stub({}),
     );
 
   it('extract contract: returns the result of the service as the response body', async () => {

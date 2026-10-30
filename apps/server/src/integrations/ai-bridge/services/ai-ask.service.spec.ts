@@ -984,6 +984,7 @@ describe('AiBridgeController.ask', () => {
       stub<AiStatusService>({}),
       askService,
       stub<AiExtractService>({}),
+      stub({}),
     );
   };
 
@@ -1034,6 +1035,7 @@ describe('AiBridgeController.ask', () => {
       stub<AiStatusService>({}),
       stub<AiAskService>({ ask: async () => null }),
       stub<AiExtractService>({}),
+      stub({}),
     );
 
     await controller.ask(DTO, USER, reply);
@@ -1053,6 +1055,7 @@ describe('AiBridgeController.ask', () => {
         },
       }),
       stub<AiExtractService>({}),
+      stub({}),
     );
 
     await expect(controller.ask(DTO, USER, reply)).rejects.toMatchObject({

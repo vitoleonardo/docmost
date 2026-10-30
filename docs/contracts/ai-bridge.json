@@ -123,6 +123,58 @@
       ]
     },
     {
+      "side": "wiki-client",
+      "method": "POST",
+      "path": "/api/ai/agent/run",
+      "auth": ["session"],
+      "request": ["spaceId", "task"],
+      "response": [],
+      "responseType": "sse",
+      "responseContentType": "text/event-stream",
+      "events": {
+        "run": ["type", "runId"],
+        "step": [
+          "type",
+          "steps",
+          "label.kind",
+          "label.query",
+          "label.count",
+          "label.title"
+        ],
+        "proposal": [
+          "type",
+          "proposal.id",
+          "proposal.pageId",
+          "proposal.pageTitle",
+          "proposal.reason",
+          "proposal.added",
+          "proposal.removed"
+        ],
+        "end": ["type", "outcome", "pagesRead", "message"]
+      },
+      "values": {
+        "stepKind": ["search", "read", "propose", "refused"],
+        "endOutcome": [
+          "finished",
+          "out_of_scope",
+          "step_limit",
+          "time_limit",
+          "token_limit",
+          "context_too_small",
+          "model_failed"
+        ]
+      },
+      "maxTaskLength": 2000,
+      "status": 200,
+      "errors": [
+        "invalid_request",
+        "space_not_found",
+        "run_in_progress",
+        "assistant_disabled",
+        "assistant_unavailable"
+      ]
+    },
+    {
       "side": "bridge",
       "method": "POST",
       "path": "/api/ai-bridge/internal/filter-pages",

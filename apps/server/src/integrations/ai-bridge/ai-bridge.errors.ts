@@ -33,3 +33,12 @@ export class AiBridgeError extends Error {
     return AI_BRIDGE_ERROR_STATUS[this.code];
   }
 }
+
+export function assertAssistantEnabled(configured: boolean): void {
+  if (!configured) {
+    throw new AiBridgeError(
+      'assistant_disabled',
+      'The assistant is switched off',
+    );
+  }
+}

@@ -3,7 +3,7 @@ import 'reflect-metadata';
 import { EventEmitter } from 'node:events';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { RequestMethod } from '@nestjs/common';
+import { Logger, RequestMethod } from '@nestjs/common';
 import {
   HTTP_CODE_METADATA,
   METHOD_METADATA,
@@ -25,7 +25,9 @@ import { AiBridgeController } from './ai-bridge.controller';
 import { AiBridgeInternalController } from './ai-bridge-internal.controller';
 import { AiQueueProcessor } from './ai-queue.processor';
 import { AI_BRIDGE_USER_TOKEN_KEY } from './decorators/ai-bridge-auth.decorator';
+import { AiAgentRunDto } from './dto/ai-agent.dto';
 import { AiAskDto } from './dto/ai-ask.dto';
+import { AiAgentService } from './services/ai-agent.service';
 import { AiAskService } from './services/ai-ask.service';
 import { AiExtractService } from './services/ai-extract.service';
 import { AiAgentToolsService } from './services/ai-agent-tools.service';
@@ -58,6 +60,7 @@ interface ContractEndpoint {
   outcomes?: Record<string, string[]>;
   values?: Record<string, string[]>;
   maxQuestionLength?: number;
+  maxTaskLength?: number;
   status: number;
   errors: string[];
   changesPageContent?: boolean;
@@ -99,6 +102,7 @@ const SERVICE_CREDENTIAL = 'test-service-token-0123456789abcdef';
 const WORKSPACE_ID = 'workspace-1';
 const SPACE_ID = 'space-a';
 const PAGE_ID = 'page-1';
+const SPACE_UUID = '0b7c5e8a-0000-4000-8000-000000000001';
 const USER = {
   id: 'user-1',
   workspaceId: WORKSPACE_ID,
@@ -299,6 +303,7 @@ const RESPONSE_BODIES: Record<string, () => Promise<unknown>> = {
   '/api/ai/status': () =>
     new AiBridgeController(
       statusService(true, true),
+      stub({}),
       stub({}),
       stub({}),
     ).status(USER),
@@ -504,7 +509,9 @@ describe('served routes', () => {
         statusService(true, true),
         statusService(true, false),
       ].map((service) =>
-        new AiBridgeController(service, stub({}), stub({})).status(USER),
+        new AiBridgeController(service, stub({}), stub({}), stub({})).status(
+          USER,
+        ),
       ),
     );
 
@@ -571,6 +578,7 @@ describe('ask endpoint', () => {
     await new AiBridgeController(
       statusService(true, true),
       askService,
+      stub({}),
       stub({}),
     ).ask({ question: 'Frage', conversationId: CONVERSATION_ID }, USER, reply);
 
@@ -646,6 +654,193 @@ describe('ask endpoint', () => {
   });
 });
 
+const fieldsByType = (events: { type: string }[]) => {
+  const byType: Record<string, Set<string>> = {};
+  for (const event of events) {
+    byType[event.type] ??= new Set();
+    fieldPaths(event).forEach((field) => byType[event.type].add(field));
+  }
+  return Object.fromEntries(
+    Object.entries(byType).map(([type, fields]) => [type, sorted([...fields])]),
+  );
+};
+
+const sortedEvents = (events: Record<string, string[]>) =>
+  Object.fromEntries(
+    Object.entries(events).map(([type, fields]) => [type, sorted(fields)]),
+  );
+
+describe('agent run endpoint', () => {
+  const runEndpoint = endpointAt('/api/ai/agent/run');
+  const upstreamEndpoint = endpointAt('/v1/agent/runs');
+  const AGENT_EVENTS = [
+    { type: 'run', runId: 'run-1' },
+    {
+      type: 'step',
+      steps: 1,
+      label: { kind: 'search', query: 'Reisekosten', count: 2 },
+    },
+    { type: 'step', steps: 2, label: { kind: 'read', title: 'Seite' } },
+    { type: 'step', steps: 3, label: { kind: 'propose', title: 'Seite' } },
+    { type: 'step', steps: 4, label: { kind: 'refused' } },
+    {
+      type: 'proposal',
+      proposal: {
+        id: 'proposal-1',
+        pageId: PAGE_ID,
+        pageTitle: 'Seite',
+        reason: 'Veraltet',
+        added: 1,
+        removed: 1,
+      },
+    },
+    { type: 'end', outcome: 'finished', pagesRead: 1, message: 'Fertig' },
+  ];
+
+  const streamed = async (upstream: object[]) => {
+    const client = new AiServiceClient(
+      stub<EnvironmentService>(environmentService),
+    );
+    jest
+      .spyOn(global, 'fetch')
+      .mockResolvedValue(
+        new Response(
+          upstream.map((event) => `${JSON.stringify(event)}\n`).join(''),
+          { status: upstreamEndpoint.status },
+        ),
+      );
+    const raw = Object.assign(new EventEmitter(), {
+      setHeader: jest.fn(),
+      writeHead: jest.fn(),
+      write: jest.fn(),
+      end: jest.fn(),
+    });
+    const reply = stub<FastifyReply>({
+      raw,
+      hijack: jest.fn(),
+      getHeaders: () => ({}),
+    });
+    environmentService.isAiBridgeConfigured.mockReturnValue(true);
+
+    await new AiBridgeController(
+      statusService(true, true),
+      stub({}),
+      stub({}),
+      new AiAgentService(
+        stub<EnvironmentService>(environmentService),
+        stub<AiTokenService>({ issueUserToken: async () => 'user-token' }),
+        client,
+        stub<AiPageAccessService>(aiPageAccessService),
+      ),
+    ).agentRun({ spaceId: SPACE_ID, task: 'Aufgabe' }, USER, reply);
+
+    const frames: string[] = raw.write.mock.calls.map(([frame]) =>
+      String(frame),
+    );
+    for (const frame of frames) expect(frame).toMatch(/^data: [^\n]*\n\n$/);
+    return {
+      raw,
+      events: frames.map((frame) => JSON.parse(frame.slice('data: '.length))),
+    };
+  };
+
+  afterEach(() => jest.restoreAllMocks());
+
+  it('AGENT-AC17: the run endpoint streams with the contract content type', async () => {
+    const { raw } = await streamed(AGENT_EVENTS);
+
+    const [status, headers] = raw.writeHead.mock.calls[0];
+    expect(status).toBe(runEndpoint.status);
+    expect(headers['content-type']).toContain(runEndpoint.responseContentType);
+    expect(raw.end).toHaveBeenCalled();
+  });
+
+  it('AGENT-AC17: every event the wiki streams has exactly the fields of the contract, the same as the AI service sends', async () => {
+    const { events } = await streamed(AGENT_EVENTS);
+
+    expect(events).toEqual(AGENT_EVENTS);
+    expect(fieldsByType(events)).toEqual(sortedEvents(runEndpoint.events!));
+    expect(sortedEvents(runEndpoint.events!)).toEqual(
+      sortedEvents(upstreamEndpoint.events!),
+    );
+    expect(runEndpoint.values).toEqual(upstreamEndpoint.values);
+  });
+
+  it('AGENT-AC59: every end outcome and step kind of the contract is streamed, others end the stream', async () => {
+    const ends = runEndpoint.values!.endOutcome.map((outcome) => ({
+      type: 'end',
+      outcome,
+      pagesRead: 0,
+      message: null,
+    }));
+    const steps = AGENT_EVENTS.filter((event) => event.type === 'step');
+
+    for (const event of [...ends, ...steps]) {
+      expect((await streamed([event])).events).toEqual([event]);
+      jest.restoreAllMocks();
+    }
+    expect(
+      sorted(
+        steps.map((step) => (step as { label: { kind: string } }).label.kind),
+      ),
+    ).toEqual(sorted(runEndpoint.values!.stepKind));
+    jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    expect(
+      (
+        await streamed([
+          { type: 'end', outcome: 'cancelled', pagesRead: 0, message: null },
+        ])
+      ).events,
+    ).toEqual([]);
+  });
+
+  it('AGENT-AC104: the task length limit of the DTO equals the contract', async () => {
+    const errorsFor = (task: string) =>
+      validate(plainToInstance(AiAgentRunDto, { spaceId: SPACE_UUID, task }));
+
+    expect(runEndpoint.maxTaskLength).toBe(upstreamEndpoint.maxTaskLength);
+    expect(await errorsFor('x'.repeat(runEndpoint.maxTaskLength!))).toEqual([]);
+    expect(
+      await errorsFor('x'.repeat(runEndpoint.maxTaskLength! + 1)),
+    ).not.toEqual([]);
+  });
+
+  it('AGENT-AC70: the run call posts the contract request fields with both token headers and passes run_in_progress', async () => {
+    const client = new AiServiceClient(
+      stub<EnvironmentService>(environmentService),
+    );
+    const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ code: 'run_in_progress', message: 'x' }), {
+        status: CONTRACT.errors.run_in_progress,
+      }),
+    );
+
+    await expect(
+      client.agentRun(
+        'user-token',
+        { spaceId: SPACE_ID, task: 'Aufgabe' },
+        new AbortController().signal,
+      ),
+    ).rejects.toMatchObject({ code: 'run_in_progress' });
+
+    const [url, init] = fetchSpy.mock.calls[0] as [URL, RequestInit];
+    const headers = init.headers as Record<string, string>;
+    expect(url.pathname).toBe(upstreamEndpoint.path);
+    expect(init.method).toBe(upstreamEndpoint.method);
+    expect(headers[CONTRACT.headers.serviceTokenHeader.toLowerCase()]).toBe(
+      SERVICE_CREDENTIAL,
+    );
+    expect(headers[CONTRACT.headers.userTokenHeader.toLowerCase()]).toBe(
+      'user-token',
+    );
+    expect(sorted(Object.keys(JSON.parse(String(init.body))))).toEqual(
+      sorted(upstreamEndpoint.request),
+    );
+    expect(upstreamEndpoint.errors).toContain('run_in_progress');
+    expect(runEndpoint.errors).toContain('run_in_progress');
+  });
+});
+
 const EXTRACT_RESULTS: Record<string, AiServiceExtractResult> = {
   extracted: {
     outcome: 'extracted',
@@ -698,6 +893,7 @@ describe('extract endpoint', () => {
         stub<AiTokenService>({ issueUserToken: async () => 'user-token' }),
         stub<AiServiceClient>(extractClient),
       ),
+      stub({}),
     ).extract(
       { pageId: PAGE_ID, attachmentId: PDF_ATTACHMENT.id },
       USER,

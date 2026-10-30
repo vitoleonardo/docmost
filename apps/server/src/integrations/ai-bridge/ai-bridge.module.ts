@@ -6,6 +6,7 @@ import { AiPageListRepo } from '@docmost/db/repos/page/ai-page-list.repo';
 import { SearchModule } from '../../core/search/search.module';
 import { CollaborationModule } from '../../collaboration/collaboration.module';
 import { AiQueueProcessor } from './ai-queue.processor';
+import { AiAgentService } from './services/ai-agent.service';
 import { AiAgentToolsService } from './services/ai-agent-tools.service';
 import { AiAskService } from './services/ai-ask.service';
 import { AiInternalAuthGuard } from './guards/ai-internal-auth.guard';
@@ -21,6 +22,7 @@ import { AiTokenService } from './services/ai-token.service';
   imports: [JwtModule.register({}), SearchModule, CollaborationModule],
   controllers: [AiBridgeController, AiBridgeInternalController],
   providers: [
+    AiAgentService,
     AiAgentToolsService,
     AiAskService,
     AiExtractService,
