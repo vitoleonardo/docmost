@@ -134,7 +134,11 @@ describe("contract table content", () => {
     ]);
     expect(cellTexts(content)).toEqual([
       ["Feld", "Wert", "Quelle"],
-      ["Vertragsparteien", "Acme GmbH und Beta AG", "„Zitat parties“, Seite 2"],
+      [
+        "Vertragsparteien",
+        "Acme GmbH und Beta AG",
+        "„Zitat parties“, Seite 2",
+      ],
       ["Laufzeit", "24 Monate", "„Zitat term“, Seite 2"],
       ["Kündigungsfrist", "3 Monate", "„Zitat noticePeriod“, Seite 2"],
       ["Vertragswert", "Nicht gefunden", "Keine Fundstelle im Dokument."],
@@ -143,9 +147,7 @@ describe("contract table content", () => {
   });
 
   it("EXTRACT-AC23: typed value for a missing field gets the manual marker", () => {
-    const rows = cellTexts(
-      build({ ...unchangedValues, value: " 48.000 EUR " }),
-    );
+    const rows = cellTexts(build({ ...unchangedValues, value: " 48.000 EUR " }));
     expect(rows[4]).toEqual([
       "Vertragswert",
       "48.000 EUR (manuell)",
@@ -208,7 +210,11 @@ describe("contract table content", () => {
 
 describe("contract table insertion", () => {
   it("EXTRACT-AC21: inserts heading, line and table directly after the attachment", () => {
-    makeEditor([paragraph("davor"), attachmentNode("a1"), paragraph("danach")]);
+    makeEditor([
+      paragraph("davor"),
+      attachmentNode("a1"),
+      paragraph("danach"),
+    ]);
     expect(insertContractTable(editor, "a1", build())).toBe(true);
     expect(topLevelTypes()).toEqual([
       "paragraph",
