@@ -11,6 +11,7 @@ import psycopg
 from psycopg.conninfo import conninfo_to_dict
 from pydantic import ValidationError
 
+from ai_service.prices import COST_PRECISION
 from ai_service.request_log import (
     REQUEST_LOG_RETENTION,
     UTC_NOW,
@@ -52,7 +53,7 @@ def percentile(values: Sequence[int], fraction: Decimal) -> int:
 
 
 def format_cost(cost: Decimal) -> str:
-    rounded = cost.quantize(Decimal("0.000001"), rounding=ROUND_HALF_UP)
+    rounded = cost.quantize(COST_PRECISION, rounding=ROUND_HALF_UP)
     return format(rounded.normalize(), "f")
 
 

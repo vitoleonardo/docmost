@@ -40,11 +40,6 @@ PRICES: tuple[Price, ...] = (
 )
 
 
-def price_on(prices: Sequence[Price], model: str, day: date) -> Price | None:
-    applicable = [entry for entry in prices if entry.model == model and entry.valid_from <= day]
-    return max(applicable, key=lambda entry: entry.valid_from, default=None)
-
-
 def request_cost(
     prices: Sequence[Price],
     mode: str,
@@ -55,7 +50,8 @@ def request_cost(
 ) -> Decimal | None:
     if mode == LOCAL_MODE:
         return Decimal(0)
-    entry = price_on(prices, model, day)
+    applicable = [entry for entry in prices if entry.model == model and entry.valid_from <= day]
+    entry = max(applicable, key=lambda entry: entry.valid_from, default=None)
     if entry is None or prompt_tokens is None or completion_tokens is None:
         return None
     cost = (
