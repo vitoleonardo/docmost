@@ -120,7 +120,7 @@ const TWO_PROPOSALS_RUN = [
   {
     type: "step",
     steps: 1,
-    label: { kind: "search", query: "Reisekosten", count: 2 },
+    label: { kind: "search", query: "Reisekosten", count: 5 },
   },
   { type: "step", steps: 2, label: { kind: "read", title: TRAVEL_PAGE_TITLE } },
   {
@@ -131,12 +131,27 @@ const TWO_PROPOSALS_RUN = [
   {
     type: "step",
     steps: 4,
+    label: { kind: "read", title: "Reisekosten Formular" },
+  },
+  {
+    type: "step",
+    steps: 5,
+    label: { kind: "read", title: "Dienstreise Checkliste" },
+  },
+  {
+    type: "step",
+    steps: 6,
+    label: { kind: "read", title: "Spesenübersicht 2023" },
+  },
+  {
+    type: "step",
+    steps: 7,
     label: { kind: "propose", title: TRAVEL_PAGE_TITLE },
   },
   proposalSummary(FIRST_PROPOSAL_ID, TRAVEL_PAGE_TITLE, FIRST_REASON, 1, 1),
   {
     type: "step",
-    steps: 5,
+    steps: 8,
     label: { kind: "propose", title: SECOND_PAGE_TITLE },
   },
   proposalSummary(SECOND_PROPOSAL_ID, SECOND_PAGE_TITLE, SECOND_REASON, 3, 3),
@@ -304,7 +319,24 @@ test.describe("GF gives the assistant a task", () => {
     await screenshot(page, testInfo, "AGENT-AC2", "g1");
   });
 
-  test("AGENT-AC16: G2 shows the task, two ended steps and Abbrechen while the run goes on", async ({
+  test("AGENT-AC16: G2 shows the task, Schritt 0 von höchstens 20 and Abbrechen before the first step ended", async ({
+    page,
+  }, testInfo) => {
+    await runHeldOpenAfter(page, [{ type: "run", runId: "run-1" }]);
+    await openPanel(page, await allgemeinPages(page));
+    await openTaskTab(page);
+
+    await startRunWithTask(page);
+
+    await expect(page.getByText(`${RUN_TASK} · ${SPACE_NAME}`)).toBeVisible();
+    await expect(page.getByText("Schritt 0 von höchstens 20")).toBeVisible();
+    await expect(page.getByText(/^Gesucht:/)).toHaveCount(0);
+    await expect(page.getByText(/^Gelesen:/)).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Abbrechen" })).toBeVisible();
+    await screenshot(page, testInfo, "AGENT-AC16", "g2");
+  });
+
+  test("AGENT-AC24: G2 shows the search line before the read line and Schritt 2 von höchstens 20", async ({
     page,
   }, testInfo) => {
     await runHeldOpenAfter(page, [
@@ -325,17 +357,17 @@ test.describe("GF gives the assistant a task", () => {
 
     await startRunWithTask(page);
 
-    await expect(page.getByText(`${RUN_TASK} · ${SPACE_NAME}`)).toBeVisible();
-    await expect(
-      page.getByText("Gesucht: „Reisekosten“: 2 Seiten"),
-    ).toBeVisible();
-    await expect(
-      page.getByText(`Gelesen: „${TRAVEL_PAGE_TITLE}“`),
-    ).toBeVisible();
+    const searchLine = page.getByText("Gesucht: „Reisekosten“: 2 Seiten");
+    const readLine = page.getByText(`Gelesen: „${TRAVEL_PAGE_TITLE}“`);
+    await expect(searchLine).toBeVisible();
+    await expect(readLine).toBeVisible();
+    const searchBox = await searchLine.boundingBox();
+    const readBox = await readLine.boundingBox();
+    if (!searchBox || !readBox) throw new Error("step lines not available");
+    expect(searchBox.y).toBeLessThan(readBox.y);
     await expect(page.getByText("Schritt 2 von höchstens 20")).toBeVisible();
     await expect(page.getByText(/^\d+:\d{2} min$/)).toBeVisible();
-    await expect(page.getByRole("button", { name: "Abbrechen" })).toBeVisible();
-    await screenshot(page, testInfo, "AGENT-AC16", "g2");
+    await screenshot(page, testInfo, "AGENT-AC24", "g2-two-steps");
   });
 
   test("AGENT-AC48: G3 shows the summary, two cards, the final message and Neue Aufgabe", async ({
@@ -447,6 +479,7 @@ test.describe("GF gives the assistant a task", () => {
       .click();
     await expect(dialog).toHaveCount(0);
     await expect(page.getByText("Veraltet", { exact: true })).toBeVisible();
+    await screenshot(page, testInfo, "AGENT-AC89", "card");
   });
 });
 
