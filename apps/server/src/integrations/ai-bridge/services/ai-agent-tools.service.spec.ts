@@ -20,6 +20,7 @@ import {
 import { AiInternalAuthGuard } from '../guards/ai-internal-auth.guard';
 import { AgentBlockRead } from './agent-document';
 import { AiAgentToolsService } from './ai-agent-tools.service';
+import { AiLiveDocumentService } from './ai-live-document.service';
 import { AiPageAccessService } from './ai-page-access.service';
 import { AiTokenService } from './ai-token.service';
 
@@ -164,7 +165,7 @@ describe('AiAgentToolsService.readBlocks', () => {
     gateway = { handleYjsEvent: jest.fn().mockResolvedValue(LIVE_READ) };
     service = new AiAgentToolsService(
       pageAccessFor(wiki),
-      stub<CollaborationGateway>(gateway),
+      new AiLiveDocumentService(stub<CollaborationGateway>(gateway)),
     );
   });
 
@@ -326,7 +327,10 @@ describe('tools/read-blocks route', () => {
       tokens,
       stub({}),
       stub({}),
-      new AiAgentToolsService(pageAccess, stub<CollaborationGateway>(gateway)),
+      new AiAgentToolsService(
+        pageAccess,
+        new AiLiveDocumentService(stub<CollaborationGateway>(gateway)),
+      ),
     );
   });
 

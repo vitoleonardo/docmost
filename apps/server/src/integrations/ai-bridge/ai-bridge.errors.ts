@@ -14,6 +14,8 @@ export const AI_BRIDGE_ERROR_STATUS = {
   attachment_not_found: 404,
   proposal_not_found: 404,
   proposal_not_open: 409,
+  proposal_stale: 409,
+  write_failed: 503,
   run_in_progress: 409,
   page_not_editable: 403,
 } as const;

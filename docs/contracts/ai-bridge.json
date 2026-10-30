@@ -21,6 +21,8 @@
     "attachment_not_found": 404,
     "proposal_not_found": 404,
     "proposal_not_open": 409,
+    "proposal_stale": 409,
+    "write_failed": 503,
     "run_in_progress": 409,
     "page_not_editable": 403
   },
@@ -170,6 +172,81 @@
         "invalid_request",
         "space_not_found",
         "run_in_progress",
+        "assistant_disabled",
+        "assistant_unavailable"
+      ]
+    },
+    {
+      "side": "wiki-client",
+      "method": "POST",
+      "path": "/api/ai/agent/proposal",
+      "auth": ["session"],
+      "request": ["proposalId"],
+      "response": [
+        "id",
+        "runId",
+        "pageId",
+        "pageTitle",
+        "reason",
+        "status",
+        "canEdit",
+        "added",
+        "removed",
+        "changes[].heading",
+        "changes[].ops[].op",
+        "changes[].ops[].text"
+      ],
+      "values": {
+        "status": ["open", "applied", "discarded", "stale"],
+        "op": ["keep", "remove", "add"]
+      },
+      "status": 200,
+      "errors": [
+        "invalid_request",
+        "proposal_not_found",
+        "page_not_found",
+        "assistant_disabled",
+        "assistant_unavailable"
+      ]
+    },
+    {
+      "side": "wiki-client",
+      "method": "POST",
+      "path": "/api/ai/agent/proposal/apply",
+      "auth": ["session"],
+      "request": ["proposalId"],
+      "response": ["status"],
+      "values": {
+        "status": ["applied"]
+      },
+      "status": 200,
+      "errors": [
+        "invalid_request",
+        "proposal_not_found",
+        "page_not_found",
+        "page_not_editable",
+        "proposal_not_open",
+        "proposal_stale",
+        "write_failed",
+        "assistant_disabled",
+        "assistant_unavailable"
+      ]
+    },
+    {
+      "side": "wiki-client",
+      "method": "POST",
+      "path": "/api/ai/agent/proposal/discard",
+      "auth": ["session"],
+      "request": ["proposalId"],
+      "response": ["status"],
+      "values": {
+        "status": ["discarded"]
+      },
+      "status": 200,
+      "errors": [
+        "invalid_request",
+        "proposal_not_found",
+        "proposal_not_open",
         "assistant_disabled",
         "assistant_unavailable"
       ]

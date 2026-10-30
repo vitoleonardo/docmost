@@ -14,3 +14,9 @@ export class AiAgentRunDto {
   @Transform(trimString)
   task: string;
 }
+
+export class AiAgentProposalDto {
+  @IsUUID()
+  @Transform(lowercaseString)
+  proposalId: string;
+}

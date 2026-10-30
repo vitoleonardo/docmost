@@ -21,12 +21,15 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { EnvironmentService } from '../environment/environment.service';
 import { QueueJob } from '../queue/constants';
 import { AI_BRIDGE_ERROR_STATUS } from './ai-bridge.errors';
+import { AiAgentController } from './ai-agent.controller';
 import { AiBridgeController } from './ai-bridge.controller';
 import { AiBridgeInternalController } from './ai-bridge-internal.controller';
 import { AiQueueProcessor } from './ai-queue.processor';
 import { AI_BRIDGE_USER_TOKEN_KEY } from './decorators/ai-bridge-auth.decorator';
 import { AiAgentRunDto } from './dto/ai-agent.dto';
 import { AiAskDto } from './dto/ai-ask.dto';
+import { AiAgentProposalRecords } from './services/ai-agent-proposal-records.service';
+import { AiAgentProposalService } from './services/ai-agent-proposal.service';
 import { AiAgentService } from './services/ai-agent.service';
 import { AiAskService } from './services/ai-ask.service';
 import { AiExtractService } from './services/ai-extract.service';
@@ -35,13 +38,16 @@ import { AgentBlockRead } from './services/agent-document';
 import { CollaborationGateway } from '../../collaboration/collaboration.gateway';
 import { AiInternalAuthGuard } from './guards/ai-internal-auth.guard';
 import { AiContentService } from './services/ai-content.service';
+import { AiLiveDocumentService } from './services/ai-live-document.service';
 import { AiPageAccessService } from './services/ai-page-access.service';
 import { AiPageListService } from './services/ai-page-list.service';
 import {
   AiServiceAskEvent,
   AiServiceClient,
   AiServiceExtractResult,
+  AiServiceMalformedResponseError,
   AiServiceTimeoutError,
+  AiServiceUnreachableError,
 } from './services/ai-service.client';
 import { AiStatusService } from './services/ai-status.service';
 import { AiTokenService } from './services/ai-token.service';
@@ -117,7 +123,11 @@ interface ServedRoute {
   handlerName: string;
 }
 
-const CONTROLLERS = [AiBridgeController, AiBridgeInternalController];
+const CONTROLLERS = [
+  AiBridgeController,
+  AiAgentController,
+  AiBridgeInternalController,
+];
 
 function routesOf(controller: ServedRoute['controller']): ServedRoute[] {
   const prefix = Reflect.getMetadata(PATH_METADATA, controller);
@@ -258,7 +268,7 @@ const internalController = new AiBridgeInternalController(
   ),
   new AiAgentToolsService(
     stub<AiPageAccessService>(aiPageAccessService),
-    stub<CollaborationGateway>(collaborationGateway),
+    new AiLiveDocumentService(stub<CollaborationGateway>(collaborationGateway)),
   ),
 );
 
@@ -299,11 +309,81 @@ const statusService = (
     }),
   );
 
+const STORED_PROPOSAL = {
+  id: '4f5a6b7c-0000-4000-8000-000000000001',
+  runId: 'run-1',
+  userId: USER.id,
+  pageId: PAGE_ID,
+  pageTitle: 'Seite',
+  spaceId: SPACE_ID,
+  reason: 'Veraltet',
+  fingerprint: LIVE_BLOCKS.fingerprint,
+  changes: [
+    {
+      block: 1,
+      heading: null,
+      oldText: 'Text',
+      newText: 'Neuer Text',
+      ops: [
+        { op: 'add', text: 'Neuer ' },
+        { op: 'keep', text: 'Text' },
+      ],
+    },
+  ],
+  added: 1,
+  removed: 0,
+  status: 'open',
+  appliedBy: null,
+  appliedAt: null,
+};
+
+const aiServiceAnswersProposals = () =>
+  jest.spyOn(global, 'fetch').mockImplementation(
+    async (_url, init) =>
+      new Response(
+        JSON.stringify({
+          ...STORED_PROPOSAL,
+          status: JSON.parse(String(init?.body)).to ?? STORED_PROPOSAL.status,
+        }),
+        { status: 200 },
+      ),
+  );
+
+const servedProposal = async <T>(
+  call: (controller: AiAgentController) => Promise<T>,
+): Promise<T> => {
+  const fetchSpy = aiServiceAnswersProposals();
+  const gateway = stub<CollaborationGateway>({
+    handleYjsEvent: async (event: string) =>
+      event === 'readAgentBlocks' ? LIVE_BLOCKS : 'applied',
+  });
+  environmentService.isAiBridgeConfigured.mockReturnValue(true);
+  try {
+    return await call(
+      new AiAgentController(
+        stub({}),
+        new AiAgentProposalService(
+          new AiAgentProposalRecords(
+            stub<EnvironmentService>(environmentService),
+            stub<AiTokenService>({ issueUserToken: async () => 'user-token' }),
+            new AiServiceClient(stub<EnvironmentService>(environmentService)),
+          ),
+          stub<AiPageAccessService>(aiPageAccessService),
+          new AiLiveDocumentService(gateway),
+        ),
+      ),
+    );
+  } finally {
+    fetchSpy.mockRestore();
+  }
+};
+
+const PROPOSAL_DTO = { proposalId: STORED_PROPOSAL.id };
+
 const RESPONSE_BODIES: Record<string, () => Promise<unknown>> = {
   '/api/ai/status': () =>
     new AiBridgeController(
       statusService(true, true),
-      stub({}),
       stub({}),
       stub({}),
     ).status(USER),
@@ -320,6 +400,18 @@ const RESPONSE_BODIES: Record<string, () => Promise<unknown>> = {
     internalController.search({ spaceId: SPACE_ID, query: 'Seite' }, USER),
   '/api/ai-bridge/internal/tools/read-blocks': () =>
     internalController.readBlocks({ pageId: PAGE_ID, spaceId: SPACE_ID }, USER),
+  '/api/ai/agent/proposal': () =>
+    servedProposal((controller) =>
+      controller.agentProposal(PROPOSAL_DTO, USER),
+    ),
+  '/api/ai/agent/proposal/apply': () =>
+    servedProposal((controller) =>
+      controller.agentProposalApply(PROPOSAL_DTO, USER),
+    ),
+  '/api/ai/agent/proposal/discard': () =>
+    servedProposal((controller) =>
+      controller.agentProposalDiscard(PROPOSAL_DTO, USER),
+    ),
 };
 
 beforeEach(() => {
@@ -452,6 +544,7 @@ describe('served routes', () => {
 
     expect(guards(AiBridgeInternalController)).toContain(AiInternalAuthGuard);
     expect(guards(AiBridgeController)).toContain(JwtAuthGuard);
+    expect(guards(AiAgentController)).toContain(JwtAuthGuard);
     for (const endpoint of SERVED_ENDPOINTS) {
       const guarded =
         endpoint.side === 'bridge'
@@ -509,9 +602,7 @@ describe('served routes', () => {
         statusService(true, true),
         statusService(true, false),
       ].map((service) =>
-        new AiBridgeController(service, stub({}), stub({}), stub({})).status(
-          USER,
-        ),
+        new AiBridgeController(service, stub({}), stub({})).status(USER),
       ),
     );
 
@@ -578,7 +669,6 @@ describe('ask endpoint', () => {
     await new AiBridgeController(
       statusService(true, true),
       askService,
-      stub({}),
       stub({}),
     ).ask({ question: 'Frage', conversationId: CONVERSATION_ID }, USER, reply);
 
@@ -722,16 +812,14 @@ describe('agent run endpoint', () => {
     });
     environmentService.isAiBridgeConfigured.mockReturnValue(true);
 
-    await new AiBridgeController(
-      statusService(true, true),
-      stub({}),
-      stub({}),
+    await new AiAgentController(
       new AiAgentService(
         stub<EnvironmentService>(environmentService),
         stub<AiTokenService>({ issueUserToken: async () => 'user-token' }),
         client,
         stub<AiPageAccessService>(aiPageAccessService),
       ),
+      stub({}),
     ).agentRun({ spaceId: SPACE_ID, task: 'Aufgabe' }, USER, reply);
 
     const frames: string[] = raw.write.mock.calls.map(([frame]) =>
@@ -841,6 +929,168 @@ describe('agent run endpoint', () => {
   });
 });
 
+describe('agent proposal endpoints', () => {
+  const viewEndpoint = endpointAt('/api/ai/agent/proposal');
+  const getEndpoint = endpointAt('/v1/agent/proposals/get');
+  const transitionEndpoint = endpointAt('/v1/agent/proposals/transition');
+  const client = () =>
+    new AiServiceClient(stub<EnvironmentService>(environmentService));
+
+  afterEach(() => jest.restoreAllMocks());
+
+  it.each([
+    [
+      '/v1/agent/proposals/get',
+      () => client().agentProposal('user-token', STORED_PROPOSAL.id),
+    ],
+    [
+      '/v1/agent/proposals/transition',
+      () =>
+        client().transitionAgentProposal(
+          'user-token',
+          STORED_PROPOSAL.id,
+          'applying',
+        ),
+    ],
+  ])(
+    'AGENT-AC102: %s is posted with the contract request fields and both token headers',
+    async (path, call) => {
+      const upstream = endpointAt(path);
+      const fetchSpy = aiServiceAnswersProposals();
+
+      await call();
+
+      const [url, init] = fetchSpy.mock.calls[0] as [URL, RequestInit];
+      const headers = init.headers as Record<string, string>;
+      expect(url.pathname).toBe(upstream.path);
+      expect(init.method).toBe(upstream.method);
+      expect(headers[CONTRACT.headers.serviceTokenHeader.toLowerCase()]).toBe(
+        SERVICE_CREDENTIAL,
+      );
+      expect(headers[CONTRACT.headers.userTokenHeader.toLowerCase()]).toBe(
+        'user-token',
+      );
+      expect(sorted(Object.keys(JSON.parse(String(init.body))))).toEqual(
+        sorted(upstream.request),
+      );
+    },
+  );
+
+  it.each(['proposal_not_found', 'proposal_not_open'] as const)(
+    'AGENT-AC102: %s from the AI service passes through with the contract status',
+    async (code) => {
+      expect(getEndpoint.errors).toContain('proposal_not_found');
+      expect(transitionEndpoint.errors).toContain(code);
+      jest.spyOn(global, 'fetch').mockResolvedValue(
+        new Response(JSON.stringify({ code, message: 'x' }), {
+          status: CONTRACT.errors[code],
+        }),
+      );
+
+      await expect(
+        client().transitionAgentProposal('user-token', 'p', 'applying'),
+      ).rejects.toMatchObject({ code, status: CONTRACT.errors[code] });
+    },
+  );
+
+  it.each([
+    ['HTTP 500', new Response('{}', { status: 500 })],
+    [
+      'a 404 with another code',
+      new Response(JSON.stringify({ code: 'page_not_found' }), {
+        status: 404,
+      }),
+    ],
+    ['a body that is not JSON', new Response('nein', { status: 200 })],
+    [
+      'a proposal without changes',
+      new Response(JSON.stringify({ ...STORED_PROPOSAL, changes: null }), {
+        status: 200,
+      }),
+    ],
+    [
+      'a change with an unknown op',
+      new Response(
+        JSON.stringify({
+          ...STORED_PROPOSAL,
+          changes: [
+            { ...STORED_PROPOSAL.changes[0], ops: [{ op: 'move', text: 'x' }] },
+          ],
+        }),
+        { status: 200 },
+      ),
+    ],
+  ])(
+    'AGENT-AC88: %s from the AI service is not taken as a proposal',
+    async (_case, response) => {
+      jest.spyOn(global, 'fetch').mockResolvedValue(response);
+
+      const error = await client()
+        .agentProposal('user-token', 'p')
+        .then(
+          () => undefined,
+          (caught: unknown) => caught,
+        );
+
+      expect(
+        error instanceof AiServiceUnreachableError ||
+          error instanceof AiServiceMalformedResponseError,
+      ).toBe(true);
+    },
+  );
+
+  it('AGENT-AC74: the wiki reads only fields the AI service contract lists and shows its statuses without applying', async () => {
+    const read = sorted(
+      fieldPaths(
+        await (async () => {
+          aiServiceAnswersProposals();
+          return client().agentProposal('user-token', STORED_PROPOSAL.id);
+        })(),
+      ),
+    );
+
+    for (const field of read) {
+      expect(getEndpoint.response).toContain(field.split('[]')[0]);
+    }
+    expect(sorted(viewEndpoint.values!.status)).toEqual(
+      sorted(
+        getEndpoint.values!.status.filter((status) => status !== 'applying'),
+      ),
+    );
+    expect(sorted(transitionEndpoint.values!.to)).toEqual(
+      sorted(getEndpoint.values!.status),
+    );
+  });
+
+  it('AGENT-AC74: the view answers the contract status values for every stored status', async () => {
+    const shown: string[] = [];
+    for (const status of getEndpoint.values!.status) {
+      jest.spyOn(global, 'fetch').mockResolvedValue(
+        new Response(JSON.stringify({ ...STORED_PROPOSAL, status }), {
+          status: 200,
+        }),
+      );
+      const view = await new AiAgentProposalService(
+        new AiAgentProposalRecords(
+          stub<EnvironmentService>({ isAiBridgeConfigured: () => true }),
+          stub<AiTokenService>({ issueUserToken: async () => 'user-token' }),
+          client(),
+        ),
+        stub<AiPageAccessService>(aiPageAccessService),
+        new AiLiveDocumentService(
+          stub<CollaborationGateway>(collaborationGateway),
+        ),
+      ).viewProposal(USER, STORED_PROPOSAL.id);
+      shown.push(view.status);
+      jest.restoreAllMocks();
+    }
+
+    expect(sorted([...new Set(shown)])).toEqual(
+      sorted(viewEndpoint.values!.status),
+    );
+  });
+});
+
 const EXTRACT_RESULTS: Record<string, AiServiceExtractResult> = {
   extracted: {
     outcome: 'extracted',
@@ -893,7 +1143,6 @@ describe('extract endpoint', () => {
         stub<AiTokenService>({ issueUserToken: async () => 'user-token' }),
         stub<AiServiceClient>(extractClient),
       ),
-      stub({}),
     ).extract(
       { pageId: PAGE_ID, attachmentId: PDF_ATTACHMENT.id },
       USER,

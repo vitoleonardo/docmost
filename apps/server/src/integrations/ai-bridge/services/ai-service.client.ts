@@ -5,6 +5,7 @@ import {
   AiBridgeError,
   AiBridgeErrorCode,
 } from '../ai-bridge.errors';
+import { AgentDiffOp } from './agent-document';
 
 const AI_SERVICE_TIMEOUT_MS = 3000;
 export const AI_EXTRACT_TIMEOUT_MS = 200_000;
@@ -119,6 +120,37 @@ export type AiServiceAgentEvent =
       message: string | null;
     };
 
+const AGENT_PROPOSAL_STATUSES = [
+  'open',
+  'applying',
+  'applied',
+  'discarded',
+  'stale',
+] as const;
+const DIFF_OP_KINDS = ['keep', 'remove', 'add'] as const;
+
+export type AiAgentProposalStatus = (typeof AGENT_PROPOSAL_STATUSES)[number];
+
+export interface AiServiceProposalChange {
+  block: number;
+  heading: string | null;
+  oldText: string;
+  ops: AgentDiffOp[];
+}
+
+export interface AiServiceAgentProposal {
+  id: string;
+  runId: string;
+  pageId: string;
+  pageTitle: string;
+  reason: string;
+  fingerprint: string;
+  changes: AiServiceProposalChange[];
+  added: number;
+  removed: number;
+  status: AiAgentProposalStatus;
+}
+
 function isNamedError(error: unknown, name: string): error is Error {
   return (error as Error | undefined)?.name === name;
 }
@@ -179,6 +211,26 @@ export class AiServiceClient {
     });
   }
 
+  agentProposal(
+    userToken: string,
+    proposalId: string,
+  ): Promise<AiServiceAgentProposal> {
+    return this.requestProposal('/v1/agent/proposals/get', userToken, {
+      proposalId,
+    });
+  }
+
+  transitionAgentProposal(
+    userToken: string,
+    proposalId: string,
+    to: AiAgentProposalStatus,
+  ): Promise<AiServiceAgentProposal> {
+    return this.requestProposal('/v1/agent/proposals/transition', userToken, {
+      proposalId,
+      to,
+    });
+  }
+
   async extract(
     userToken: string,
     request: AiServiceExtractRequest,
@@ -223,6 +275,35 @@ export class AiServiceClient {
     if (response.status !== 204) {
       throw new Error(`AI service answered HTTP ${response.status}`);
     }
+  }
+
+  private async requestProposal(
+    path: string,
+    userToken: string,
+    request: object,
+  ): Promise<AiServiceAgentProposal> {
+    const response = await this.send(
+      path,
+      { 'content-type': 'application/json', 'x-user-token': userToken },
+      AbortSignal.timeout(AI_SERVICE_TIMEOUT_MS),
+      JSON.stringify(request),
+    );
+    if (response.status !== 200) {
+      throw await this.refusalOf(response, [
+        'proposal_not_found',
+        'proposal_not_open',
+      ]);
+    }
+    const text = await response.text().catch((error: unknown) => {
+      throw this.toUnreachable(error);
+    });
+    const proposal = toAgentProposal(parseJson(text));
+    if (!proposal) {
+      throw new AiServiceMalformedResponseError(
+        'AI service sent a malformed proposal',
+      );
+    }
+    return proposal;
   }
 
   private async openEventStream<T>(
@@ -599,4 +680,58 @@ function toAgentEvent(value: unknown): AiServiceAgentEvent | null {
     default:
       return null;
   }
+}
+
+function toDiffOps(value: unknown): AgentDiffOp[] | null {
+  if (!Array.isArray(value)) return null;
+  const ops = value.flatMap((op: unknown) =>
+    isRecord(op) && isOneOf(DIFF_OP_KINDS)(op.op) && isString(op.text)
+      ? [{ op: op.op, text: op.text }]
+      : [],
+  );
+  return ops.length === value.length ? ops : null;
+}
+
+function toProposalChange(value: unknown): AiServiceProposalChange | null {
+  if (
+    !isRecord(value) ||
+    !isNumber(value.block) ||
+    !isNullableString(value.heading) ||
+    !isString(value.oldText)
+  ) {
+    return null;
+  }
+  const ops = toDiffOps(value.ops);
+  return ops
+    ? {
+        block: value.block,
+        heading: value.heading,
+        oldText: value.oldText,
+        ops,
+      }
+    : null;
+}
+
+function toAgentProposal(value: unknown): AiServiceAgentProposal | null {
+  if (
+    !isRecord(value) ||
+    !Array.isArray(value.changes) ||
+    !isOneOf(AGENT_PROPOSAL_STATUSES)(value.status) ||
+    !isString(value.fingerprint) ||
+    !isString(value.runId)
+  ) {
+    return null;
+  }
+  const summary = toProposalSummary(value);
+  const changes = value.changes
+    .map(toProposalChange)
+    .filter((change): change is AiServiceProposalChange => change !== null);
+  if (!summary || changes.length !== value.changes.length) return null;
+  return {
+    ...summary,
+    runId: value.runId,
+    fingerprint: value.fingerprint,
+    changes,
+    status: value.status,
+  };
 }

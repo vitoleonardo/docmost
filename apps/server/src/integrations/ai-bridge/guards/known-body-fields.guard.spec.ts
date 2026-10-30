@@ -3,7 +3,7 @@ import 'reflect-metadata';
 import { ArgumentsHost, Body, ExecutionContext } from '@nestjs/common';
 import { IsOptional, IsString, IsUUID } from 'class-validator';
 import { FastifyReply } from 'fastify';
-import { AiBridgeController } from '../ai-bridge.controller';
+import { AiAgentController } from '../ai-agent.controller';
 import { AiBridgeError, AiBridgeErrorCode } from '../ai-bridge.errors';
 import { AiBridgeExceptionFilter } from '../filters/ai-bridge-exception.filter';
 import { KnownBodyFieldsGuard } from './known-body-fields.guard';
@@ -59,7 +59,7 @@ describe('KnownBodyFieldsGuard', () => {
 
   it('AGENT-AC104: a run request with a field the contract does not list answers invalid_request', () => {
     expect(
-      outcomeOf(AiBridgeController, 'agentRun', {
+      outcomeOf(AiAgentController, 'agentRun', {
         spaceId: SPACE_ID,
         task: 'Aufgabe',
         model: 'qwen3:8b',
@@ -69,12 +69,12 @@ describe('KnownBodyFieldsGuard', () => {
 
   it('AGENT-AC104: a run request with only the fields of the contract passes to validation', () => {
     expect(
-      outcomeOf(AiBridgeController, 'agentRun', {
+      outcomeOf(AiAgentController, 'agentRun', {
         spaceId: SPACE_ID,
         task: 'Aufgabe',
       }),
     ).toBe('passed');
-    expect(outcomeOf(AiBridgeController, 'agentRun', { task: 'Aufgabe' })).toBe(
+    expect(outcomeOf(AiAgentController, 'agentRun', { task: 'Aufgabe' })).toBe(
       'passed',
     );
   });
@@ -103,14 +103,14 @@ describe('KnownBodyFieldsGuard', () => {
     ['a null body', null],
     ['a string body', 'spaceId'],
   ])('AGENT-AC104: %s is left to the validation of the DTO', (_case, body) => {
-    expect(outcomeOf(AiBridgeController, 'agentRun', body)).toBe('passed');
+    expect(outcomeOf(AiAgentController, 'agentRun', body)).toBe('passed');
   });
 
   it('AGENT-AC104: the refusal names the unknown field and answers 400 through the bridge filter', () => {
     let refusal: unknown;
     try {
       guard.canActivate(
-        contextFor(AiBridgeController, 'agentRun', {
+        contextFor(AiAgentController, 'agentRun', {
           spaceId: SPACE_ID,
           task: 'Aufgabe',
           changes: [],

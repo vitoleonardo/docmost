@@ -29,17 +29,15 @@ import { Space, User } from '@docmost/db/types/entity.types';
 import { PageAccessService } from '../../../core/page/page-access/page-access.service';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { EnvironmentService } from '../../environment/environment.service';
-import { AiBridgeController } from '../ai-bridge.controller';
+import { AiAgentController } from '../ai-agent.controller';
 import { AiBridgeError } from '../ai-bridge.errors';
 import { AiAgentRunDto } from '../dto/ai-agent.dto';
 import { AiBridgeExceptionFilter } from '../filters/ai-bridge-exception.filter';
 import { KnownBodyFieldsGuard } from '../guards/known-body-fields.guard';
+import { AiAgentProposalService } from './ai-agent-proposal.service';
 import { AiAgentService } from './ai-agent.service';
-import { AiAskService } from './ai-ask.service';
-import { AiExtractService } from './ai-extract.service';
 import { AiPageAccessService } from './ai-page-access.service';
 import { AiServiceAgentEvent, AiServiceClient } from './ai-service.client';
-import { AiStatusService } from './ai-status.service';
 import { AiTokenService } from './ai-token.service';
 
 const WORKSPACE_ID = 'workspace-1';
@@ -244,35 +242,8 @@ describe('AiAgentService', () => {
     const errorsFor = (body: Record<string, unknown>) =>
       validate(plainToInstance(AiAgentRunDto, body), { whitelist: true });
 
-    const pipeline = new ValidationPipe({
-      whitelist: true,
-      stopAtFirstError: true,
-      transform: true,
-    });
-
-    const answerOf = async (body: Record<string, unknown>) => {
-      const refusal = await pipeline
-        .transform(body, { type: 'body', metatype: AiAgentRunDto })
-        .then(
-          () => undefined,
-          (error: unknown) => error,
-        );
-      expect(refusal).toBeInstanceOf(BadRequestException);
-      const send = jest.fn();
-      const reply = { status: jest.fn((_status: number) => ({ send })) };
-      new AiBridgeExceptionFilter().catch(
-        refusal as BadRequestException,
-        stub<ArgumentsHost>({
-          switchToHttp: () => ({
-            getResponse: () => stub<FastifyReply>(reply),
-          }),
-        }),
-      );
-      return {
-        status: reply.status.mock.calls[0][0],
-        body: send.mock.calls[0][0],
-      };
-    };
+    const answerOf = (body: Record<string, unknown>) =>
+      validationAnswerOf(body, AiAgentRunDto);
 
     it('AGENT-AC104: accepts a space id and a task of 1 to 2,000 characters after trimming', async () => {
       expect(await errorsFor({ spaceId: SPACE_ALLG, task: '  x  ' })).toEqual(
@@ -598,7 +569,7 @@ describe('AiAgentService', () => {
   });
 });
 
-describe('AiBridgeController.agentRun', () => {
+describe('AiAgentController.agentRun', () => {
   const DTO = { spaceId: SPACE_ALLG, task: TASK };
 
   const sseReply = () => {
@@ -617,11 +588,9 @@ describe('AiBridgeController.agentRun', () => {
   };
 
   const controllerWith = (agentService: object) =>
-    new AiBridgeController(
-      stub<AiStatusService>({}),
-      stub<AiAskService>({}),
-      stub<AiExtractService>({}),
+    new AiAgentController(
       stub<AiAgentService>(agentService),
+      stub<AiAgentProposalService>({}),
     );
 
   it('AGENT-AC17: writes each event as one server-sent event and ends the response', async () => {
@@ -704,9 +673,9 @@ describe('AiBridgeController.agentRun', () => {
   );
 
   it('AGENT-AC106: the run route sits behind the session guard of the controller, then the body field guard and the bridge filter', () => {
-    const handler = AiBridgeController.prototype.agentRun;
+    const handler = AiAgentController.prototype.agentRun;
 
-    expect(Reflect.getMetadata(GUARDS_METADATA, AiBridgeController)).toEqual([
+    expect(Reflect.getMetadata(GUARDS_METADATA, AiAgentController)).toEqual([
       JwtAuthGuard,
     ]);
     expect(Reflect.getMetadata(GUARDS_METADATA, handler)).toEqual([
@@ -717,6 +686,43 @@ describe('AiBridgeController.agentRun', () => {
     ]);
   });
 });
+
+const pipeline = new ValidationPipe({
+  whitelist: true,
+  stopAtFirstError: true,
+  transform: true,
+});
+
+function filteredAnswerOf(error: AiBridgeError | BadRequestException) {
+  const send = jest.fn();
+  const reply = { status: jest.fn((_status: number) => ({ send })) };
+  new AiBridgeExceptionFilter().catch(
+    error,
+    stub<ArgumentsHost>({
+      switchToHttp: () => ({
+        getResponse: () => stub<FastifyReply>(reply),
+      }),
+    }),
+  );
+  return {
+    status: reply.status.mock.calls[0][0],
+    body: send.mock.calls[0][0],
+  };
+}
+
+async function validationAnswerOf(
+  body: Record<string, unknown>,
+  metatype: new () => object,
+) {
+  const refusal = await pipeline
+    .transform(body, { type: 'body', metatype })
+    .then(
+      () => undefined,
+      (error: unknown) => error,
+    );
+  expect(refusal).toBeInstanceOf(BadRequestException);
+  return filteredAnswerOf(refusal as BadRequestException);
+}
 
 async function waitUntil(condition: () => boolean, timeoutMs = 2000) {
   const deadline = Date.now() + timeoutMs;
