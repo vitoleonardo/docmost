@@ -48,6 +48,14 @@ PAGE_NOT_FOUND = "Seite nicht gefunden."
 TOOL_UNAVAILABLE = "Werkzeug gerade nicht verfügbar."
 NO_PAGES = "Keine Seiten gefunden."
 LEFT_OUT = "Weitere Blöcke wurden ausgelassen."
+PROPOSE_HINT = (
+    "Ist diese Seite veraltet oder widerspricht sie einer anderen Seite, schlage die Änderung "
+    "mit propose_update vor (pageId, reason, changes mit block und newText). Eine Antwort ohne "
+    "Werkzeugaufruf beendet die Aufgabe."
+)
+PROPOSAL_SAVED = (
+    "Vorschlag gespeichert. Die Seite bleibt unverändert, bis die Person den Vorschlag übernimmt."
+)
 LOG_LINE = re.compile(
     r"^agent run=(?P<run>\S+) mode=(?P<mode>\S+) model=(?P<model>\S+)"
     r" steps=(?P<steps>\d+) tokens=(?P<tokens>\d+) duration_ms=(?P<duration>\d+)"
@@ -342,6 +350,7 @@ def test_agent_ac19_a_read_step_reports_the_page_title_and_gives_numbered_blocks
             "[1] Kilometerpauschale",
             f"[2] {OLD_RATE}",
             "[3] Siehe @Buchhaltung (nicht änderbar)",
+            PROPOSE_HINT,
         ]
     )
 
@@ -365,6 +374,7 @@ def test_agent_ac34_a_heading_block_is_marked_in_the_read() -> None:
             f"Seite „{TITLE}“ ({page_id(1)})",
             "[1] (Überschrift) Kilometerpauschale",
             "[2] Siehe @Buchhaltung (nicht änderbar)",
+            PROPOSE_HINT,
         ]
     )
 
@@ -392,7 +402,25 @@ def test_agent_ac20_a_proposal_step_is_followed_by_the_proposal_event() -> None:
     assert stored.run_id == events[0]["runId"]
     assert stored.user_id == USER_ID
     assert stored.changes[0]["oldText"] == OLD_RATE
-    assert harness.last_tool_answer(2) == "Vorschlag gespeichert."
+    assert harness.last_tool_answer(2) == PROPOSAL_SAVED
+
+
+def test_agent_ac114_a_read_ends_with_the_hint_to_propose_changes_after_the_page_text() -> None:
+    harness = Harness(travel_page(), long_page()).script(answer(read(1), read(5)), final())
+
+    harness.run()
+
+    read_answers = harness.tool_answers(1)
+    assert [answer_text.splitlines()[-1] for answer_text in read_answers] == [PROPOSE_HINT] * 2
+    assert read_answers[1].splitlines()[-2] == LEFT_OUT
+
+
+def test_agent_ac114_a_saved_proposal_tells_the_model_the_page_is_unchanged() -> None:
+    harness = Harness(travel_page()).script(answer(read(1)), answer(propose(1)), final())
+
+    harness.run()
+
+    assert harness.last_tool_answer(2) == PROPOSAL_SAVED
 
 
 def test_agent_ac22_an_unknown_tool_is_refused_and_the_run_goes_on() -> None:
@@ -624,6 +652,7 @@ def test_agent_ac35_a_read_keeps_the_blocks_within_6000_characters_and_notes_the
             "[1] " + "a" * 3_000,
             "[2] " + "b" * 2_800,
             LEFT_OUT,
+            PROPOSE_HINT,
         ]
     )
     assert "c" * 400 not in everything_sent(harness)
@@ -644,7 +673,7 @@ def test_agent_ac35_a_block_ending_exactly_at_6000_characters_is_kept() -> None:
 
     harness.run()
 
-    assert harness.last_tool_answer(1).endswith("[2] " + "b" * 10)
+    assert harness.last_tool_answer(1).endswith("\n".join(["[2] " + "b" * 10, PROPOSE_HINT]))
 
 
 def test_agent_ac36_page_text_cannot_make_the_agent_write() -> None:
