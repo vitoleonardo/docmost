@@ -3,7 +3,7 @@ import logging
 import time
 import unicodedata
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Literal, Protocol
 
 from pydantic import BaseModel, ConfigDict
@@ -11,6 +11,7 @@ from pydantic.alias_generators import to_camel
 
 from ai_service.bridge_client import BridgeError
 from ai_service.inference import JsonCompletion, ModelUnavailable
+from ai_service.request_log import RequestLog, TokenTally
 from ai_service.sections import PdfSkipped, read_pdf_pages
 
 LOGGER = logging.getLogger("ai_service.extraction")
@@ -101,6 +102,7 @@ class ExtractionRun:
     page_count: int | None = None
     found: int = 0
     outcome: str = ""
+    tally: TokenTally = field(default_factory=TokenTally)
 
 
 def normalise(text: str) -> str:
@@ -180,24 +182,32 @@ class ExtractionPipeline:
         model: JsonModel,
         mode: str,
         model_name: str,
+        request_log: RequestLog,
         clock: Callable[[], float] = time.monotonic,
     ):
         self._fetch_attachment = fetch_attachment
         self._model = model
         self._mode = mode
         self._model_name = model_name
+        self._request_log = request_log
         self._clock = clock
 
-    def extract(self, attachment_id: str, file_size: int) -> ExtractionResult:
+    def extract(
+        self, attachment_id: str, file_size: int, user_id: str, workspace_id: str
+    ) -> ExtractionResult:
+        timer = self._request_log.start("extraction", user_id, workspace_id)
         started_at = self._clock()
         run = ExtractionRun()
         try:
             result = self._extract(attachment_id, file_size, run)
         except BridgeError:
+            self._request_log.finish(timer, "error", run.tally)
             raise
         except Exception as error:
             LOGGER.warning("extract attachment=%s error=%s", attachment_id, type(error).__name__)
+            self._request_log.finish(timer, "error", run.tally)
             raise
+        self._request_log.finish(timer, run.outcome, run.tally)
         self._log(attachment_id, run, self._clock() - started_at)
         return result
 
@@ -235,8 +245,10 @@ class ExtractionPipeline:
         try:
             completion = self._model.complete_json(messages, ANSWER_SCHEMA)
         except ModelUnavailable:
+            run.tally.mark_unknown()
             run.outcome = "model_failed"
             return Failed()
+        run.tally.add(completion.prompt_tokens, completion.completion_tokens)
         sent = sum(len(message["content"]) for message in messages)
         tokens = completion.prompt_tokens
         if tokens is not None and tokens * MAX_CHARACTERS_PER_PROMPT_TOKEN < sent:

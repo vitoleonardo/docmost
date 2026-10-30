@@ -66,13 +66,14 @@ def build_pipeline(
     )
 
 
-def build_extraction_pipeline(settings: AskSettings) -> ExtractionPipeline:
+def build_extraction_pipeline(settings: AskSettings, request_log: RequestLog) -> ExtractionPipeline:
     bridge = BridgeClient(settings.ai_wiki_url, settings.ai_service_token)
     return ExtractionPipeline(
         fetch_attachment=bridge.attachment,
         model=ChatModel(settings.ai_llm_base_url, settings.ai_llm_model),
         mode=settings.ai_inference_mode,
         model_name=settings.ai_llm_model,
+        request_log=request_log,
     )
 
 
@@ -118,7 +119,7 @@ def main() -> None:
             settings,
             redis,
             build_pipeline(settings, embedder, redis, request_log),
-            build_extraction_pipeline(settings),
+            build_extraction_pipeline(settings, request_log),
             build_agent_services(settings),
         ),
         host=settings.ai_service_host,

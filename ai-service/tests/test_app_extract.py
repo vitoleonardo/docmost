@@ -20,7 +20,14 @@ from ai_service.bridge_client import (
 )
 from ai_service.extraction import ExtractionPipeline
 from ai_service.inference import JsonCompletion, ModelUnavailable
-from tests.conftest import BRIDGE_KEY, idle_ask_pipeline, make_settings
+from tests.conftest import (
+    BRIDGE_KEY,
+    USER_ID,
+    WORKSPACE_ID,
+    RecordingRequestLog,
+    idle_ask_pipeline,
+    make_settings,
+)
 from tests.pdf_fixtures import build_blank_pdf, build_pdf
 
 PATH = "/v1/extract"
@@ -65,10 +72,15 @@ class StubFetch:
 
 
 def make_client(
-    fetch: StubFetch, model: StubModel | None = None, redis: Redis | None = None
+    fetch: StubFetch,
+    model: StubModel | None = None,
+    redis: Redis | None = None,
+    request_log: RecordingRequestLog | None = None,
 ) -> TestClient:
     used_redis = fakeredis.FakeRedis() if redis is None else redis
-    pipeline = ExtractionPipeline(fetch, model or StubModel(), "local", "qwen3:8b")
+    pipeline = ExtractionPipeline(
+        fetch, model or StubModel(), "local", "qwen3:8b", request_log or RecordingRequestLog()
+    )
     return TestClient(
         create_app(make_settings(), used_redis, idle_ask_pipeline(used_redis), pipeline)
     )
@@ -327,3 +339,47 @@ def test_extract_ac54_a_bridge_error_logs_one_warning_without_content(
     ]
     assert TERM_QUOTE not in caplog.text
     assert "outcome=" not in caplog.text
+
+
+def test_reqlog_ac46_a_missing_attachment_keeps_its_answer_and_writes_an_error_record(
+    headers: dict[str, str],
+):
+    request_log = RecordingRequestLog()
+    fetch = StubFetch(error=AttachmentNotFound("HTTP 404"))
+
+    response = extract(make_client(fetch, request_log=request_log), headers)
+
+    assert response.status_code == 404
+    assert response.json() == {
+        "code": "attachment_not_found",
+        "message": "The attachment does not exist.",
+    }
+    assert [(r.task, r.status) for r in request_log.records] == [("extraction", "error")]
+
+
+def test_reqlog_ac5_the_user_and_workspace_from_the_token_reach_the_record(
+    headers: dict[str, str],
+):
+    request_log = RecordingRequestLog()
+
+    response = extract(make_client(StubFetch(), request_log=request_log), headers)
+
+    assert response.status_code == 200
+    assert request_log.started == [("extraction", USER_ID, WORKSPACE_ID)]
+    assert [r.workspace_id for r in request_log.records] == [WORKSPACE_ID]
+
+
+def test_reqlog_ac5_an_invalid_user_token_never_starts_a_record(
+    service_headers: dict[str, str], make_token: Callable[..., str]
+):
+    request_log = RecordingRequestLog()
+    invalid = make_token(secret=BRIDGE_KEY[::-1])
+
+    response = extract(
+        make_client(StubFetch(), request_log=request_log),
+        {**service_headers, "X-User-Token": invalid},
+    )
+
+    assert response.status_code == 401
+    assert request_log.started == []
+    assert request_log.records == []

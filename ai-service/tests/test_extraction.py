@@ -10,7 +10,7 @@ from ai_service import extraction
 from ai_service.bridge_client import BridgeUnavailable
 from ai_service.extraction import ExtractionPipeline
 from ai_service.inference import JsonCompletion, ModelUnavailable
-from tests.conftest import FakeClock
+from tests.conftest import USER_ID, WORKSPACE_ID, FakeClock, RecordingRequestLog
 from tests.pdf_fixtures import build_blank_pdf, build_pdf
 
 ATTACHMENT_ID = "6f1b6a52-0c0e-4f55-9c4a-0d2f0f6f2a11"
@@ -36,6 +36,7 @@ class StubModel:
     error: ModelUnavailable | None = None
     calls: list[tuple[list[dict[str, str]], dict[str, Any]]] = field(default_factory=list)
     model: str = "qwen3:8b"
+    completion_tokens: int | None = None
 
     def complete_json(
         self, messages: list[dict[str, str]], schema: dict[str, Any]
@@ -43,7 +44,7 @@ class StubModel:
         self.calls.append((messages, schema))
         if self.error is not None:
             raise self.error
-        return JsonCompletion(self.text, self.prompt_tokens, None)
+        return JsonCompletion(self.text, self.prompt_tokens, self.completion_tokens)
 
 
 class Fetcher:
@@ -57,16 +58,26 @@ class Fetcher:
 
 
 def pipeline(
-    content: bytes, model: StubModel, clock: FakeClock | None = None
+    content: bytes,
+    model: StubModel,
+    clock: FakeClock | None = None,
+    request_log: RecordingRequestLog | None = None,
 ) -> tuple[ExtractionPipeline, Fetcher]:
     fetcher = Fetcher(content)
-    built = ExtractionPipeline(fetcher, model, "local", "qwen3:8b", clock or FakeClock())
+    built = ExtractionPipeline(
+        fetcher,
+        model,
+        "local",
+        "qwen3:8b",
+        request_log or RecordingRequestLog(),
+        clock or FakeClock(),
+    )
     return built, fetcher
 
 
 def run(pages: list[str], model: StubModel, file_size: int = 1000):
     built, _ = pipeline(build_pdf(pages), model)
-    return built.extract(ATTACHMENT_ID, file_size).to_wire()
+    return built.extract(ATTACHMENT_ID, file_size, USER_ID, WORKSPACE_ID).to_wire()
 
 
 def by_key(wire: dict) -> dict[str, dict]:
@@ -159,7 +170,7 @@ def test_extract_ac17_length_counts_after_whitespace_normalisation() -> None:
 def test_extract_ac32_pdf_without_text_is_refused_and_the_model_is_not_called() -> None:
     model = StubModel()
     built, _ = pipeline(build_blank_pdf(2), model)
-    wire = built.extract(ATTACHMENT_ID, 1000).to_wire()
+    wire = built.extract(ATTACHMENT_ID, 1000, USER_ID, WORKSPACE_ID).to_wire()
     assert wire["outcome"] == "refused"
     assert wire["reason"] == "no_text_layer"
     assert model.calls == []
@@ -198,7 +209,7 @@ def test_extract_ac35_ac65_oversize_file_is_refused_before_the_file_is_requested
 ) -> None:
     model = StubModel()
     built, fetcher = pipeline(build_pdf([PLAIN_QUOTE]), model)
-    wire = built.extract(ATTACHMENT_ID, size).to_wire()
+    wire = built.extract(ATTACHMENT_ID, size, USER_ID, WORKSPACE_ID).to_wire()
     assert wire == {
         "outcome": "refused",
         "reason": "too_large",
@@ -213,7 +224,7 @@ def test_extract_ac35_ac65_oversize_file_is_refused_before_the_file_is_requested
 def test_extract_ac36_file_of_exactly_10_mb_is_fetched() -> None:
     model = StubModel()
     built, fetcher = pipeline(build_pdf([PLAIN_QUOTE]), model)
-    wire = built.extract(ATTACHMENT_ID, 10_485_760).to_wire()
+    wire = built.extract(ATTACHMENT_ID, 10_485_760, USER_ID, WORKSPACE_ID).to_wire()
     assert wire["outcome"] == "extracted"
     assert fetcher.requested == [ATTACHMENT_ID]
 
@@ -221,7 +232,7 @@ def test_extract_ac36_file_of_exactly_10_mb_is_fetched() -> None:
 def test_extract_ac37_bytes_that_are_no_pdf_are_unreadable() -> None:
     model = StubModel()
     built, fetcher = pipeline(b"this is not a pdf", model)
-    wire = built.extract(ATTACHMENT_ID, 17).to_wire()
+    wire = built.extract(ATTACHMENT_ID, 17, USER_ID, WORKSPACE_ID).to_wire()
     assert wire == {
         "outcome": "refused",
         "reason": "unreadable",
@@ -263,9 +274,11 @@ def test_extract_ac53_a_bridge_error_propagates_without_an_extraction_log_line(
     def failing_fetch(attachment_id: str) -> bytes:
         raise BridgeUnavailable("HTTP 500")
 
-    built = ExtractionPipeline(failing_fetch, StubModel(), "local", "qwen3:8b", FakeClock())
+    built = ExtractionPipeline(
+        failing_fetch, StubModel(), "local", "qwen3:8b", RecordingRequestLog(), FakeClock()
+    )
     with caplog.at_level(logging.INFO, logger=LOGGER_NAME), pytest.raises(BridgeUnavailable):
-        built.extract(ATTACHMENT_ID, 1000)
+        built.extract(ATTACHMENT_ID, 1000, USER_ID, WORKSPACE_ID)
     assert log_lines(caplog) == []
 
 
@@ -275,9 +288,11 @@ def test_extract_ac53_an_unexpected_error_logs_its_class_without_content_and_pro
     def crashing_fetch(attachment_id: str) -> bytes:
         raise RuntimeError(PLAIN_QUOTE)
 
-    built = ExtractionPipeline(crashing_fetch, StubModel(), "local", "qwen3:8b", FakeClock())
+    built = ExtractionPipeline(
+        crashing_fetch, StubModel(), "local", "qwen3:8b", RecordingRequestLog(), FakeClock()
+    )
     with caplog.at_level(logging.INFO, logger=LOGGER_NAME), pytest.raises(RuntimeError):
-        built.extract(ATTACHMENT_ID, 1000)
+        built.extract(ATTACHMENT_ID, 1000, USER_ID, WORKSPACE_ID)
     assert log_lines(caplog) == [f"extract attachment={ATTACHMENT_ID} error=RuntimeError"]
     assert [r.levelno for r in caplog.records if r.name == LOGGER_NAME] == [logging.WARNING]
 
@@ -316,7 +331,7 @@ def test_extract_ac63_nfd_quote_matches_nfc_page(monkeypatch: pytest.MonkeyPatch
     monkeypatch.setattr(extraction, "read_pdf_pages", lambda _content: [page])
     model = StubModel(answer(noticePeriod=field_answer("3 Monate", quote)))
     built, _ = pipeline(b"unused", model)
-    wire = built.extract(ATTACHMENT_ID, 10).to_wire()
+    wire = built.extract(ATTACHMENT_ID, 10, USER_ID, WORKSPACE_ID).to_wire()
     assert by_key(wire)["noticePeriod"]["pdfPage"] == 1
 
 
@@ -329,7 +344,12 @@ def test_extract_ac63_soft_hyphens_are_removed_before_matching(
         answer(noticePeriod=field_answer("3 Monate", "Die Kündigungsfrist beträgt drei Monate."))
     )
     built, _ = pipeline(b"unused", model)
-    assert by_key(built.extract(ATTACHMENT_ID, 10).to_wire())["noticePeriod"]["pdfPage"] == 1
+    assert (
+        by_key(built.extract(ATTACHMENT_ID, 10, USER_ID, WORKSPACE_ID).to_wire())["noticePeriod"][
+            "pdfPage"
+        ]
+        == 1
+    )
 
 
 def test_extract_ac64_30001_characters_are_refused_and_30000_are_extracted() -> None:
@@ -359,7 +379,7 @@ def test_extract_ac66_prompt_tokens_below_a_quarter_of_the_characters_fail() -> 
     model = StubModel(answer(term=field_answer("2 Jahre", PLAIN_QUOTE)), prompt_tokens=2050)
     page = "Text " * 2850
     built, _ = pipeline(build_pdf([PLAIN_QUOTE + " " + page]), model)
-    wire = built.extract(ATTACHMENT_ID, 1000).to_wire()
+    wire = built.extract(ATTACHMENT_ID, 1000, USER_ID, WORKSPACE_ID).to_wire()
     sent = sum(len(message["content"]) for message in model.calls[0][0])
     assert sent >= 14_654
     assert wire == {"outcome": "failed", "reason": "model_unavailable"}
@@ -398,7 +418,7 @@ def test_extract_prompt_sends_german_instructions_pages_and_the_five_field_schem
 def test_extract_wire_shape_of_an_extracted_result_uses_camel_case_keys() -> None:
     model = StubModel(answer(term=field_answer("2 Jahre", PLAIN_QUOTE)))
     built, _ = pipeline(build_pdf([PLAIN_QUOTE]), model)
-    result = built.extract(ATTACHMENT_ID, 1000)
+    result = built.extract(ATTACHMENT_ID, 1000, USER_ID, WORKSPACE_ID)
     assert result.to_wire() == json.loads(result.model_dump_json(by_alias=True))
     assert result.to_wire()["fields"][1]["pdfPage"] == 1
 
@@ -415,9 +435,9 @@ def logged(caplog: pytest.LogCaptureFixture, content: bytes, model: StubModel, s
 
     slow = SlowModel(model.text, model.prompt_tokens, model.error)
     fetcher = Fetcher(content)
-    built = ExtractionPipeline(fetcher, slow, "local", "qwen3:8b", clock)
+    built = ExtractionPipeline(fetcher, slow, "local", "qwen3:8b", RecordingRequestLog(), clock)
     with caplog.at_level(logging.INFO, logger=LOGGER_NAME):
-        built.extract(ATTACHMENT_ID, size)
+        built.extract(ATTACHMENT_ID, size, USER_ID, WORKSPACE_ID)
     lines = log_lines(caplog)
     assert len(lines) == 1
     return lines[0]
@@ -481,11 +501,11 @@ def test_extract_ac54_log_lines_hold_no_pdf_text_value_or_quote(
     model = StubModel(answer(term=field_answer(secret_value, PLAIN_QUOTE)))
     with caplog.at_level(logging.DEBUG):
         built, _ = pipeline(build_pdf([PLAIN_QUOTE + " Vertraulicher Rest"]), model)
-        built.extract(ATTACHMENT_ID, 1000)
+        built.extract(ATTACHMENT_ID, 1000, USER_ID, WORKSPACE_ID)
         failing, _ = pipeline(
             build_pdf([PLAIN_QUOTE]), StubModel(error=ModelUnavailable(PLAIN_QUOTE))
         )
-        failing.extract(ATTACHMENT_ID, 1000)
+        failing.extract(ATTACHMENT_ID, 1000, USER_ID, WORKSPACE_ID)
     text = caplog.text
     for forbidden in (PLAIN_QUOTE, secret_value, "Vertraulicher", "Laufzeit"):
         assert forbidden not in text
@@ -494,7 +514,7 @@ def test_extract_ac54_log_lines_hold_no_pdf_text_value_or_quote(
 def test_extract_ac33_pdf_beyond_the_indexing_page_limit_is_refused_with_its_count() -> None:
     model = StubModel()
     built, _ = pipeline(build_blank_pdf(301), model)
-    wire = built.extract(ATTACHMENT_ID, 1000).to_wire()
+    wire = built.extract(ATTACHMENT_ID, 1000, USER_ID, WORKSPACE_ID).to_wire()
     assert wire == {
         "outcome": "refused",
         "reason": "too_many_pages",
@@ -503,3 +523,92 @@ def test_extract_ac33_pdf_beyond_the_indexing_page_limit_is_refused_with_its_cou
         "characterCount": None,
     }
     assert model.calls == []
+
+
+def test_reqlog_ac5_an_extracted_result_writes_one_extraction_record() -> None:
+    request_log = RecordingRequestLog()
+    model = StubModel(answer(term=field_answer("2 Jahre", PLAIN_QUOTE)))
+    built, _ = pipeline(build_pdf([PLAIN_QUOTE]), model, request_log=request_log)
+    built.extract(ATTACHMENT_ID, 1000, USER_ID, WORKSPACE_ID)
+    assert request_log.started == [("extraction", USER_ID, WORKSPACE_ID)]
+    assert [(r.task, r.status) for r in request_log.records] == [("extraction", "extracted")]
+
+
+def test_reqlog_ac47_the_record_holds_the_token_counts_the_model_reported() -> None:
+    request_log = RecordingRequestLog()
+    model = StubModel(prompt_tokens=4814, completion_tokens=250)
+    built, _ = pipeline(build_pdf([PLAIN_QUOTE]), model, request_log=request_log)
+    built.extract(ATTACHMENT_ID, 1000, USER_ID, WORKSPACE_ID)
+    [record] = request_log.records
+    assert (record.prompt_tokens, record.completion_tokens) == (4814, 250)
+
+
+def test_reqlog_ac6_a_file_over_the_size_limit_is_logged_as_too_large_without_tokens() -> None:
+    request_log = RecordingRequestLog()
+    model = StubModel()
+    built, fetcher = pipeline(build_pdf([PLAIN_QUOTE]), model, request_log=request_log)
+    built.extract(ATTACHMENT_ID, extraction.MAX_FILE_BYTES + 1, USER_ID, WORKSPACE_ID)
+    [record] = request_log.records
+    assert (record.status, record.prompt_tokens, record.completion_tokens) == ("too_large", 0, 0)
+    assert model.calls == []
+    assert fetcher.requested == []
+
+
+def test_reqlog_ac6_a_refusal_before_the_model_logs_its_reason_without_tokens() -> None:
+    request_log = RecordingRequestLog()
+    built, _ = pipeline(build_blank_pdf(1), StubModel(), request_log=request_log)
+    built.extract(ATTACHMENT_ID, 1000, USER_ID, WORKSPACE_ID)
+    [record] = request_log.records
+    assert (record.status, record.prompt_tokens, record.completion_tokens) == (
+        "no_text_layer",
+        0,
+        0,
+    )
+
+
+def test_reqlog_ac7_an_unavailable_model_is_logged_as_model_failed_with_unknown_tokens() -> None:
+    request_log = RecordingRequestLog()
+    model = StubModel(error=ModelUnavailable("timeout"))
+    built, _ = pipeline(build_pdf([PLAIN_QUOTE]), model, request_log=request_log)
+    built.extract(ATTACHMENT_ID, 1000, USER_ID, WORKSPACE_ID)
+    [record] = request_log.records
+    assert record.status == "model_failed"
+    assert (record.prompt_tokens, record.completion_tokens) == (None, None)
+
+
+def test_reqlog_ac6_a_too_small_context_is_logged_with_the_models_counts() -> None:
+    request_log = RecordingRequestLog()
+    model = StubModel(prompt_tokens=10, completion_tokens=3)
+    built, _ = pipeline(build_pdf([PLAIN_QUOTE * 40]), model, request_log=request_log)
+    built.extract(ATTACHMENT_ID, 1000, USER_ID, WORKSPACE_ID)
+    [record] = request_log.records
+    assert record.status == "context_too_small"
+    assert (record.prompt_tokens, record.completion_tokens) == (10, 3)
+
+
+def test_reqlog_ac46_an_escaping_error_is_logged_as_error_and_reraised() -> None:
+    request_log = RecordingRequestLog()
+
+    def failing_fetch(attachment_id: str) -> bytes:
+        raise BridgeUnavailable("HTTP 500")
+
+    built = ExtractionPipeline(
+        failing_fetch, StubModel(), "local", "qwen3:8b", request_log, FakeClock()
+    )
+    with pytest.raises(BridgeUnavailable):
+        built.extract(ATTACHMENT_ID, 1000, USER_ID, WORKSPACE_ID)
+    assert [(r.task, r.status) for r in request_log.records] == [("extraction", "error")]
+
+
+def test_reqlog_ac46_an_unexpected_error_is_logged_as_error_and_reraised() -> None:
+    request_log = RecordingRequestLog()
+
+    def crashing_fetch(attachment_id: str) -> bytes:
+        raise RuntimeError("boom")
+
+    built = ExtractionPipeline(
+        crashing_fetch, StubModel(), "local", "qwen3:8b", request_log, FakeClock()
+    )
+    with pytest.raises(RuntimeError):
+        built.extract(ATTACHMENT_ID, 1000, USER_ID, WORKSPACE_ID)
+    assert [r.status for r in request_log.records] == ["error"]
