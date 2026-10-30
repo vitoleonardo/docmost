@@ -1,7 +1,7 @@
 import logging
 import time
 from collections.abc import Callable, Generator, Iterable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any
 
@@ -12,8 +12,9 @@ from ai_service.citations import CitationFilter
 from ai_service.conversations import ConversationStore, Turn
 from ai_service.embedding import EmbeddingFailed
 from ai_service.index_store import SearchHit
-from ai_service.inference import ChatModel, ModelUnavailable
+from ai_service.inference import ChatModel, ModelUnavailable, StreamUsage
 from ai_service.prompt import MAX_HISTORY_TURNS, build_messages
+from ai_service.request_log import RequestLog, TokenTally
 
 SEARCH_LIMIT = 20
 MAX_SOURCES = 8
@@ -49,6 +50,7 @@ class AskRun:
     passing: int = 0
     first_text_at: float | None = None
     outcome: Outcome | None = None
+    tally: TokenTally = field(default_factory=TokenTally)
 
 
 def no_source() -> Event:
@@ -106,6 +108,7 @@ class AskPipeline:
         conversations: ConversationStore,
         threshold: float,
         inference_mode: str,
+        request_log: RequestLog,
         clock: Callable[[], float] = time.monotonic,
         logger: logging.Logger = LOGGER,
     ) -> None:
@@ -115,18 +118,26 @@ class AskPipeline:
         self._conversations = conversations
         self._threshold = threshold
         self._inference_mode = inference_mode
+        self._request_log = request_log
         self._clock = clock
         self._logger = logger
 
     def ask(
-        self, request: AskRequest, user_id: str, space_ids: Sequence[str], user_token: str
+        self,
+        request: AskRequest,
+        user_id: str,
+        workspace_id: str,
+        space_ids: Sequence[str],
+        user_token: str,
     ) -> Generator[Event]:
+        timer = self._request_log.start("ask", user_id, workspace_id)
         run = AskRun(request.conversation_id, self._clock())
         try:
             yield from self._answer(run, request, user_id, space_ids, user_token)
         finally:
             if run.outcome is not None:
                 self._log(run)
+            self._request_log.finish(timer, run.outcome or "error", run.tally)
 
     def _answer(
         self,
@@ -211,7 +222,8 @@ class AskPipeline:
     ) -> Generator[Event]:
         citations = CitationFilter(len(sources))
         shown: list[str] = []
-        stream = self._model.stream(build_messages(request.question, sources, history))
+        usage = StreamUsage()
+        stream = self._model.stream(build_messages(request.question, sources, history), usage)
         try:
             for delta in stream:
                 text = citations.feed(delta)
@@ -229,6 +241,7 @@ class AskPipeline:
             raise
         finally:
             stream.close()
+            run.tally.add(usage.prompt_tokens, usage.completion_tokens)
         cited = citations.cited()
         if not cited:
             run.outcome = Outcome.NO_SOURCE

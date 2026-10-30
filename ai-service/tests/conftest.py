@@ -18,6 +18,7 @@ from ai_service.conversations import ConversationStore
 from ai_service.extraction import ExtractionPipeline
 from ai_service.index_store import IndexStore
 from ai_service.inference import ChatModel
+from ai_service.request_log import RequestLog, RequestRecord, RequestTimer, Task, TokenTally
 from ai_service.settings import AskSettings, Settings
 from tests.hashing_embedder import HashingEmbedder
 
@@ -59,6 +60,22 @@ def make_ask_settings(**overrides: Any) -> AskSettings:
     return IsolatedAskSettings(**values)
 
 
+class RecordingRequestLog(RequestLog):
+    def __init__(self, database_url: str = TEST_DATABASE_URL, **overrides: Any) -> None:
+        self.fake_clock = FakeClock()
+        values = {"clock": self.fake_clock, **overrides}
+        super().__init__(database_url, REQUEST_LOG_KEY, "local", "stub-model", **values)
+        self.started: list[tuple[Task, str, str]] = []
+        self.records: list[RequestRecord] = []
+
+    def start(self, task: Task, user_id: str, workspace_id: str) -> RequestTimer:
+        self.started.append((task, user_id, workspace_id))
+        return super().start(task, user_id, workspace_id)
+
+    def finish(self, timer: RequestTimer, status: str, tally: TokenTally) -> None:
+        self.records.append(self.record(timer, status, tally))
+
+
 def idle_ask_pipeline(redis: Redis) -> AskPipeline:
     return AskPipeline(
         search=lambda text, space_ids, page_id, limit: [],
@@ -67,6 +84,7 @@ def idle_ask_pipeline(redis: Redis) -> AskPipeline:
         conversations=ConversationStore(redis),
         threshold=0.45,
         inference_mode="local",
+        request_log=RecordingRequestLog(),
     )
 
 

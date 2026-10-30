@@ -19,13 +19,17 @@ from ai_service import __main__ as api_main
 from ai_service.app import create_app
 from ai_service.auth import UserSession, decode_user_token
 from ai_service.embedding import EmbeddingModelError
+from ai_service.inference import StreamUsage
+from ai_service.request_log import RequestLog
 from tests.conftest import (
     BRIDGE_KEY,
     REQUEST_LOG_KEY,
     SERVICE_CREDENTIAL,
     USER_ID,
+    WORKSPACE_ID,
     idle_extraction_pipeline,
     make_settings,
+    warnings,
 )
 from tests.index_db import SPACE_A, page_id
 from tests.test_ask import CONVERSATION_ID, OTHER_USER_ID, Harness, hit
@@ -45,10 +49,13 @@ def harness(redis_client: Redis) -> Harness:
     return prepared
 
 
-def make_client(harness: Harness) -> TestClient:
+def make_client(harness: Harness, request_log: RequestLog | None = None) -> TestClient:
     return TestClient(
         create_app(
-            make_settings(), fakeredis.FakeRedis(), harness.pipeline(), idle_extraction_pipeline()
+            make_settings(),
+            fakeredis.FakeRedis(),
+            harness.pipeline(request_log),
+            idle_extraction_pipeline(),
         )
     )
 
@@ -198,8 +205,10 @@ def test_ask_ac9_the_first_line_reaches_the_client_before_the_last_delta_exists(
     assert third is not None and third["type"] == "citations"
 
 
-def _blocking_stream(release: threading.Event) -> Callable[[list[dict[str, str]]], Generator[str]]:
-    def stream(messages: list[dict[str, str]]) -> Generator[str]:
+def _blocking_stream(
+    release: threading.Event,
+) -> Callable[[list[dict[str, str]], StreamUsage | None], Generator[str]]:
+    def stream(messages: list[dict[str, str]], usage: StreamUsage | None = None) -> Generator[str]:
         yield "Anfang [1] "
         assert release.wait(TOKEN_TIMEOUT_SECONDS), "first line was not delivered before the end"
         yield "Ende."
@@ -528,6 +537,47 @@ def test_ask_ac56_confirm_with_an_invalid_body_is_400_invalid_request(
 
     assert response.status_code == 400
     assert response.json()["code"] == "invalid_request"
+
+
+def without_turn_ids(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [{key: value for key, value in event.items() if key != "turnId"} for event in events]
+
+
+def test_reqlog_ac11_a_request_with_an_invalid_user_token_starts_no_record(
+    harness: Harness, service_headers: dict[str, str]
+):
+    response = ask(make_client(harness), {**service_headers, "X-User-Token": "not-a-token"})
+
+    assert response.status_code == 401
+    assert harness.request_log.started == []
+    assert harness.request_log.records == []
+
+
+def test_reqlog_ac21_the_workspace_of_the_user_token_reaches_the_record(
+    harness: Harness, headers: dict[str, str]
+):
+    ask(make_client(harness), headers)
+
+    assert harness.request_log.started == [("ask", USER_ID, WORKSPACE_ID)]
+
+
+def test_reqlog_ac35_an_unreachable_log_database_changes_nothing_the_client_receives(
+    harness: Harness, headers: dict[str, str], caplog: pytest.LogCaptureFixture
+):
+    working = without_turn_ids(lines(ask(make_client(harness), headers)))
+    unreachable = RequestLog(
+        "postgresql://docmost_ai:test-ai-password@127.0.0.1:1/docmost",
+        REQUEST_LOG_KEY,
+        "local",
+        "stub-model",
+    )
+    caplog.set_level(logging.WARNING)
+
+    response = ask(make_client(harness, unreachable), headers)
+
+    assert response.status_code == 200
+    assert without_turn_ids(lines(response)) == working
+    assert any(line.startswith("request log write failed task=ask") for line in warnings(caplog))
 
 
 def settings_environment(**overrides: str) -> dict[str, str]:

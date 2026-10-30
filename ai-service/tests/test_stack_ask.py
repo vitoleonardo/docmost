@@ -18,6 +18,7 @@ from ai_service.leak_suite import SEED_EMAILS, parse_sse_events
 from ai_service.leak_suite import log_in as log_in_with_retry
 from ai_service.search import search_index
 from ai_service.settings import AskSettings
+from tests.conftest import WORKSPACE_ID, RecordingRequestLog
 from tests.test_ask import StubModel
 from tests.test_stack import (
     GIVE_UP_SECONDS,
@@ -212,9 +213,12 @@ def run_pipeline(
         conversations=ConversationStore(redis),
         threshold=THRESHOLD,
         inference_mode="local",
+        request_log=RecordingRequestLog(),
     )
     request = AskRequest(question=question, conversation_id=str(uuid.uuid4()))
-    events = list(pipeline.ask(request, member.user_id, member.space_ids, member.token))
+    events = list(
+        pipeline.ask(request, member.user_id, WORKSPACE_ID, member.space_ids, member.token)
+    )
     return PipelineRun(events, candidates, model)
 
 

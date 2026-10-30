@@ -331,7 +331,9 @@ def create_app(
     def ask(
         body: AskBody, user: Annotated[UserSession, Depends(require_user_session)]
     ) -> NdjsonResponse:
-        events = ask_pipeline.ask(body.to_request(), user.user_id, user.space_ids, user.token)
+        events = ask_pipeline.ask(
+            body.to_request(), user.user_id, user.workspace_id, user.space_ids, user.token
+        )
         return NdjsonResponse(stream_until_closed(events))
 
     @app.post("/v1/extract")
