@@ -88,34 +88,44 @@ export function opsMatchOldText(ops: AgentDiffOp[], oldText: string): boolean {
   return known && spelled === oldText;
 }
 
+export function agentChangesApplicable(
+  read: AgentBlockRead,
+  input: AgentChangesInput,
+): boolean {
+  if (read.fingerprint !== input.fingerprint) return false;
+  const blocks = new Map(read.blocks.map((block) => [block.number, block]));
+  const namedBlocks = new Set(input.changes.map((change) => change.block));
+  return (
+    namedBlocks.size === input.changes.length &&
+    input.changes.every((change) => canApply(blocks.get(change.block), change))
+  );
+}
+
 export function applyAgentChanges(
   doc: Y.Doc,
   input: AgentChangesInput,
 ): AgentApplyResult {
-  if (agentDocumentFingerprint(doc) !== input.fingerprint) return 'stale';
-  const located = new Map(
-    locateBlocks(doc).map((entry) => [entry.block.number, entry]),
+  const located = locateBlocks(doc);
+  const read = {
+    fingerprint: agentDocumentFingerprint(doc),
+    blocks: located.map(({ block }) => block),
+  };
+  if (!agentChangesApplicable(read, input)) return 'stale';
+  const changes = new Map(
+    input.changes.map((change) => [change.block, change]),
   );
-  const targets = input.changes.map((change) => ({
-    change,
-    target: located.get(change.block),
-  }));
-  const namedBlocks = new Set(input.changes.map((change) => change.block));
-  const applicable =
-    namedBlocks.size === input.changes.length &&
-    targets.every(({ change, target }) => canApply(target, change));
-  if (!applicable) return 'stale';
-  targets.forEach(({ change, target }) =>
-    applyOps(textSegments(target.element), change.ops),
-  );
+  located.forEach(({ block, element }) => {
+    const change = changes.get(block.number);
+    if (change) applyOps(textSegments(element), change.ops);
+  });
   return 'applied';
 }
 
-function canApply(target: LocatedBlock | undefined, change: AgentChange) {
+function canApply(block: AgentBlock | undefined, change: AgentChange) {
   return (
-    target !== undefined &&
-    target.block.editable &&
-    target.block.text === change.oldText &&
+    block !== undefined &&
+    block.editable &&
+    block.text === change.oldText &&
     opsMatchOldText(change.ops, change.oldText)
   );
 }

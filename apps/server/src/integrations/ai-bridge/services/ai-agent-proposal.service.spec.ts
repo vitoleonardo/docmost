@@ -354,6 +354,44 @@ describe('AiAgentProposalService', () => {
       });
     });
 
+    it('AGENT-AC82: a view after the write of an apply in flight leaves the proposal to the apply, which records it applied', async () => {
+      let viewed: { status: string } | undefined;
+      applyAnswer = async () => {
+        liveRead = async () => liveBlocks('fingerprint-after-the-write');
+        viewed = await service.viewProposal(USER, PROPOSAL_ID);
+        return 'applied';
+      };
+
+      expect(await service.applyProposal(USER, PROPOSAL_ID)).toEqual({
+        status: 'applied',
+      });
+      expect(viewed?.status).toBe('open');
+      expect(transitions).toEqual(['applying', 'applied']);
+      expect(stored.status).toBe('applied');
+    });
+
+    it('AGENT-AC89: an open proposal for a block that is no longer editable is shown stale, as apply would refuse it', async () => {
+      const live = liveBlocks();
+      live.blocks[1].editable = false;
+      liveRead = async () => live;
+
+      expect(await service.viewProposal(USER, PROPOSAL_ID)).toMatchObject({
+        status: 'stale',
+      });
+      expect(transitions).toEqual(['stale']);
+    });
+
+    it('AGENT-AC89: an open proposal whose ops do not spell the old text is shown stale, as apply would refuse it', async () => {
+      stored.changes = [
+        { ...stored.changes[0], ops: [{ op: 'add', text: NEW_TEXT }] },
+      ];
+
+      expect(await service.viewProposal(USER, PROPOSAL_ID)).toMatchObject({
+        status: 'stale',
+      });
+      expect(transitions).toEqual(['stale']);
+    });
+
     it('AGENT-AC97: a user who may only view the page gets the diff with canEdit false', async () => {
       pageState = 'view_only';
 

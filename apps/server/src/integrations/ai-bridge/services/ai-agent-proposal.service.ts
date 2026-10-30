@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { User } from '@docmost/db/types/entity.types';
 import { AiBridgeError, AiBridgeErrorCode } from '../ai-bridge.errors';
-import { AgentBlockRead, AgentDiffOp } from './agent-document';
+import { AgentDiffOp, agentChangesApplicable } from './agent-document';
 import { AiAgentProposalRecords } from './ai-agent-proposal-records.service';
 import { describeError } from './ai-content.service';
 import { AiLiveDocumentService } from './ai-live-document.service';
@@ -135,11 +135,10 @@ export class AiAgentProposalService {
     user: User,
     proposal: AiServiceAgentProposal,
   ): Promise<AiAgentProposalView['status']> {
-    if (proposal.status !== 'open' && proposal.status !== 'applying') {
-      return proposal.status;
-    }
+    if (proposal.status === 'applying') return 'open';
+    if (proposal.status !== 'open') return proposal.status;
     const live = await this.aiLiveDocumentService.readBlocks(proposal.pageId);
-    if (!changedSinceRead(proposal, live)) return 'open';
+    if (agentChangesApplicable(live, proposal)) return 'open';
     const marked = await this.aiAgentProposalRecords
       .transition(user, proposal.id, 'stale')
       .catch((error: unknown) => {
@@ -185,18 +184,6 @@ export class AiAgentProposalService {
       throw error;
     }
   }
-}
-
-function changedSinceRead(
-  proposal: AiServiceAgentProposal,
-  live: AgentBlockRead,
-): boolean {
-  if (live.fingerprint !== proposal.fingerprint) return true;
-  return proposal.changes.some(
-    (change) =>
-      live.blocks.find((block) => block.number === change.block)?.text !==
-      change.oldText,
-  );
 }
 
 function isRefusal(error: unknown, code: AiBridgeErrorCode): boolean {
