@@ -51,6 +51,7 @@ import {
   connect,
   createMigratedTestDatabase,
   loadAppModulesFor,
+  pageIdByTitle,
   providerOf,
   recreateDatabase,
   removeDatabase,
@@ -350,15 +351,6 @@ async function effectiveRoles(
     }
   }
   return { spaceCount: spaceIds.length, matrix };
-}
-
-async function pageIdByTitle(db: Kysely<DB>, title: string) {
-  const row = await db
-    .selectFrom('pages')
-    .select('id')
-    .where('title', '=', title)
-    .executeTakeFirstOrThrow();
-  return row.id;
 }
 
 async function usersAllowedTo(
