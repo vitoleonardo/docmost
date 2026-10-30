@@ -7,7 +7,13 @@ from psycopg.conninfo import conninfo_to_dict
 from pydantic import ValidationError
 
 from ai_service.bridge_client import BridgeError, ListedPage, PageContent, PageListPart
-from ai_service.eval_sets import GROUND_TRUTH_FILE, contract_truth, read_list
+from ai_service.eval_sets import (
+    GROUND_TRUTH_FILE,
+    SEED_PAGES_FILE,
+    contract_truth,
+    read_list,
+    seed_page_entry,
+)
 from ai_service.index_store import IndexStore, StoredSection
 from ai_service.settings import SEED_CONTENT_DIR
 from ai_service.worker import describe_settings_error, load_settings, open_bridge
@@ -63,7 +69,9 @@ def list_all_pages(bridge: PageSource) -> list[ListedPage]:
 
 def text_layer_pdf_names() -> set[str]:
     contracts = read_list(SEED_CONTENT_DIR, GROUND_TRUTH_FILE, contract_truth)
-    return {contract.pdf for contract in contracts if contract.text_layer}
+    pages = read_list(SEED_CONTENT_DIR, SEED_PAGES_FILE, seed_page_entry)
+    scanned = {contract.pdf for contract in contracts if not contract.text_layer}
+    return {name for page in pages for name in page.attachments} - scanned
 
 
 def check(bridge: PageSource, sections_of: SectionsOf, text_layer_files: set[str]) -> int:

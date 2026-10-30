@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 import pytest
 
 from ai_service.bridge_client import AttachmentInfo, ListedPage, PageContent, PageListPart
-from ai_service.eval_index_ready import check, missing_from_index
+from ai_service.eval_index_ready import check, missing_from_index, text_layer_pdf_names
 from ai_service.index_store import StoredSection
 
 NOW = datetime(2026, 10, 30, tzinfo=UTC)
@@ -83,3 +83,19 @@ def test_eval_ac64_any_missing_entry_gives_exit_2_and_names_it(
     )
     assert status == 2
     assert "Not searchable: " in capsys.readouterr().out
+
+
+def test_eval_ac64_a_minutes_pdf_without_sections_is_named():
+    minutes = "besprechungsprotokoll-nordhafen-kickoff.pdf"
+    contents = {"p1": content("p1", "Besprechung", "# Besprechung", {minutes: "a1"})}
+    names = text_layer_pdf_names()
+    assert missing_from_index(
+        [ListedPage("p1", "s", NOW)], contents, lambda page_id: [], names
+    ) == [f"Not searchable: {minutes} on Besprechung"]
+
+
+def test_eval_ac64_the_shipped_list_waits_for_eight_text_layer_pdfs():
+    names = text_layer_pdf_names()
+    assert len(names) == 8
+    assert "besprechungsprotokoll-nordhafen-bauabnahme.pdf" in names
+    assert "wartungsvertrag-serverraum-scan.pdf" not in names
