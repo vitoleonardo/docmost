@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from pydantic import Field, ValidationInfo, field_validator
+from pydantic import Field, SecretStr, ValidationInfo, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -61,6 +61,20 @@ class LeakSuiteSettings(BaseSettings):
     leak_embedding_model: str = str(AskSettings.model_fields["ai_embedding_model"].default)
     leak_injection_timeout_seconds: float = 180
     leak_poll_seconds: float = 5
+
+
+class EvalSettings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    eval_wiki_url: str
+    eval_seed_password: str = "seed-demo-password"
+    eval_anthropic_api_key: SecretStr | None = None
+    eval_inference_mode: str = str(AskSettings.model_fields["ai_inference_mode"].default)
+    eval_model: str = str(AskSettings.model_fields["ai_llm_model"].default)
+    eval_embedding_model: str = str(AskSettings.model_fields["ai_embedding_model"].default)
+    eval_report_path: Path = REPO_ROOT / "reports" / "eval-local.md"
+    eval_thresholds_path: Path = REPO_ROOT / "reports" / "eval-thresholds.json"
+    eval_content_dir: Path = SEED_CONTENT_DIR
 
 
 class RequestLogReportSettings(BaseSettings):

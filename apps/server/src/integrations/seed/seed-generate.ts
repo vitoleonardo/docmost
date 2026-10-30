@@ -1,6 +1,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { SCANNED_CONTRACT } from './content/contracts';
+import { seedPageList } from './seed-pages';
 import { generateSeedPdfs, renderContractTextPdf } from './seed-pdfs';
 
 const OUTPUT_DIR = join(__dirname, 'content', 'generated');
@@ -26,6 +27,7 @@ async function main() {
     toJson(output.groundTruth),
   );
   writeFileSync(join(OUTPUT_DIR, 'canaries.json'), toJson(output.canaries));
+  writeFileSync(join(OUTPUT_DIR, 'pages.json'), toJson(seedPageList()));
 }
 
 main().catch((error) => {
