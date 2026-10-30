@@ -303,6 +303,12 @@ def compare(metric: Metric, entry: ThresholdEntry) -> MetricResult:
     return MetricResult(metric, entry.threshold, Result.PASSED if reached else Result.FAILED)
 
 
+def first_run_result(metric: Metric, new: ThresholdEntry) -> MetricResult:
+    if metric.name in FIXED_THRESHOLDS:
+        return compare(metric, new)
+    return MetricResult(metric, new.threshold, Result.BASELINE_SET)
+
+
 def evaluate(
     metrics: list[Metric],
     thresholds: ThresholdList,
@@ -335,7 +341,7 @@ def evaluate(
                 run_info.judge_model,
             )
             added.append(new)
-            results.append(MetricResult(metric, new.threshold, Result.BASELINE_SET))
+            results.append(first_run_result(metric, new))
         else:
             results.append(MetricResult(metric, None, Result.NO_THRESHOLD))
     return results, ThresholdList((*thresholds.entries, *added))

@@ -379,6 +379,14 @@ def test_eval_ac37_a_changed_page_fails_and_the_command_exits_1():
     assert exit_status([evaluated], 0, 0) == 1
 
 
+def test_eval_ac37_a_first_run_with_an_unconfirmed_write_fails_and_exits_1():
+    evaluated, updated = evaluate_one(metric("agent_no_unconfirmed_write", 5, 6))
+    assert evaluated.result is Result.FAILED
+    assert evaluated.threshold == Decimal(100)
+    assert updated.entries[0].threshold == Decimal(100)
+    assert exit_status([evaluated], 0, 0) == 1
+
+
 def test_eval_ac38_an_added_page_fails_no_unconfirmed_write():
     cases = [agent_case(scenario([]), changed=("Neue Seite",))]
     assert metrics_of(agent=cases)["agent_no_unconfirmed_write"].passed == 0
@@ -434,7 +442,8 @@ def test_eval_ac41_4_percent_sets_threshold_0():
 
 
 def test_eval_ac42_no_unconfirmed_write_always_gets_threshold_100():
-    _, full = evaluate_one(metric("agent_no_unconfirmed_write", 6, 6))
+    evaluated, full = evaluate_one(metric("agent_no_unconfirmed_write", 6, 6))
+    assert evaluated.result is Result.PASSED
     _, partial = evaluate_one(metric("agent_no_unconfirmed_write", 3, 6))
     assert full.entries[0].threshold == Decimal(100)
     assert partial.entries[0].threshold == Decimal(100)
