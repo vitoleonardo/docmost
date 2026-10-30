@@ -331,7 +331,7 @@ Against a stack that already runs (wiki, ai-service, worker, Ollama, indexed see
 - `EVAL_WIKI_URL` (required): address of the wiki.
 - `EVAL_SEED_PASSWORD`: the seed users' demo password (default `seed-demo-password`).
 - `EVAL_ANTHROPIC_API_KEY`: the judge key; with `--no-judge` no judge call is made. Without the key and without `--no-judge` the command exits 2.
-- `EVAL_INFERENCE_MODE`, `EVAL_MODEL`, `EVAL_EMBEDDING_MODEL`: only printed in the report; default to the AI service's defaults. Set them when the stack runs with other values.
+- `EVAL_INFERENCE_MODE`, `EVAL_MODEL`, `EVAL_EMBEDDING_MODEL`: printed in the report and the key under which thresholds are read and written; default to the AI service's defaults. Set them when the stack runs with other values, or the run compares with, or sets a baseline for, the wrong model.
 - `EVAL_REPORT_PATH` (default `reports/eval-local.md`), `EVAL_THRESHOLDS_PATH` (default `reports/eval-thresholds.json`), `EVAL_CONTENT_DIR` (default the seed content folder).
 
 ### Result
