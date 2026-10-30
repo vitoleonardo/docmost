@@ -10,6 +10,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 import httpx
+import httpx2
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -157,7 +158,7 @@ def blocking(started: threading.Event, release: threading.Event) -> Callable[[Mo
     return step
 
 
-def lines(response: httpx.Response) -> list[dict[str, Any]]:
+def lines(response: httpx2.Response) -> list[dict[str, Any]]:
     return [json.loads(line) for line in response.text.splitlines()]
 
 
