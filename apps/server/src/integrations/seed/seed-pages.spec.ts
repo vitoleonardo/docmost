@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import {
   SEED_GROUPS,
   SEED_RESTRICTED_PAGES,
@@ -11,6 +13,7 @@ import {
   findDuplicateTitles,
   readSeedIssues,
   readSeedPageMarkdown,
+  seedPageList,
   SEED_PAGES,
   SEED_PDFS,
   SeedPage,
@@ -208,5 +211,27 @@ describe('seed pages', () => {
     ).toBe(true);
     expect(SEED_PDFS.filter((p) => p.noRenewal)).toHaveLength(1);
     expect(SEED_PDFS.find((p) => p.noRenewal)?.kind).toBe('contract');
+  });
+});
+
+describe('seed page list', () => {
+  it('EVAL-AC3: lists every seed page once with space, file and attachments', () => {
+    const list = seedPageList();
+    expect(list).toHaveLength(SEED_PAGES.length);
+    SEED_PAGES.forEach((page, index) => {
+      expect(list[index]).toEqual({
+        space: page.space,
+        title: page.title,
+        file: page.file,
+        attachments: page.attachments ?? [],
+      });
+    });
+  });
+
+  it('EVAL-AC3: the committed pages.json matches the seed page list', () => {
+    const committed = JSON.parse(
+      readFileSync(join(__dirname, 'content/generated/pages.json'), 'utf8'),
+    );
+    expect(committed).toEqual(seedPageList());
   });
 });

@@ -1,0 +1,200 @@
+[
+  {
+    "space": "Allgemein",
+    "title": "Willkommen bei Ostmooimooi",
+    "file": "allgemein/willkommen.md",
+    "attachments": []
+  },
+  {
+    "space": "Allgemein",
+    "title": "Reisekosten Richtlinie 2022",
+    "file": "allgemein/reisekosten-richtlinie-2022.md",
+    "attachments": []
+  },
+  {
+    "space": "Allgemein",
+    "title": "Reisekosten Richtlinie 2026",
+    "file": "allgemein/reisekosten-richtlinie-2026.md",
+    "attachments": []
+  },
+  {
+    "space": "Allgemein",
+    "title": "Bürozeiten und Erreichbarkeit",
+    "file": "allgemein/buerozeiten-erreichbarkeit.md",
+    "attachments": []
+  },
+  {
+    "space": "Allgemein",
+    "title": "Umstrukturierung 2027",
+    "file": "allgemein/umstrukturierung-2027.md",
+    "attachments": []
+  },
+  {
+    "space": "HR",
+    "title": "Onboarding neuer Mitarbeitender",
+    "file": "hr/onboarding.md",
+    "attachments": []
+  },
+  {
+    "space": "HR",
+    "title": "Urlaubsantrag per Formular",
+    "file": "hr/urlaubsantrag-formular.md",
+    "attachments": []
+  },
+  {
+    "space": "HR",
+    "title": "Urlaubsantrag im Personalportal",
+    "file": "hr/urlaubsantrag-personalportal.md",
+    "attachments": []
+  },
+  {
+    "space": "HR",
+    "title": "Weiterbildung und Schulungen",
+    "file": "hr/weiterbildung.md",
+    "attachments": []
+  },
+  {
+    "space": "Vertrieb",
+    "title": "Vertriebsprozess Anlagenbau",
+    "file": "vertrieb/vertriebsprozess.md",
+    "attachments": []
+  },
+  {
+    "space": "Vertrieb",
+    "title": "Preisliste Standardkomponenten",
+    "file": "vertrieb/preisliste.md",
+    "attachments": []
+  },
+  {
+    "space": "Vertrieb",
+    "title": "Kundenvertrag Stadtwerke Beispielstadt",
+    "file": "vertrieb/kundenvertrag-stadtwerke.md",
+    "attachments": [
+      "kundenvertrag-stadtwerke-beispielstadt.pdf"
+    ]
+  },
+  {
+    "space": "Vertrieb",
+    "title": "Rahmenvertrag Wasserverband Muster",
+    "file": "vertrieb/rahmenvertrag-wasserverband.md",
+    "attachments": [
+      "rahmenvertrag-wasserverband-muster.pdf"
+    ]
+  },
+  {
+    "space": "Projekte",
+    "title": "Projektübersicht 2026",
+    "file": "projekte/projektuebersicht-2026.md",
+    "attachments": []
+  },
+  {
+    "space": "Projekte",
+    "title": "Besprechung Nordhafen Kickoff",
+    "file": "projekte/besprechung-nordhafen-kickoff.md",
+    "attachments": [
+      "besprechungsprotokoll-nordhafen-kickoff.pdf"
+    ]
+  },
+  {
+    "space": "Projekte",
+    "title": "Besprechung Nordhafen Bauabnahme",
+    "file": "projekte/besprechung-nordhafen-bauabnahme.md",
+    "attachments": [
+      "besprechungsprotokoll-nordhafen-bauabnahme.pdf"
+    ]
+  },
+  {
+    "space": "Projekte",
+    "title": "Angebot Kalkulation Kläranlage Nordhafen",
+    "file": "projekte/angebot-kalkulation-nordhafen.md",
+    "attachments": []
+  },
+  {
+    "space": "Projekte",
+    "title": "Baustelle Nordhafen intern",
+    "file": "projekte/baustelle-nordhafen-intern.md",
+    "attachments": []
+  },
+  {
+    "space": "Projekte",
+    "title": "Baustelle Nordhafen Zugangscodes",
+    "file": "projekte/baustelle-nordhafen-zugangscodes.md",
+    "attachments": []
+  },
+  {
+    "space": "Projekte",
+    "title": "Liefervertrag Pumpen Fiktivwerk",
+    "file": "projekte/liefervertrag-pumpen.md",
+    "attachments": [
+      "liefervertrag-pumpen-fiktivwerk.pdf"
+    ]
+  },
+  {
+    "space": "Projekte",
+    "title": "Subunternehmervertrag Tiefbau",
+    "file": "projekte/subunternehmervertrag-tiefbau.md",
+    "attachments": [
+      "subunternehmervertrag-tiefbau.pdf"
+    ]
+  },
+  {
+    "space": "IT",
+    "title": "VPN Einrichtung Classic",
+    "file": "it/vpn-einrichtung-classic.md",
+    "attachments": []
+  },
+  {
+    "space": "IT",
+    "title": "VPN Einrichtung Connect",
+    "file": "it/vpn-einrichtung-connect.md",
+    "attachments": []
+  },
+  {
+    "space": "IT",
+    "title": "Passwort und Zugangsregeln",
+    "file": "it/passwort-zugangsregeln.md",
+    "attachments": []
+  },
+  {
+    "space": "IT",
+    "title": "Softwarelizenzvertrag Planungssoftware",
+    "file": "it/softwarelizenzvertrag.md",
+    "attachments": [
+      "softwarelizenzvertrag-planungssoftware.pdf"
+    ]
+  },
+  {
+    "space": "IT",
+    "title": "Wartung Serverraum",
+    "file": "it/wartung-serverraum.md",
+    "attachments": [
+      "wartungsvertrag-serverraum-scan.pdf"
+    ]
+  },
+  {
+    "space": "Geschäftsführung",
+    "title": "Strategie 2027 bis 2030",
+    "file": "geschaeftsfuehrung/strategie-2027-2030.md",
+    "attachments": []
+  },
+  {
+    "space": "Geschäftsführung",
+    "title": "Beratervertrag Unternehmensentwicklung",
+    "file": "geschaeftsfuehrung/beratervertrag.md",
+    "attachments": [
+      "beratervertrag-unternehmensentwicklung.pdf"
+    ]
+  },
+  {
+    "space": "Geschäftsführung",
+    "title": "Gehaltsbänder Führungsebene",
+    "file": "geschaeftsfuehrung/gehaltsbaender.md",
+    "attachments": []
+  },
+  {
+    "space": "Geschäftsführung",
+    "title": "Liquiditätsplanung 2026",
+    "file": "geschaeftsfuehrung/liquiditaetsplanung-2026.md",
+    "attachments": []
+  }
+]

@@ -228,6 +228,22 @@ export const SEED_PDFS: SeedPdf[] = SEED_PAGES.flatMap((page) =>
   })),
 );
 
+export interface SeedPageListEntry {
+  space: string;
+  title: string;
+  file: string;
+  attachments: string[];
+}
+
+export function seedPageList(): SeedPageListEntry[] {
+  return SEED_PAGES.map((page) => ({
+    space: page.space,
+    title: page.title,
+    file: page.file,
+    attachments: page.attachments ?? [],
+  }));
+}
+
 export function findDuplicateTitles(pages: SeedPage[]): string[] {
   const seen = new Set<string>();
   const duplicates = new Set<string>();
