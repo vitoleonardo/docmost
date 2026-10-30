@@ -21,6 +21,7 @@ from ai_service.auth import UserSession, decode_user_token
 from ai_service.embedding import EmbeddingModelError
 from tests.conftest import (
     BRIDGE_KEY,
+    REQUEST_LOG_KEY,
     SERVICE_CREDENTIAL,
     USER_ID,
     idle_extraction_pipeline,
@@ -533,6 +534,7 @@ def settings_environment(**overrides: str) -> dict[str, str]:
     return {
         "AI_BRIDGE_SECRET": BRIDGE_KEY,
         "AI_SERVICE_TOKEN": SERVICE_CREDENTIAL,
+        "AI_REQUEST_LOG_SECRET": REQUEST_LOG_KEY,
         "REDIS_URL": "redis://127.0.0.1:6380/15",
         "AI_DATABASE_URL": "postgresql://docmost_ai:test-ai-password@127.0.0.1:5433/docmost",
         "AI_WIKI_URL": "http://wiki.test",

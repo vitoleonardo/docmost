@@ -23,6 +23,7 @@ from tests.hashing_embedder import HashingEmbedder
 
 BRIDGE_KEY = "test-bridge-secret-0123456789abcdef"
 SERVICE_CREDENTIAL = "test-service-token-0123456789abcdef"
+REQUEST_LOG_KEY = "test-request-log-secret-0123456789abcdef"
 USER_ID = "0192f000-0000-7000-8000-000000000001"
 WORKSPACE_ID = "0192f000-0000-7000-8000-000000000002"
 TEST_REDIS_URL = "redis://127.0.0.1:6380/15"
@@ -49,7 +50,12 @@ class IsolatedAskSettings(AskSettings):
 
 
 def make_ask_settings(**overrides: Any) -> AskSettings:
-    values = {**make_settings().model_dump(), "ai_wiki_url": "http://wiki.test", **overrides}
+    values = {
+        **make_settings().model_dump(),
+        "ai_wiki_url": "http://wiki.test",
+        "ai_request_log_secret": REQUEST_LOG_KEY,
+        **overrides,
+    }
     return IsolatedAskSettings(**values)
 
 
