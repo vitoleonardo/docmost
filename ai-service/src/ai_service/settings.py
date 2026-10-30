@@ -63,6 +63,13 @@ class LeakSuiteSettings(BaseSettings):
     leak_poll_seconds: float = 5
 
 
+class RequestLogReportSettings(BaseSettings):
+    model_config = Settings.model_config
+
+    ai_database_url: str
+    request_log_report_path: Path = REPO_ROOT / "reports" / "request-log.md"
+
+
 class DbSetupSettings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

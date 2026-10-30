@@ -82,6 +82,18 @@ class RequestLogStore:
                 astuple(record),
             )
 
+    def rows_since(self, cutoff: datetime) -> list[RequestRecord]:
+        with self._conn.transaction():
+            rows = self._conn.execute(
+                """
+                SELECT id, created_at, task, mode, model, prompt_tokens, completion_tokens,
+                    latency_ms, cost_usd, status, user_pseudonym, workspace_id
+                FROM ai.request_log WHERE created_at >= %s
+                """,
+                (cutoff,),
+            ).fetchall()
+        return [RequestRecord(*row) for row in rows]
+
     def delete_older_than(self, cutoff: datetime) -> int:
         with self._conn.transaction():
             deleted = self._conn.execute(
