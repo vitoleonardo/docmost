@@ -1,0 +1,2 @@
+run	2026-10-30	request-log	m9-request-log	9	0	3	3782513	220474	397690	1031486	2132863
+stop	review round 1	plan	high: client disconnect runs the blocking log write on the event loop (`app.py:194-199`, `ask.py:137-140`); medium: no overall write bound, no row when agent `prepare` fails	plan put the write inline in each pipeline	fix round: one background writer thread, error row for failed `prepare`; review round 2
