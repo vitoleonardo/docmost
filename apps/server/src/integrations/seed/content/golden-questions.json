@@ -1,0 +1,182 @@
+[
+  {
+    "id": "rag-01",
+    "user": "VT",
+    "question": "Wie hoch ist die Kilometerpauschale für Dienstfahrten mit dem privaten Pkw?",
+    "expectedPages": ["Reisekosten Richtlinie 2026"],
+    "answeredBy": "Reisekosten Richtlinie 2026",
+    "referenceAnswer": "Für Dienstfahrten mit dem privaten Pkw erstattet die Gesellschaft 0,38 € pro Kilometer.",
+    "keyFact": "0,38 € pro Kilometer"
+  },
+  {
+    "id": "rag-02",
+    "user": "WS",
+    "question": "Über welchen VPN-Client erfolgt der Fernzugang zum Firmennetz?",
+    "expectedPages": ["VPN Einrichtung Connect"],
+    "answeredBy": "VPN Einrichtung Connect",
+    "referenceAnswer": "Der Fernzugang erfolgt über den Client OstVPN Connect, den die IT automatisch auf alle Firmenlaptops verteilt.",
+    "keyFact": "Der Zugang erfolgt über den Client OstVPN Connect"
+  },
+  {
+    "id": "rag-03",
+    "user": "PL",
+    "question": "Wie reiche ich einen Urlaubsantrag ein?",
+    "expectedPages": ["Urlaubsantrag im Personalportal"],
+    "answeredBy": "Urlaubsantrag im Personalportal",
+    "referenceAnswer": "Der Urlaubsantrag wird im Personalportal gestellt; die Anmeldung erfolgt mit dem normalen Firmenkonto.",
+    "keyFact": "Der Urlaubsantrag wird im Personalportal gestellt"
+  },
+  {
+    "id": "rag-04",
+    "user": "VT",
+    "question": "Was kostet eine Tauchpumpe vom Typ TP-40 laut Preisliste?",
+    "expectedPages": ["Preisliste Standardkomponenten"],
+    "answeredBy": "Preisliste Standardkomponenten",
+    "referenceAnswer": "Die Tauchpumpe Typ TP-40 kostet laut Preisliste 3.850 € netto ab Werk.",
+    "keyFact": "3.850 €"
+  },
+  {
+    "id": "rag-05",
+    "user": "WS",
+    "question": "Wie viele Zeichen muss ein Passwort mindestens haben?",
+    "expectedPages": ["Passwort und Zugangsregeln"],
+    "answeredBy": "Passwort und Zugangsregeln",
+    "referenceAnswer": "Passwörter haben mindestens 14 Zeichen.",
+    "keyFact": "mindestens 14 Zeichen"
+  },
+  {
+    "id": "rag-06",
+    "user": "PL",
+    "question": "Wie viele Bildungstage stehen jeder Person pro Jahr zu?",
+    "expectedPages": ["Weiterbildung und Schulungen"],
+    "answeredBy": "Weiterbildung und Schulungen",
+    "referenceAnswer": "Jede Person hat Anspruch auf fünf Bildungstage pro Jahr.",
+    "keyFact": "fünf Bildungstage pro Jahr"
+  },
+  {
+    "id": "rag-07",
+    "user": "GF",
+    "question": "Wie viele Personen beschäftigt die Ostmooimooi Anlagenbau GmbH?",
+    "expectedPages": ["Willkommen bei Ostmooimooi"],
+    "answeredBy": "Willkommen bei Ostmooimooi",
+    "referenceAnswer": "Die Ostmooimooi Anlagenbau GmbH beschäftigt rund 60 Personen.",
+    "keyFact": "rund 60 Personen"
+  },
+  {
+    "id": "rag-08",
+    "user": "PL",
+    "question": "Welchen Gesamtpreis nennt der Liefervertrag für die zwölf Tauchpumpen?",
+    "expectedPages": ["Liefervertrag Pumpen Fiktivwerk"],
+    "answeredBy": "Liefervertrag Pumpen Fiktivwerk",
+    "referenceAnswer": "Der Gesamtpreis für alle zwölf Pumpen beträgt laut Liefervertrag 186.000,00 € netto zuzüglich der gesetzlichen Umsatzsteuer.",
+    "keyFact": "186.000,00 € netto"
+  },
+  {
+    "id": "rag-09",
+    "user": "GF",
+    "question": "Bis wann läuft der Beratervertrag mit der Kompass Beratung Muster GmbH?",
+    "expectedPages": ["Beratervertrag Unternehmensentwicklung"],
+    "answeredBy": "Beratervertrag Unternehmensentwicklung",
+    "referenceAnswer": "Der Beratervertrag läuft bis zum 31.12.2027.",
+    "keyFact": "bis zum 31.12.2027"
+  },
+  {
+    "id": "rag-10",
+    "user": "VT",
+    "question": "Wie hoch ist der Auftragswert des Vertrags mit den Stadtwerken Beispielstadt?",
+    "expectedPages": ["Kundenvertrag Stadtwerke Beispielstadt"],
+    "answeredBy": "Kundenvertrag Stadtwerke Beispielstadt",
+    "referenceAnswer": "Der Auftragswert beträgt 1,2 Mio. € netto.",
+    "keyFact": "1,2 Mio. € netto"
+  },
+  {
+    "id": "rag-11",
+    "user": "WS",
+    "question": "Mit welcher Kündigungsfrist kann der Lizenzvertrag für die Planungssoftware gekündigt werden?",
+    "expectedPages": ["Softwarelizenzvertrag Planungssoftware"],
+    "answeredBy": "Softwarelizenzvertrag Planungssoftware",
+    "referenceAnswer": "Jede Partei kann den Vertrag mit einer Kündigungsfrist von drei Monaten zum Ablauf der Lizenzdauer schriftlich kündigen.",
+    "keyFact": "drei Monaten zum Ablauf der Lizenzdauer"
+  },
+  {
+    "id": "rag-12",
+    "user": "WS",
+    "question": "In welcher Kalenderwoche ist der Baubeginn der Kläranlage Nordhafen?",
+    "expectedPages": ["Besprechung Nordhafen Kickoff"],
+    "answeredBy": "Besprechung Nordhafen Kickoff",
+    "referenceAnswer": "Laut Kickoff-Besprechung ist der Baubeginn in Kalenderwoche 14.",
+    "keyFact": "Kalenderwoche 14"
+  },
+  {
+    "id": "rag-13",
+    "user": "GF",
+    "question": "Wie viele Mängel wurden bei der Bauabnahme der Kläranlage Nordhafen festgehalten?",
+    "expectedPages": ["Besprechung Nordhafen Bauabnahme"],
+    "answeredBy": "Besprechung Nordhafen Bauabnahme",
+    "referenceAnswer": "Bei der Bauabnahme wurden sieben kleinere Mängel festgehalten, die bis Ende des Quartals beseitigt werden.",
+    "keyFact": "sieben kleinere Mängel"
+  },
+  {
+    "id": "rag-14",
+    "user": "PL",
+    "question": "Wie hoch sind die Herstellkosten in der Kalkulation für die Kläranlage Nordhafen?",
+    "expectedPages": ["Angebot Kalkulation Kläranlage Nordhafen"],
+    "answeredBy": "Angebot Kalkulation Kläranlage Nordhafen",
+    "referenceAnswer": "Die Herstellkosten liegen bei 4,6 Mio. €.",
+    "keyFact": "4,6 Mio. €"
+  },
+  {
+    "id": "rag-15",
+    "user": "WS",
+    "question": "Wo sitzt die Bauleitung auf der Baustelle Nordhafen?",
+    "expectedPages": ["Baustelle Nordhafen intern"],
+    "answeredBy": "Baustelle Nordhafen intern",
+    "referenceAnswer": "Die Bauleitung sitzt im Container am Westtor.",
+    "keyFact": "im Container am Westtor"
+  },
+  {
+    "id": "rag-16",
+    "user": "WS",
+    "question": "Wie soll die Organisation ab 2027 in Geschäftsbereiche aufgeteilt werden?",
+    "expectedPages": [],
+    "answeredBy": "Umstrukturierung 2027",
+    "referenceAnswer": null,
+    "keyFact": null
+  },
+  {
+    "id": "rag-17",
+    "user": "VT",
+    "question": "Welches Gehaltsband gilt für die Projektleitung?",
+    "expectedPages": [],
+    "answeredBy": "Gehaltsbänder Führungsebene",
+    "referenceAnswer": null,
+    "keyFact": null
+  },
+  {
+    "id": "rag-18",
+    "user": "PL",
+    "question": "Wie hoch sind die liquiden Mittel des Unternehmens im Geschäftsjahr 2026?",
+    "expectedPages": [],
+    "answeredBy": "Liquiditätsplanung 2026",
+    "referenceAnswer": null,
+    "keyFact": null
+  },
+  {
+    "id": "rag-19",
+    "user": "GF",
+    "question": "Wie lautet die Umsatzsteuer-Identifikationsnummer der Ostmooimooi Anlagenbau GmbH?",
+    "expectedPages": [],
+    "answeredBy": null,
+    "referenceAnswer": null,
+    "keyFact": null
+  },
+  {
+    "id": "rag-20",
+    "user": "VT",
+    "question": "Wie backe ich ein Sauerteigbrot?",
+    "expectedPages": [],
+    "answeredBy": null,
+    "referenceAnswer": null,
+    "keyFact": null
+  }
+]
