@@ -382,8 +382,15 @@ test.describe("GF gives the assistant a task", () => {
     await expect(
       page.getByText("2 Vorschläge · 5 Seiten gelesen"),
     ).toBeVisible();
-    await expect(page.getByText(FIRST_REASON)).toBeVisible();
-    await expect(page.getByText(SECOND_REASON)).toBeVisible();
+    const firstCard = page.getByText(FIRST_REASON);
+    const secondCard = page.getByText(SECOND_REASON);
+    await expect(firstCard).toBeVisible();
+    await expect(secondCard).toBeVisible();
+    const firstBox = await firstCard.boundingBox();
+    const secondBox = await secondCard.boundingBox();
+    if (!firstBox || !secondBox)
+      throw new Error("proposal cards not available");
+    expect(firstBox.y).toBeLessThan(secondBox.y);
     await expect(page.getByText("+1 −1")).toBeVisible();
     await expect(page.getByText("+3 −3")).toBeVisible();
     await expect(page.getByRole("button", { name: "Ansehen" })).toHaveCount(2);
