@@ -8,6 +8,11 @@ import {
 import { setYjsMark, updateYjsMarkAttribute, YjsSelection } from './yjs.util';
 import * as Y from 'yjs';
 import { User } from '@docmost/db/types/entity.types';
+import {
+  AgentChangesInput,
+  applyAgentChanges,
+  readAgentBlocks,
+} from '../integrations/ai-bridge/services/agent-document';
 
 export type CollabEventHandlers = ReturnType<
   CollaborationHandler['getHandlers']
@@ -123,21 +128,39 @@ export class CollaborationHandler {
           },
         );
       },
+      readAgentBlocks: async (documentName: string) =>
+        this.withYdocConnection(hocuspocus, documentName, {}, readAgentBlocks),
+      applyAgentChanges: async (
+        documentName: string,
+        payload: AgentChangesInput & { user: User },
+      ) => {
+        const { user, ...input } = payload;
+        return this.withYdocConnection(
+          hocuspocus,
+          documentName,
+          { user },
+          (doc) => applyAgentChanges(doc, input),
+        );
+      },
     };
   }
 
-  async withYdocConnection(
+  async withYdocConnection<T>(
     hocuspocus: Hocuspocus,
     documentName: string,
     context: any = {},
-    fn: (doc: Document) => void,
-  ): Promise<void> {
+    fn: (doc: Document) => T,
+  ): Promise<T> {
     const connection = await hocuspocus.openDirectConnection(
       documentName,
       context,
     );
     try {
-      await connection.transact(fn);
+      let result: T;
+      await connection.transact((doc) => {
+        result = fn(doc);
+      });
+      return result;
     } finally {
       await connection.disconnect();
     }
