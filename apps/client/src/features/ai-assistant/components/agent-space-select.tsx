@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 
 const NO_SPACE = "no-space";
 
-export interface AgentSpaceOption {
+interface AgentSpaceOption {
   id: string;
   name: string;
 }

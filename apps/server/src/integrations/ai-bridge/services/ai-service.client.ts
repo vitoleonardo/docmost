@@ -94,13 +94,13 @@ const AGENT_END_OUTCOMES = [
   'model_failed',
 ] as const;
 
-export type AiAgentStepLabel =
+type AiAgentStepLabel =
   | { kind: 'search'; query: string; count: number }
   | { kind: 'read'; title: string }
   | { kind: 'propose'; title: string }
   | { kind: 'refused' };
 
-export interface AiAgentProposalSummary {
+interface AiAgentProposalSummary {
   id: string;
   pageId: string;
   pageTitle: string;
@@ -131,7 +131,7 @@ const DIFF_OP_KINDS = ['keep', 'remove', 'add'] as const;
 
 export type AiAgentProposalStatus = (typeof AGENT_PROPOSAL_STATUSES)[number];
 
-export interface AiServiceProposalChange {
+interface AiServiceProposalChange {
   block: number;
   heading: string | null;
   oldText: string;

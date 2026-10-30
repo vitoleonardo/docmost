@@ -22,7 +22,7 @@ export interface AgentDiffOp {
   text: string;
 }
 
-export interface AgentChange {
+interface AgentChange {
   block: number;
   oldText: string;
   ops: AgentDiffOp[];

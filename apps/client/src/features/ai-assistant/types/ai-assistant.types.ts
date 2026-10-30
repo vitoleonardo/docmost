@@ -244,7 +244,7 @@ export type AgentProposalErrorCode =
   | "write_failed"
   | "unreachable";
 
-export type AgentRunStatus =
+type AgentRunStatus =
   | "running"
   | "ended"
   | "cancelled"
