@@ -1,0 +1,3 @@
+seed	pass	14	seed: cb06ee52
+e2e	fail	39	all: KIT_E2E_RELATED is not set
+mocked	not configured	0	
