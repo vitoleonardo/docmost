@@ -3,6 +3,7 @@ import threading
 import time
 import uuid
 from collections.abc import Callable
+from contextlib import suppress
 from dataclasses import dataclass
 from typing import Any
 
@@ -36,10 +37,8 @@ def close_connection(response: httpx.Response) -> None:
     if connection is None:
         response.close()
         return
-    try:
+    with suppress(OSError):
         connection.shutdown(socket.SHUT_RDWR)
-    except OSError:
-        response.close()
 
 
 def stream_events(
@@ -54,11 +53,21 @@ def stream_events(
     events: list[dict[str, Any]] = []
     expired = threading.Event()
     streams: list[httpx.Response] = []
+    lock = threading.Lock()
+    finished = False
 
     def expire() -> None:
-        expired.set()
-        for response in streams:
-            close_connection(response)
+        with lock:
+            if finished:
+                return
+            expired.set()
+            for response in streams:
+                close_connection(response)
+
+    def finish() -> None:
+        nonlocal finished
+        with lock:
+            finished = True
 
     watchdog = threading.Timer(deadline_seconds, expire)
     watchdog.daemon = True
@@ -67,27 +76,43 @@ def stream_events(
         with client.stream("POST", path, json=body, timeout=timeout) as response:
             if response.status_code != 200:
                 return StreamResult([], f"http_{response.status_code}")
-            streams.append(response)
-            if expired.is_set():
-                close_connection(response)
-            for line in response.iter_lines():
-                if clock() - started > deadline_seconds:
-                    return StreamResult(events, "timeout")
-                try:
-                    parsed = list(parse_sse_events([line]))
-                except ValueError:
-                    return StreamResult(events, MALFORMED_EVENT)
-                if not all(isinstance(event, dict) and "type" in event for event in parsed):
-                    return StreamResult(events, MALFORMED_EVENT)
-                events.extend(parsed)
+            with lock:
+                streams.append(response)
+                if expired.is_set():
+                    close_connection(response)
+            try:
+                for line in response.iter_lines():
+                    if clock() - started > deadline_seconds:
+                        return StreamResult(events, "timeout")
+                    try:
+                        parsed = list(parse_sse_events([line]))
+                    except ValueError:
+                        return StreamResult(events, MALFORMED_EVENT)
+                    if not all(isinstance(event, dict) and "type" in event for event in parsed):
+                        return StreamResult(events, MALFORMED_EVENT)
+                    events.extend(parsed)
+            finally:
+                finish()
     except httpx.TimeoutException:
         return StreamResult(events, "timeout")
-    except httpx.TransportError as error:
+    except (httpx.TransportError, httpx.StreamError) as error:
         failure = "timeout" if expired.is_set() else type(error).__name__
         return StreamResult(events, failure)
     finally:
         watchdog.cancel()
     return StreamResult(events, "timeout" if expired.is_set() else None)
+
+
+def valid_sources(value: Any) -> bool:
+    return isinstance(value, list) and all(
+        isinstance(source, dict) and isinstance(source.get("title"), str) for source in value
+    )
+
+
+def proposal_title(event: dict[str, Any]) -> str | None:
+    proposal = event.get("proposal")
+    title = proposal.get("pageTitle") if isinstance(proposal, dict) else None
+    return title if isinstance(title, str) else None
 
 
 def ask_case(
@@ -104,7 +129,10 @@ def ask_case(
     outcome, failure = "failed", streamed.failure
     sources: list[dict[str, Any]] = []
     if failure is None and final.get("type") == "sources":
-        outcome, sources = "answered", final["sources"]
+        if valid_sources(final.get("sources")):
+            outcome, sources = "answered", final["sources"]
+        else:
+            failure = MALFORMED_EVENT
     elif failure is None and final.get("type") == "no_source":
         outcome = "no_source"
     elif failure is None:
@@ -212,12 +240,14 @@ def agent_case(
     body = {"spaceId": space_id, "task": scenario.task}
     streamed = stream_events(client, "/api/ai/agent/run", body, AGENT_DEADLINE_SECONDS, clock)
     seconds = clock() - started
-    proposals = tuple(
-        event["proposal"]["pageTitle"] for event in streamed.events if event["type"] == "proposal"
-    )
+    proposal_events = [event for event in streamed.events if event["type"] == "proposal"]
+    titles = [proposal_title(event) for event in proposal_events]
+    proposals = tuple(title for title in titles if title is not None)
     ends = [event for event in streamed.events if event["type"] == "end"]
     outcome = ends[-1].get("outcome") if ends else None
     failure = streamed.failure
+    if failure is None and len(proposals) != len(titles):
+        failure = MALFORMED_EVENT
     if failure is None and outcome is None:
         failure = "no_end"
     if failure is None and outcome in AGENT_FAILED_OUTCOMES:

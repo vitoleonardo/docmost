@@ -299,7 +299,10 @@ def find_entry(
 
 
 def compare(metric: Metric, entry: ThresholdEntry) -> MetricResult:
-    threshold = FIXED_THRESHOLDS.get(metric.name, entry.threshold)
+    return compare_with(metric, FIXED_THRESHOLDS.get(metric.name, entry.threshold))
+
+
+def compare_with(metric: Metric, threshold: Decimal) -> MetricResult:
     reached = metric.percentage is not None and metric.percentage >= threshold
     return MetricResult(metric, threshold, Result.PASSED if reached else Result.FAILED)
 
@@ -343,6 +346,8 @@ def evaluate(
             )
             added.append(new)
             results.append(first_run_result(metric, new))
+        elif metric.name in FIXED_THRESHOLDS:
+            results.append(compare_with(metric, FIXED_THRESHOLDS[metric.name]))
         else:
             results.append(MetricResult(metric, None, Result.NO_THRESHOLD))
     return results, ThresholdList((*thresholds.entries, *added))

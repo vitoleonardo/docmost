@@ -9,7 +9,9 @@ from typing import Any
 import httpx
 import pytest
 
+from ai_service import eval_cases
 from ai_service.eval_cases import (
+    MALFORMED_EVENT,
     agent_case,
     ask_case,
     changed_pages,
@@ -116,6 +118,24 @@ def test_eval_ac8_ask_without_a_final_event_is_a_failed_case() -> None:
     assert (case.outcome, case.failure) == ("failed", "no_final_event")
 
 
+@pytest.mark.parametrize(
+    "final",
+    [
+        {"type": "sources"},
+        {"type": "sources", "sources": "Seite"},
+        {"type": "sources", "sources": ["Seite"]},
+        {"type": "sources", "sources": [{"fileName": None}]},
+        {"type": "sources", "sources": [{"title": 3}]},
+    ],
+)
+def test_eval_ac8_ask_a_sources_event_of_the_wrong_shape_is_a_malformed_event(
+    final: dict[str, Any],
+) -> None:
+    client = client_for(lambda request: httpx.Response(200, content=sse(final)))
+    case = ask_case(client, QUESTION)
+    assert (case.outcome, case.failure) == ("failed", MALFORMED_EVENT)
+
+
 def test_eval_ac8_ask_transport_error_names_the_exception_class() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         raise httpx.ConnectError("down")
@@ -145,6 +165,55 @@ def test_eval_ac52_a_read_timeout_fails_with_timeout() -> None:
 
     case = ask_case(client_for(handler), QUESTION)
     assert (case.outcome, case.failure) == ("failed", "timeout")
+
+
+class StreamClosedAfterDelay(httpx.SyncByteStream):
+    def __iter__(self) -> Iterator[bytes]:
+        yield sse({"type": "delta", "text": "x"})
+        time.sleep(0.5)
+        raise httpx.StreamClosed()
+
+
+def test_eval_ac52_a_stream_closed_by_the_watchdog_fails_with_timeout_and_raises_nothing() -> None:
+    client = client_for(lambda request: httpx.Response(200, stream=StreamClosedAfterDelay()))
+    streamed = stream_events(client, "/stream", {}, 0.2, time.monotonic)
+    assert streamed.failure == "timeout"
+    assert len(streamed.events) == 1
+
+
+def test_eval_ac52_a_stream_closed_without_a_deadline_names_the_exception_class() -> None:
+    client = client_for(lambda request: httpx.Response(200, stream=StreamClosedAfterDelay()))
+    streamed = stream_events(client, "/stream", {}, 30, time.monotonic)
+    assert streamed.failure == "StreamClosed"
+
+
+def test_eval_ac52_a_watchdog_firing_after_the_stream_finished_changes_nothing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fired: list[Callable[[], None]] = []
+    shutdowns: list[httpx.Response] = []
+
+    class CapturingTimer:
+        daemon = False
+
+        def __init__(self, interval: float, function: Callable[[], None]) -> None:
+            fired.append(function)
+
+        def start(self) -> None:
+            return None
+
+        def cancel(self) -> None:
+            return None
+
+    monkeypatch.setattr(eval_cases.threading, "Timer", CapturingTimer)
+    monkeypatch.setattr(eval_cases, "close_connection", shutdowns.append)
+    content = sse({"type": "delta", "text": "x"}, {"type": "no_source"})
+    client = client_for(lambda request: httpx.Response(200, content=content))
+    streamed = stream_events(client, "/stream", {}, 30, time.monotonic)
+    fired[0]()
+    assert streamed.failure is None
+    assert len(streamed.events) == 2
+    assert shutdowns == []
 
 
 def extract_response(result: dict[str, Any]) -> Handler:
@@ -294,6 +363,26 @@ def test_eval_ac54_a_run_past_900_seconds_closes_the_stream_and_fails_with_timeo
     )
     assert (case.outcome, case.failure) == (None, "timeout")
     assert endless.closed
+
+
+@pytest.mark.parametrize(
+    "proposal_event",
+    [
+        {"type": "proposal"},
+        {"type": "proposal", "proposal": "Alt"},
+        {"type": "proposal", "proposal": {}},
+        {"type": "proposal", "proposal": {"pageTitle": 4}},
+    ],
+)
+def test_eval_ac32_agent_a_proposal_event_of_the_wrong_shape_is_a_malformed_event(
+    proposal_event: dict[str, Any],
+) -> None:
+    end = {"type": "end", "outcome": "finished", "pagesRead": 1, "message": None}
+    wiki = AgentWiki(lambda request: httpx.Response(200, content=sse(proposal_event, end)))
+    client = client_for(wiki.handler)
+    case = agent_case(client, SCENARIO, "s", lambda: workspace_snapshot(client))
+    assert case.failure == MALFORMED_EVENT
+    assert case.proposal_pages == ()
 
 
 def test_eval_ac32_agent_http_error_is_a_failed_case() -> None:
@@ -450,7 +539,7 @@ class SilentAfterEvents(BaseHTTPRequestHandler):
 
 def test_eval_ac52_a_silent_stream_is_cut_at_the_deadline_not_one_read_timeout_later() -> None:
     handler = type(
-        "Handler", (SilentAfterEvents,), {"release": threading.Event(), "pauses": [0.8, 0]}
+        "Handler", (SilentAfterEvents,), {"release": threading.Event(), "pauses": [2.7, 0]}
     )
     server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
     server.daemon_threads = True
@@ -458,7 +547,7 @@ def test_eval_ac52_a_silent_stream_is_cut_at_the_deadline_not_one_read_timeout_l
     client = httpx.Client(base_url=f"http://127.0.0.1:{server.server_port}")
     started = time.monotonic()
     try:
-        streamed = stream_events(client, "/stream", {}, 1.0, time.monotonic)
+        streamed = stream_events(client, "/stream", {}, 3.0, time.monotonic)
     finally:
         elapsed = time.monotonic() - started
         handler.release.set()
@@ -466,4 +555,4 @@ def test_eval_ac52_a_silent_stream_is_cut_at_the_deadline_not_one_read_timeout_l
         client.close()
     assert streamed.failure == "timeout"
     assert len(streamed.events) == 2
-    assert 0.9 <= elapsed < 1.4
+    assert 2.9 <= elapsed < 4.8

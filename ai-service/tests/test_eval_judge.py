@@ -388,6 +388,13 @@ def test_eval_ac15_a_file_of_another_seed_page_is_no_source_of_this_page():
     assert raised.value.error_class == "non_seed_source"
 
 
+@pytest.mark.parametrize("source", [{}, {"title": None}, {"title": 7, "fileName": None}])
+def test_eval_ac15_a_source_without_a_string_title_is_a_failed_judgement(source: dict[str, Any]):
+    with pytest.raises(JudgeFailed) as raised:
+        seed_source_texts([source], PAGES, CONTENT_DIR)
+    assert raised.value.error_class == "malformed_source"
+
+
 def test_eval_ac55_a_missing_or_unreadable_source_file_is_a_failed_judgement(tmp_path: Path):
     with pytest.raises(JudgeFailed) as missing:
         seed_source_texts([PAGE_SOURCE], PAGES, tmp_path)

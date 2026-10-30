@@ -39,6 +39,7 @@ SOURCE_MARKER = "=== SOURCE TEXT: "
 INVALID_VERDICT = "invalid_verdict"
 REFUSAL = "refusal"
 NON_SEED_SOURCE = "non_seed_source"
+MALFORMED_SOURCE = "malformed_source"
 
 Message = dict[str, str]
 
@@ -76,7 +77,9 @@ def seed_source_texts(
     entries = {entry.title: entry for entry in pages}
     texts: dict[tuple[str, str | None], JudgeSource] = {}
     for source in sources:
-        title = str(source["title"])
+        title = source.get("title")
+        if not isinstance(title, str):
+            raise JudgeFailed(MALFORMED_SOURCE)
         file_name = cast(str | None, source.get("fileName"))
         entry = entries.get(title)
         if entry is None:
