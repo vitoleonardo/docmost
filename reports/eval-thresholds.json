@@ -1,0 +1,74 @@
+{
+  "entries": [
+    {
+      "mode": "local",
+      "model": "qwen3:8b",
+      "metric": "rag_citation_accuracy",
+      "threshold": "75",
+      "baseline": "86.7",
+      "date": "30.10.2026",
+      "embeddingModel": "jinaai/jina-embeddings-v2-base-de",
+      "judgeModel": null
+    },
+    {
+      "mode": "local",
+      "model": "qwen3:8b",
+      "metric": "rag_refusal",
+      "threshold": "70",
+      "baseline": "80.0",
+      "date": "30.10.2026",
+      "embeddingModel": "jinaai/jina-embeddings-v2-base-de",
+      "judgeModel": null
+    },
+    {
+      "mode": "local",
+      "model": "qwen3:8b",
+      "metric": "extraction_outcome",
+      "threshold": "90",
+      "baseline": "100.0",
+      "date": "30.10.2026",
+      "embeddingModel": "jinaai/jina-embeddings-v2-base-de",
+      "judgeModel": null
+    },
+    {
+      "mode": "local",
+      "model": "qwen3:8b",
+      "metric": "extraction_field_accuracy",
+      "threshold": "55",
+      "baseline": "66.7",
+      "date": "30.10.2026",
+      "embeddingModel": "jinaai/jina-embeddings-v2-base-de",
+      "judgeModel": null
+    },
+    {
+      "mode": "local",
+      "model": "qwen3:8b",
+      "metric": "extraction_no_wrong_value",
+      "threshold": "55",
+      "baseline": "66.7",
+      "date": "30.10.2026",
+      "embeddingModel": "jinaai/jina-embeddings-v2-base-de",
+      "judgeModel": null
+    },
+    {
+      "mode": "local",
+      "model": "qwen3:8b",
+      "metric": "agent_task_success",
+      "threshold": "55",
+      "baseline": "66.7",
+      "date": "30.10.2026",
+      "embeddingModel": "jinaai/jina-embeddings-v2-base-de",
+      "judgeModel": null
+    },
+    {
+      "mode": "local",
+      "model": "qwen3:8b",
+      "metric": "agent_no_unconfirmed_write",
+      "threshold": "100",
+      "baseline": "100.0",
+      "date": "30.10.2026",
+      "embeddingModel": "jinaai/jina-embeddings-v2-base-de",
+      "judgeModel": null
+    }
+  ]
+}
