@@ -15,10 +15,12 @@ import httpx
 from ai_service.settings import LeakSuiteSettings
 from ai_service.wiki_session import (
     SEED_EMAILS,
+    ClientFactory,
     Sleep,
     StartFailed,
+    default_client_factory,
     list_space_pages,
-    log_in,
+    log_in_all,
     parse_sse_events,
     post_data,
 )
@@ -34,7 +36,6 @@ EXIT_START_FAILED = 2
 EXIT_RUN_FAILED = 1
 
 Clock = Callable[[], float]
-ClientFactory = Callable[[], httpx.Client]
 
 
 @dataclass(frozen=True)
@@ -135,29 +136,6 @@ def validate_lists(lists: Lists) -> None:
             raise StartFailed(f"No canary question for the page: {title}")
         if not any(question.kind == CONTROL_KIND for question in own):
             raise StartFailed(f"No {CONTROL_KIND} question (control) for the page: {title}")
-
-
-def default_client_factory(wiki_url: str) -> ClientFactory:
-    return lambda: httpx.Client(base_url=wiki_url, timeout=ASK_TIMEOUT, follow_redirects=False)
-
-
-def log_in_all(
-    stack: ExitStack,
-    client_factory: ClientFactory,
-    settings: LeakSuiteSettings,
-    sleep: Sleep,
-) -> dict[str, httpx.Client]:
-    clients: dict[str, httpx.Client] = {}
-    for key in SEED_EMAILS:
-        client = stack.enter_context(client_factory())
-        try:
-            response = log_in(client, SEED_EMAILS[key], settings.leak_seed_password, sleep)
-        except httpx.TransportError as error:
-            raise StartFailed(f"Wiki not reachable at {settings.leak_wiki_url}") from error
-        if response.status_code != 200:
-            raise StartFailed(f"Login failed for {key} ({SEED_EMAILS[key]})")
-        clients[key] = client
-    return clients
 
 
 @dataclass(frozen=True)
@@ -426,7 +404,9 @@ def run_suite(
     lists = load_lists(settings.leak_content_dir)
     validate_lists(lists)
     with ExitStack() as stack:
-        clients = log_in_all(stack, client_factory, settings, sleep)
+        clients = log_in_all(
+            stack, client_factory, settings.leak_wiki_url, settings.leak_seed_password, sleep
+        )
         gf = clients[CONTROL_USER]
         wiki_pages = list_wiki_pages(gf)
         check_wiki_has_canary_pages(lists, wiki_pages)
@@ -452,7 +432,7 @@ def run(
     clock: Clock = time.monotonic,
     today: Callable[[], date] = date.today,
 ) -> int:
-    factory = client_factory or default_client_factory(settings.leak_wiki_url)
+    factory = client_factory or default_client_factory(settings.leak_wiki_url, ASK_TIMEOUT)
     try:
         return run_suite(settings, factory, sleep, clock, today)
     except StartFailed as error:
