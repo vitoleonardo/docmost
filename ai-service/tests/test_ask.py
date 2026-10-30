@@ -28,7 +28,7 @@ from ai_service.conversations import (
 )
 from ai_service.embedding import EmbeddingFailed
 from ai_service.index_store import IndexStore, SearchHit, StoredSection
-from ai_service.inference import ChatModel, ModelUnavailable
+from ai_service.inference import ChatModel, ModelUnavailable, StreamUsage
 from ai_service.search import search_index
 from tests.conftest import USER_ID, FakeClock
 from tests.fake_bridge import FilterBridge, answer, mock_client, refuse, server_error
@@ -117,7 +117,9 @@ class StubModel(ChatModel):
         self.closed = False
         self.streams: list[Generator[str]] = []
 
-    def stream(self, messages: list[dict[str, str]]) -> Generator[str]:
+    def stream(
+        self, messages: list[dict[str, str]], usage: StreamUsage | None = None
+    ) -> Generator[str]:
         self.calls.append(messages)
         produced = self._produce()
         self.streams.append(produced)

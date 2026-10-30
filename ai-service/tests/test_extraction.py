@@ -43,7 +43,7 @@ class StubModel:
         self.calls.append((messages, schema))
         if self.error is not None:
             raise self.error
-        return JsonCompletion(self.text, self.prompt_tokens)
+        return JsonCompletion(self.text, self.prompt_tokens, None)
 
 
 class Fetcher:

@@ -48,7 +48,7 @@ class StubModel:
             raise self.error
         body: dict[str, Any] = {key: {"value": None, "quote": None} for key in KEYS}
         body["term"] = {"value": self.value, "quote": self.quote}
-        return JsonCompletion(text=json.dumps(body), prompt_tokens=10_000)
+        return JsonCompletion(text=json.dumps(body), prompt_tokens=10_000, completion_tokens=None)
 
 
 @dataclass

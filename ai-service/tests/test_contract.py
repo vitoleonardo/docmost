@@ -219,7 +219,7 @@ class ContractModel:
             key: {"value": None, "quote": None}
             for key in ("parties", "term", "noticePeriod", "value", "renewal")
         }
-        return JsonCompletion(text=json.dumps(answer), prompt_tokens=10_000)
+        return JsonCompletion(text=json.dumps(answer), prompt_tokens=10_000, completion_tokens=None)
 
 
 def test_extract_contract_every_extract_outcome_has_exactly_the_fields_of_the_contract(
