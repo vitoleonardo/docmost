@@ -587,6 +587,54 @@ def test_eval_ac62_a_contract_without_its_attachment_in_the_wiki_exits_2_naming_
     assert_files_unchanged(tmp_path, before)
 
 
+def test_eval_ac61_a_malformed_spaces_response_exits_2_and_keeps_the_files(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+):
+    before = pre_create_files(tmp_path)
+    wiki = FakeWiki()
+    wiki.spaces = lambda user, body: httpx.Response(  # pyright: ignore[reportAttributeAccessIssue]
+        200, json={"data": {}}
+    )
+    result = run_eval(tmp_path, wiki)
+    err = capsys.readouterr().err
+    assert result.code == 2
+    assert "unexpected response" in err
+    assert wiki.paths("/api/ai/ask") == []
+    assert_files_unchanged(tmp_path, before)
+
+
+def test_eval_ac62_a_page_info_without_content_exits_2_and_keeps_the_files(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+):
+    before = pre_create_files(tmp_path)
+    wiki = FakeWiki()
+    wiki.info = lambda user, body: httpx.Response(  # pyright: ignore[reportAttributeAccessIssue]
+        200, json={"data": {"title": "x"}}
+    )
+    result = run_eval(tmp_path, wiki)
+    err = capsys.readouterr().err
+    assert result.code == 2
+    assert "unexpected response" in err
+    assert wiki.paths("/api/ai/ask") == []
+    assert_files_unchanged(tmp_path, before)
+
+
+def test_eval_ac59_a_non_json_body_during_the_start_checks_exits_2_and_keeps_the_files(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+):
+    before = pre_create_files(tmp_path)
+    wiki = FakeWiki()
+    wiki.recent = lambda user, body: httpx.Response(  # pyright: ignore[reportAttributeAccessIssue]
+        200, content=b"<html>"
+    )
+    result = run_eval(tmp_path, wiki)
+    err = capsys.readouterr().err
+    assert result.code == 2
+    assert "unexpected response" in err
+    assert wiki.paths("/api/ai/ask") == []
+    assert_files_unchanged(tmp_path, before)
+
+
 def test_eval_ac21_a_non_seed_page_with_the_judge_exits_2_naming_it(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ):

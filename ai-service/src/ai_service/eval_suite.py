@@ -191,6 +191,11 @@ def check_wiki(
             f"The wiki answered {error.response.status_code} to {error.request.url.path} "
             f"during the start checks"
         ) from error
+    except (KeyError, TypeError, ValueError) as error:
+        raise StartFailed(
+            f"The wiki gave an unexpected response during the start checks "
+            f"({type(error).__name__})"
+        ) from error
 
 
 def judged_case(case: RagCase, judge: Judge, sets: EvalSets, content_dir: Path) -> RagCase:
