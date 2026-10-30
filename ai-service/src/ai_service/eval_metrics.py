@@ -11,7 +11,7 @@ from typing import Any
 
 from ai_service.eval_sets import AgentScenario, ContractTruth, FieldTruth, GoldenQuestion
 from ai_service.extraction import normalise
-from ai_service.leak_suite import StartFailed
+from ai_service.wiki_session import StartFailed
 
 METRIC_NAMES = (
     "rag_answer_correctness",
@@ -49,6 +49,7 @@ class RagCase:
     failure: str | None
     ratings: Ratings | None
     judge_failure: str | None
+    sources: tuple[dict[str, Any], ...] = ()
 
 
 @dataclass(frozen=True)

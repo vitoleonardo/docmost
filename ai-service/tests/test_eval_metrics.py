@@ -34,7 +34,7 @@ from ai_service.eval_sets import (
     GoldenQuestion,
     load_eval_sets,
 )
-from ai_service.leak_suite import StartFailed
+from ai_service.wiki_session import StartFailed
 from tests.seed_matrix import SEED_CONTENT
 
 CONTRACTS = {contract.pdf: contract for contract in load_eval_sets(SEED_CONTENT).contracts}
