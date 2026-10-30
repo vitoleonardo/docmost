@@ -66,6 +66,16 @@ export class SearchToolDto {
   query: string;
 }
 
+export class ReadBlocksToolDto {
+  @IsUUID()
+  @Transform(lowercaseString)
+  pageId: string;
+
+  @IsUUID()
+  @Transform(lowercaseString)
+  spaceId: string;
+}
+
 export class PageListDto {
   @IsOptional()
   @IsString()

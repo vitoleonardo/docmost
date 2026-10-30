@@ -28,6 +28,9 @@ import { AI_BRIDGE_USER_TOKEN_KEY } from './decorators/ai-bridge-auth.decorator'
 import { AiAskDto } from './dto/ai-ask.dto';
 import { AiAskService } from './services/ai-ask.service';
 import { AiExtractService } from './services/ai-extract.service';
+import { AiAgentToolsService } from './services/ai-agent-tools.service';
+import { AgentBlockRead } from './services/agent-document';
+import { CollaborationGateway } from '../../collaboration/collaboration.gateway';
 import { AiInternalAuthGuard } from './guards/ai-internal-auth.guard';
 import { AiContentService } from './services/ai-content.service';
 import { AiPageAccessService } from './services/ai-page-access.service';
@@ -57,6 +60,7 @@ interface ContractEndpoint {
   maxQuestionLength?: number;
   status: number;
   errors: string[];
+  changesPageContent?: boolean;
 }
 
 interface TokenContract {
@@ -203,6 +207,19 @@ const spaceRepo = { findById: jest.fn() };
 const aiPageListRepo = { listIndexablePages: jest.fn() };
 const attachmentRepo = { findById: jest.fn(), findPageAttachments: jest.fn() };
 const storageService = { readStream: jest.fn() };
+const collaborationGateway = { handleYjsEvent: jest.fn() };
+const LIVE_BLOCKS: AgentBlockRead = {
+  fingerprint: 'fingerprint-1',
+  blocks: [
+    {
+      number: 1,
+      text: 'Text',
+      heading: null,
+      isHeading: false,
+      editable: true,
+    },
+  ],
+};
 const searchService = { searchPage: jest.fn() };
 const userRepo = { findById: jest.fn() };
 const environmentService = {
@@ -234,6 +251,10 @@ const internalController = new AiBridgeInternalController(
   new AiPageListService(
     stub(aiPageListRepo),
     stub<EnvironmentService>(environmentService),
+  ),
+  new AiAgentToolsService(
+    stub<AiPageAccessService>(aiPageAccessService),
+    stub<CollaborationGateway>(collaborationGateway),
   ),
 );
 
@@ -292,6 +313,8 @@ const RESPONSE_BODIES: Record<string, () => Promise<unknown>> = {
     internalController.readPage({ pageId: PAGE_ID }, USER),
   '/api/ai-bridge/internal/tools/search': () =>
     internalController.search({ spaceId: SPACE_ID, query: 'Seite' }, USER),
+  '/api/ai-bridge/internal/tools/read-blocks': () =>
+    internalController.readBlocks({ pageId: PAGE_ID, spaceId: SPACE_ID }, USER),
 };
 
 beforeEach(() => {
@@ -320,6 +343,7 @@ beforeEach(() => {
     meta: { hasNextPage: false, nextCursor: null },
   });
   storageService.readStream.mockResolvedValue('file-stream');
+  collaborationGateway.handleYjsEvent.mockResolvedValue(LIVE_BLOCKS);
   searchService.searchPage.mockResolvedValue({
     items: [
       {
@@ -430,6 +454,32 @@ describe('served routes', () => {
           : endpoint.auth.includes('session');
       expect(guarded).toBe(true);
     }
+  });
+
+  it('AGENT-AC37: every bridge endpoint for the AI service declares that it does not change page content', () => {
+    const bridgeEndpoints = SERVED_ENDPOINTS.filter(
+      (endpoint) => endpoint.side === 'bridge',
+    );
+
+    expect(bridgeEndpoints.length).toBeGreaterThan(0);
+    for (const endpoint of bridgeEndpoints) {
+      expect({
+        path: endpoint.path,
+        changesPageContent: endpoint.changesPageContent,
+      }).toEqual({ path: endpoint.path, changesPageContent: false });
+    }
+  });
+
+  it('AGENT-AC37: every route of the internal controller is a bridge endpoint of the contract', () => {
+    const bridgeRoutes = SERVED_ENDPOINTS.filter(
+      (endpoint) => endpoint.side === 'bridge',
+    ).map((endpoint) => `${endpoint.method} ${endpoint.path}`);
+
+    expect(
+      routesOf(AiBridgeInternalController)
+        .map((route) => `${route.method} ${route.path}`)
+        .sort(),
+    ).toEqual(bridgeRoutes.sort());
   });
 
   it('BRIDGE-AC35: the error record equals the contract errors, with the same statuses', () => {

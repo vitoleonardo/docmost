@@ -91,7 +91,13 @@
           "fields[].quote",
           "fields[].pdfPage"
         ],
-        "refused": ["outcome", "reason", "pageCount", "fileSize", "characterCount"],
+        "refused": [
+          "outcome",
+          "reason",
+          "pageCount",
+          "fileSize",
+          "characterCount"
+        ],
         "failed": ["outcome", "reason"]
       },
       "values": {
@@ -120,6 +126,7 @@
       "side": "bridge",
       "method": "POST",
       "path": "/api/ai-bridge/internal/filter-pages",
+      "changesPageContent": false,
       "auth": ["service", "user"],
       "acceptsTaskToken": true,
       "request": ["pageIds", "spaceId"],
@@ -141,6 +148,7 @@
       "side": "bridge",
       "method": "POST",
       "path": "/api/ai-bridge/internal/task-token",
+      "changesPageContent": false,
       "auth": ["service", "user"],
       "acceptsTaskToken": false,
       "request": ["runId"],
@@ -161,6 +169,7 @@
       "side": "bridge",
       "method": "POST",
       "path": "/api/ai-bridge/internal/pages",
+      "changesPageContent": false,
       "auth": ["service"],
       "request": ["cursor"],
       "response": [
@@ -183,6 +192,7 @@
       "side": "bridge",
       "method": "POST",
       "path": "/api/ai-bridge/internal/page-content",
+      "changesPageContent": false,
       "auth": ["service"],
       "request": ["pageId"],
       "response": [
@@ -211,6 +221,7 @@
       "side": "bridge",
       "method": "POST",
       "path": "/api/ai-bridge/internal/attachment",
+      "changesPageContent": false,
       "auth": ["service"],
       "request": ["attachmentId"],
       "response": [],
@@ -230,6 +241,7 @@
       "side": "bridge",
       "method": "POST",
       "path": "/api/ai-bridge/internal/tools/read-page",
+      "changesPageContent": false,
       "auth": ["service", "user"],
       "acceptsTaskToken": true,
       "request": ["pageId"],
@@ -251,14 +263,11 @@
       "side": "bridge",
       "method": "POST",
       "path": "/api/ai-bridge/internal/tools/search",
+      "changesPageContent": false,
       "auth": ["service", "user"],
       "acceptsTaskToken": true,
       "request": ["spaceId", "query"],
-      "response": [
-        "results[].id",
-        "results[].title",
-        "results[].spaceId"
-      ],
+      "response": ["results[].id", "results[].title", "results[].spaceId"],
       "maxResults": 20,
       "status": 200,
       "errors": [
@@ -271,6 +280,39 @@
         "user_id_not_allowed",
         "invalid_request",
         "space_not_found"
+      ]
+    },
+    {
+      "side": "bridge",
+      "method": "POST",
+      "path": "/api/ai-bridge/internal/tools/read-blocks",
+      "changesPageContent": false,
+      "auth": ["service", "user"],
+      "acceptsTaskToken": true,
+      "request": ["pageId", "spaceId"],
+      "response": [
+        "id",
+        "title",
+        "spaceId",
+        "fingerprint",
+        "blocks[].number",
+        "blocks[].text",
+        "blocks[].heading",
+        "blocks[].isHeading",
+        "blocks[].editable"
+      ],
+      "status": 200,
+      "errors": [
+        "assistant_disabled",
+        "assistant_unavailable",
+        "service_token_missing",
+        "service_token_invalid",
+        "user_token_missing",
+        "user_token_expired",
+        "user_token_invalid",
+        "user_id_not_allowed",
+        "invalid_request",
+        "page_not_found"
       ]
     },
     {
@@ -342,7 +384,13 @@
           "fields[].quote",
           "fields[].pdfPage"
         ],
-        "refused": ["outcome", "reason", "pageCount", "fileSize", "characterCount"],
+        "refused": [
+          "outcome",
+          "reason",
+          "pageCount",
+          "fileSize",
+          "characterCount"
+        ],
         "failed": ["outcome", "reason"]
       },
       "values": {
