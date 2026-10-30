@@ -4,12 +4,19 @@ import {
   Loader,
   Paper,
   Stack,
+  Tabs,
   Text,
   Title,
   UnstyledButton,
 } from "@mantine/core";
 import { IconSparkles } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
+import { useAtom } from "jotai";
+import AgentTaskTab from "@/features/ai-assistant/components/agent-task-tab.tsx";
+import {
+  assistantTabAtom,
+  type AssistantTab,
+} from "@/features/ai-assistant/atoms/assistant-tab-atom.ts";
 import AskAnswer from "@/features/ai-assistant/components/ask-answer.tsx";
 import AskInput from "@/features/ai-assistant/components/ask-input.tsx";
 import AskScopeSelect from "@/features/ai-assistant/components/ask-scope-select.tsx";
@@ -26,6 +33,78 @@ const EXAMPLE_QUESTION_KEYS = [
 
 export default function AiAssistantPanel() {
   const { t } = useTranslation();
+  const [tab, setTab] = useAtom(assistantTabAtom);
+  const { data, isPending, isFetching, refetch } = useAiAssistantStatusQuery();
+
+  if (isPending) {
+    return <Loader size="sm" />;
+  }
+
+  const isAvailable = data?.status === "available";
+  const retry = () => refetch({ cancelRefetch: false });
+
+  return (
+    <Tabs
+      value={tab}
+      onChange={(value) => setTab(value as AssistantTab)}
+      keepMounted={false}
+    >
+      <Tabs.List grow>
+        <Tabs.Tab value="ask">{t("Ask")}</Tabs.Tab>
+        <Tabs.Tab value="task">{t("Task")}</Tabs.Tab>
+      </Tabs.List>
+      <Tabs.Panel value="ask" pt="md">
+        <AskTab
+          isAvailable={isAvailable}
+          isFetching={isFetching}
+          retry={retry}
+        />
+      </Tabs.Panel>
+      <Tabs.Panel value="task" pt="md">
+        {isAvailable ? (
+          <AgentTaskTab />
+        ) : (
+          <UnavailableNotice isFetching={isFetching} retry={retry} />
+        )}
+      </Tabs.Panel>
+    </Tabs>
+  );
+}
+
+type StatusRetry = {
+  isFetching: boolean;
+  retry: () => Promise<unknown>;
+};
+
+function UnavailableNotice({
+  isFetching,
+  retry,
+  onRetried,
+}: StatusRetry & { onRetried?: () => void }) {
+  const { t } = useTranslation();
+
+  return (
+    <Stack gap="sm">
+      <Alert color="yellow" variant="light">
+        <Text size="sm">{t(UNAVAILABLE_KEY)}</Text>
+      </Alert>
+      <Button
+        variant="default"
+        loading={isFetching}
+        onClick={() => retry().then(onRetried)}
+      >
+        {t("Try again")}
+      </Button>
+    </Stack>
+  );
+}
+
+function AskTab({
+  isAvailable,
+  isFetching,
+  retry,
+}: StatusRetry & { isAvailable: boolean }) {
+  const { t } = useTranslation();
   const {
     turns,
     scope,
@@ -36,19 +115,8 @@ export default function AiAssistantPanel() {
     isUnavailable,
     clearUnavailable,
   } = useAskConversation();
-  const { data, isPending, isFetching, refetch } = useAiAssistantStatusQuery();
 
-  if (isPending) {
-    return <Loader size="sm" />;
-  }
-
-  const unavailableNotice = (
-    <Alert color="yellow" variant="light">
-      <Text size="sm">{t(UNAVAILABLE_KEY)}</Text>
-    </Alert>
-  );
-
-  if (data?.status === "available" && !isUnavailable) {
+  if (isAvailable && !isUnavailable) {
     return (
       <Stack gap="sm">
         <AskScopeSelect scope={scope} onChange={setScope} />
@@ -100,16 +168,11 @@ export default function AiAssistantPanel() {
 
   return (
     <Stack gap="sm">
-      {unavailableNotice}
-      <Button
-        variant="default"
-        loading={isFetching}
-        onClick={() =>
-          refetch({ cancelRefetch: false }).then(clearUnavailable)
-        }
-      >
-        {t("Try again")}
-      </Button>
+      <UnavailableNotice
+        isFetching={isFetching}
+        retry={retry}
+        onRetried={clearUnavailable}
+      />
       <AskInput disabled isPending={false} onSend={send} onStop={stop} />
     </Stack>
   );

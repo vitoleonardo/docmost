@@ -12,10 +12,15 @@ import type {
   IAskRequest,
 } from "@/features/ai-assistant/types/ai-assistant.types.ts";
 
-vi.mock("@/features/ai-assistant/services/ai-assistant-service.ts", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/features/ai-assistant/services/ai-assistant-service.ts")>()),
-  askQuestion: vi.fn(),
-}));
+vi.mock(
+  "@/features/ai-assistant/services/ai-assistant-service.ts",
+  async (importOriginal) => ({
+    ...(await importOriginal<
+      typeof import("@/features/ai-assistant/services/ai-assistant-service.ts")
+    >()),
+    askQuestion: vi.fn(),
+  }),
+);
 
 const askMock = vi.mocked(askQuestion);
 
@@ -99,7 +104,10 @@ describe("useAskConversation", () => {
     act(() => runs[0].emit({ type: "sources", sources: [SOURCE] }));
     await act(async () => runs[0].finish());
 
-    expect(result.current.turns[0]).toMatchObject({ status: "done", sources: [SOURCE] });
+    expect(result.current.turns[0]).toMatchObject({
+      status: "done",
+      sources: [SOURCE],
+    });
     expect(result.current.isPending).toBe(false);
   });
 
@@ -113,7 +121,10 @@ describe("useAskConversation", () => {
     act(() => runs[0].emit({ type: "no_source" }));
     await act(async () => runs[0].finish());
 
-    expect(result.current.turns[0]).toMatchObject({ status: "no_source", answer: "" });
+    expect(result.current.turns[0]).toMatchObject({
+      status: "no_source",
+      answer: "",
+    });
   });
 
   it("ASK-AC66: an error event marks the turn error and keeps the partial text", async () => {
@@ -127,7 +138,10 @@ describe("useAskConversation", () => {
     act(() => runs[0].emit({ type: "error", code: "model_unavailable" }));
     await act(async () => runs[0].finish());
 
-    expect(result.current.turns[0]).toMatchObject({ status: "error", answer: "Teil" });
+    expect(result.current.turns[0]).toMatchObject({
+      status: "error",
+      answer: "Teil",
+    });
   });
 
   it("ASK-AC66: assistant_unavailable drops the turn and raises the unavailable flag", async () => {
@@ -158,7 +172,9 @@ describe("useAskConversation", () => {
       await result.current.send("Zwei?");
     });
 
-    expect(result.current.turns.map((turn) => turn.question)).toEqual(["Eins?"]);
+    expect(result.current.turns.map((turn) => turn.question)).toEqual([
+      "Eins?",
+    ]);
     expect(result.current.isUnavailable).toBe(true);
 
     act(() => result.current.clearUnavailable());
@@ -316,7 +332,10 @@ describe("useAskConversation", () => {
       void result.current.send("c");
     });
 
-    expect(runs[0].body).toEqual({ question: "a", conversationId: expect.any(String) });
+    expect(runs[0].body).toEqual({
+      question: "a",
+      conversationId: expect.any(String),
+    });
     expect(runs[1].body).toMatchObject({ spaceId: "s1" });
     expect(runs[1].body).not.toHaveProperty("pageId");
     expect(runs[2].body).toMatchObject({ pageId: "p1" });
@@ -325,12 +344,17 @@ describe("useAskConversation", () => {
 
   it("ASK-AC8: the scope survives unmount and remount", () => {
     const first = setup();
-    act(() => first.result.current.setScope({ kind: "space", spaceId: "space-it" }));
+    act(() =>
+      first.result.current.setScope({ kind: "space", spaceId: "space-it" }),
+    );
     first.unmount();
 
     const second = setup(first.store);
 
-    expect(second.result.current.scope).toEqual({ kind: "space", spaceId: "space-it" });
+    expect(second.result.current.scope).toEqual({
+      kind: "space",
+      spaceId: "space-it",
+    });
   });
 
   it("ASK-AC52: turns survive unmount and remount", async () => {

@@ -1576,6 +1576,8 @@
   "Tab actions for {{name}}": "Tab-Aktionen für {{name}}",
   "Inline base": "Inline-Basis",
   "Assistant": "Assistent",
+  "Ask": "Fragen",
+  "Task": "Aufgabe",
   "Ask the wiki": "Frag das Wiki",
   "Answers rely only on pages you are allowed to see and name their sources.": "Antworten stützen sich nur auf Seiten, die du sehen darfst, und nennen ihre Quellen.",
   "The assistant is currently unavailable. The wiki keeps working as usual.": "Der Assistent ist gerade nicht erreichbar. Das Wiki funktioniert normal weiter.",
