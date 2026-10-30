@@ -237,6 +237,30 @@ Measured on the M3 Pro with `qwen3:8b`, context 16,384, model loaded, 29.10.2026
 
 10 pages of 5 contracts: 19.4 s with the model loaded (47.0 s on the first call after Ollama started). With the default 4,096 context the same PDF fails after 23.4 s with `context_too_small`.
 
+## Agent (M8)
+
+Spec `specs/agent.md`. The tab "Aufgabe" in the assistant panel lets the model search and read pages of one space and propose changes; a change is written only when the user clicks "Übernehmen" (`POST /api/ai/agent/proposal/apply`, with the user's session). ai-service has no endpoint that changes a page.
+
+### Limits
+
+- 20 tool calls per run, 10 minutes per run, 200,000 tokens per run (prompt and completion summed).
+- 120 s per model call, then the run ends with "Das Sprachmodell antwortet gerade nicht. Versuche es später noch einmal."
+- 6,000 characters of block text per page read; later blocks are left out and the model is told.
+- One running run per user. A second start shows "Es läuft bereits eine Aufgabe. Warte, bis sie fertig ist, oder brich sie ab."
+- Runs and proposals are deleted 30 days after the run started, by the retention of the worker (`ai-service/src/ai_service/worker.py`). Start the worker as for indexing.
+- A run ends when its stream ends: "Abbrechen" and a reload stop it, closing the panel does not.
+
+### Collaboration Redis
+
+Reading a page for the agent and applying a proposal go through the collaboration server, so they see edits that are not saved yet. `COLLAB_DISABLE_REDIS` must not be `true`. With it set, reads come from the database without unsaved edits and every apply fails with `write_failed` ("Die Änderung konnte nicht übernommen werden. Versuche es noch einmal."). `docker-compose.dev.yml` runs Redis on port 6380.
+
+### Agent tests
+
+- Server e2e, local only: `pnpm --filter ./apps/server run test:e2e -- ai-agent` (`apps/server/test/ai-agent.e2e-spec.ts`, own database `docmost_ai_agent_test`, Redis db 12, an in-process stub for ai-service). Stop `pnpm dev` first, as for the other e2e suites.
+- ai-service, CI: `cd ai-service && uv run pytest -m "not integration"` (`tests/test_agent.py`, `test_agent_store.py`, `test_app_agent.py`, `test_proposals.py`; scripted model).
+- Client: `pnpm --filter ./apps/client exec vitest run src/features/ai-assistant`.
+- Screenshots of the tabs and G1 to G6: `apps/client/e2e/agent.screenshots.ts`, run as in "Verify data runs and screenshots". It mocks `POST /api/ai/status`, `POST /api/ai/agent/run` (a stream of events) and the proposal routes, and switches the seed users GF and WS to German for each test and back afterwards. The G2 test keeps the stream open. ai-service need not run.
+
 ## Leak tests
 
 Spec `specs/leak-tests.md`. The prompt-content check proves that the prompt sent to the model never holds a section the asking user may not view: every seed user, every leak question, every scope, with the real wiki filter, a recording model and an index built from the seed. It also covers revoked membership, a stale index entry and a restored page.
