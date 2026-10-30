@@ -293,6 +293,7 @@ class AgentBridge:
                                 "number": block.number,
                                 "text": block.text,
                                 "heading": block.heading,
+                                "isHeading": block.is_heading,
                                 "editable": block.editable,
                             }
                             for block in page.blocks

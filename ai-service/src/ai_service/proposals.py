@@ -18,6 +18,7 @@ class Block:
     text: str
     heading: str | None
     editable: bool
+    is_heading: bool = False
 
 
 @dataclass(frozen=True)

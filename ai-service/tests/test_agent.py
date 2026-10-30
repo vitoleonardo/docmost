@@ -346,6 +346,29 @@ def test_agent_ac19_a_read_step_reports_the_page_title_and_gives_numbered_blocks
     )
 
 
+def test_agent_ac34_a_heading_block_is_marked_in_the_read() -> None:
+    page = FakePage(
+        id=page_id(1),
+        space_id=SPACE_A,
+        title=TITLE,
+        blocks=(
+            Block(1, "Kilometerpauschale", None, True, is_heading=True),
+            Block(2, "Siehe @Buchhaltung", "Kilometerpauschale", False, is_heading=False),
+        ),
+    )
+    harness = Harness(page).script(answer(read(1)), final())
+
+    harness.run()
+
+    assert harness.last_tool_answer(1) == "\n".join(
+        [
+            f"Seite „{TITLE}“ ({page_id(1)})",
+            "[1] (Überschrift) Kilometerpauschale",
+            "[2] Siehe @Buchhaltung (nicht änderbar)",
+        ]
+    )
+
+
 def test_agent_ac20_a_proposal_step_is_followed_by_the_proposal_event() -> None:
     harness = Harness(travel_page()).script(answer(read(1)), answer(propose(1)), final())
 

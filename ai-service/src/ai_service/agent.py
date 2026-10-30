@@ -161,8 +161,9 @@ def blocks_within(blocks: Sequence[Block], limit: int = MAX_READ_CHARACTERS) -> 
 
 
 def block_line(block: Block) -> str:
+    kind = " (Überschrift)" if block.is_heading else ""
     suffix = "" if block.editable else " (nicht änderbar)"
-    return f"[{block.number}] {block.text}{suffix}"
+    return f"[{block.number}]{kind} {block.text}{suffix}"
 
 
 def read_answer(read: BlockRead, kept: Sequence[Block]) -> str:

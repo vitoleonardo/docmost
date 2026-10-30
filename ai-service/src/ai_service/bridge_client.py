@@ -134,15 +134,23 @@ def parse_block(item: Any) -> Block:
     if not isinstance(item, dict):
         raise malformed("read-blocks")
     number, heading, editable = item.get("number"), item.get("heading"), item.get("editable")
+    is_heading = item.get("isHeading")
     if (
         not isinstance(number, int)
         or isinstance(number, bool)
         or not isinstance(item.get("text"), str)
         or not (heading is None or isinstance(heading, str))
         or not isinstance(editable, bool)
+        or not isinstance(is_heading, bool)
     ):
         raise malformed("read-blocks")
-    return Block(number=number, text=item["text"], heading=heading, editable=editable)
+    return Block(
+        number=number,
+        text=item["text"],
+        heading=heading,
+        editable=editable,
+        is_heading=is_heading,
+    )
 
 
 def parse_search_result(item: Any) -> SearchResult:

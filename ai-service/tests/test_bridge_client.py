@@ -364,6 +364,35 @@ def test_agent_ac26_read_blocks_sends_the_task_token_and_parses_blocks() -> None
     assert bridge.tokens == [("/api/ai-bridge/internal/tools/read-blocks", TASK_TOKEN)]
 
 
+def test_agent_ac34_read_blocks_parses_is_heading() -> None:
+    heading = Block(number=1, text="Reisekosten", heading=None, editable=True, is_heading=True)
+    bridge = AgentBridge(
+        pages=[
+            FakePage(
+                id=PAGE_ID,
+                space_id=SPACE_ID,
+                title="Reisekosten",
+                blocks=(heading, BLOCKS[1]),
+            )
+        ]
+    )
+    read = bridge.client().read_blocks(TASK_TOKEN, PAGE_ID, SPACE_ID)
+    assert [block.is_heading for block in read.blocks] == [True, False]
+
+
+@pytest.mark.parametrize(
+    "is_heading",
+    [{}, {"isHeading": "true"}, {"isHeading": 1}],
+    ids=["missing", "string", "number"],
+)
+def test_agent_ac34_read_blocks_is_heading_must_be_a_bool(is_heading: dict[str, Any]) -> None:
+    block = {"number": 1, "text": "x", "heading": None, "editable": True, **is_heading}
+    body = {"id": PAGE_ID, "title": "t", "spaceId": SPACE_ID, "fingerprint": "f", "blocks": [block]}
+    client = client_for(lambda request: httpx.Response(200, json=body))
+    with pytest.raises(BridgeError):
+        client.read_blocks(TASK_TOKEN, PAGE_ID, SPACE_ID)
+
+
 def test_agent_ac26_tools_reject_the_user_token() -> None:
     client = agent_bridge().client()
     with pytest.raises(BridgeError):
