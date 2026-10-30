@@ -1,6 +1,5 @@
 import json
 import math
-import os
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
@@ -11,6 +10,7 @@ from typing import Any
 
 from ai_service.eval_sets import AgentScenario, ContractTruth, FieldTruth, GoldenQuestion
 from ai_service.extraction import normalise
+from ai_service.request_log_report import replace_file
 from ai_service.wiki_session import StartFailed
 
 METRIC_NAMES = (
@@ -428,9 +428,7 @@ def entry_document(entry: ThresholdEntry) -> dict[str, Any]:
 
 def write_thresholds(path: Path, thresholds: ThresholdList) -> None:
     document = {"entries": [entry_document(entry) for entry in thresholds.entries]}
-    temporary = path.with_name(f"{path.name}.tmp")
-    temporary.write_text(json.dumps(document, indent=2, ensure_ascii=False) + "\n")
-    os.replace(temporary, path)
+    replace_file(path, json.dumps(document, indent=2, ensure_ascii=False) + "\n")
 
 
 def exit_status(results: list[MetricResult], failed_requests: int, failed_judgements: int) -> int:

@@ -10,6 +10,7 @@ from typing import Any
 import httpx
 import pytest
 
+from ai_service.eval_cases import unwrap_data
 from ai_service.wiki_session import SEED_EMAILS
 from ai_service.wiki_session import log_in as log_in_with_retry
 
@@ -46,11 +47,6 @@ class AgentRun:
     @property
     def steps(self) -> int:
         return max((event["steps"] for event in self.events if event["type"] == "step"), default=0)
-
-
-def unwrap(body: dict[str, Any]) -> dict[str, Any]:
-    data = body.get("data")
-    return data if isinstance(data, dict) else body
 
 
 def tokens_from_log(run_id: str) -> str:
@@ -107,7 +103,7 @@ def session(wiki_url: str) -> Iterator[httpx.Client]:
 def space_id(session: httpx.Client) -> str:
     response = session.post("/api/spaces", json={})
     assert response.status_code == 200, response.text
-    [space] = [item for item in unwrap(response.json())["items"] if item["name"] == SPACE_NAME]
+    [space] = [item for item in unwrap_data(response.json())["items"] if item["name"] == SPACE_NAME]
     return space["id"]
 
 
@@ -141,7 +137,7 @@ def test_agent_ac114_the_proposal_is_open_editable_and_applies_to_the_page(
     [proposal] = [item for item in run.proposals if item["pageTitle"] == EXPECTED_TITLE]
     viewed = session.post("/api/ai/agent/proposal", json={"proposalId": proposal["id"]})
     assert viewed.status_code == 200, viewed.text
-    view = unwrap(viewed.json())
+    view = unwrap_data(viewed.json())
     assert view["status"] == "open"
     assert view["canEdit"] is True
 
@@ -153,7 +149,7 @@ def test_agent_ac114_the_proposal_is_open_editable_and_applies_to_the_page(
         json={"pageId": proposal["pageId"], "includeContent": True, "format": "markdown"},
     )
     assert info.status_code == 200, info.text
-    content = " ".join(str(unwrap(info.json())["content"]).replace("\\", "").split())
+    content = " ".join(str(unwrap_data(info.json())["content"]).replace("\\", "").split())
     added = [
         " ".join(op["text"].split())
         for change in view["changes"]
