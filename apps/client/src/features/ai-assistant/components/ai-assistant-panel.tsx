@@ -7,7 +7,6 @@ import {
   Tabs,
   Text,
   Title,
-  UnstyledButton,
 } from "@mantine/core";
 import { IconSparkles } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
@@ -18,8 +17,10 @@ import {
   type AssistantTab,
 } from "@/features/ai-assistant/atoms/assistant-tab-atom.ts";
 import AskAnswer from "@/features/ai-assistant/components/ask-answer.tsx";
+import ExampleButton from "@/features/ai-assistant/components/example-button.tsx";
 import AskInput from "@/features/ai-assistant/components/ask-input.tsx";
 import AskScopeSelect from "@/features/ai-assistant/components/ask-scope-select.tsx";
+import { useAgentRun } from "@/features/ai-assistant/hooks/use-agent-run.ts";
 import { useAskConversation } from "@/features/ai-assistant/hooks/use-ask-conversation.ts";
 import { useAiAssistantStatusQuery } from "@/features/ai-assistant/queries/ai-assistant-query.ts";
 
@@ -62,7 +63,7 @@ export default function AiAssistantPanel() {
       </Tabs.Panel>
       <Tabs.Panel value="task" pt="md">
         {isAvailable ? (
-          <AgentTaskTab />
+          <TaskTab isFetching={isFetching} retry={retry} />
         ) : (
           <UnavailableNotice isFetching={isFetching} retry={retry} />
         )}
@@ -99,6 +100,20 @@ function UnavailableNotice({
   );
 }
 
+function TaskTab({ isFetching, retry }: StatusRetry) {
+  const { unavailable, clearUnavailable } = useAgentRun();
+
+  if (!unavailable) return <AgentTaskTab />;
+
+  return (
+    <UnavailableNotice
+      isFetching={isFetching}
+      retry={retry}
+      onRetried={clearUnavailable}
+    />
+  );
+}
+
 function AskTab({
   isAvailable,
   isFetching,
@@ -132,18 +147,11 @@ function AskTab({
               )}
             </Text>
             {EXAMPLE_QUESTION_KEYS.map((key) => (
-              <UnstyledButton
+              <ExampleButton
                 key={key}
-                w="100%"
-                p="xs"
-                style={{
-                  border: "1px solid var(--mantine-color-default-border)",
-                  borderRadius: "var(--mantine-radius-sm)",
-                }}
+                text={t(key)}
                 onClick={() => send(t(key))}
-              >
-                <Text size="sm">{t(key)}</Text>
-              </UnstyledButton>
+              />
             ))}
           </Stack>
         ) : (

@@ -1610,5 +1610,22 @@
   "The file is {{size}} MB. Files up to 10 pages, 10 MB and 30,000 characters of text are extracted.": "Die Datei ist {{size}} MB groß. Extrahiert werden Dateien bis 10 Seiten, 10 MB und 30.000 Zeichen Text.",
   "The file contains {{count}} characters of text. Files up to 10 pages, 10 MB and 30,000 characters of text are extracted.": "Die Datei enthält {{count}} Zeichen Text. Extrahiert werden Dateien bis 10 Seiten, 10 MB und 30.000 Zeichen Text.",
   "This PDF cannot be read.": "Diese PDF kann nicht gelesen werden.",
-  "The attachment is no longer available or you may not edit the page.": "Der Anhang ist nicht mehr verfügbar oder du darfst die Seite nicht bearbeiten."
+  "The attachment is no longer available or you may not edit the page.": "Der Anhang ist nicht mehr verfügbar oder du darfst die Seite nicht bearbeiten.",
+  "No space": "Kein Bereich",
+  "The assistant can search pages, read them and suggest changes. Nothing is changed without your confirmation.": "Der Assistent kann Seiten suchen, lesen und Änderungen vorschlagen. Nichts wird ohne deine Bestätigung geändert.",
+  "Examples": "Beispiele",
+  "Find outdated pages about travel expenses and suggest updates": "Finde veraltete Seiten zu Reisekosten und schlage Updates vor",
+  "Check whether pages about vacation requests contradict each other": "Prüfe, ob sich Seiten zum Urlaubsantrag widersprechen",
+  "Describe the task …": "Aufgabe beschreiben …",
+  "Start": "Starten",
+  "A task is already running. Wait until it finishes or cancel it.": "Es läuft bereits eine Aufgabe. Warte, bis sie fertig ist, oder brich sie ab.",
+  "{{task}} · {{space}}": "{{task}} · {{space}}",
+  "Searched: „{{query}}“: {{count}} pages": "Gesucht: „{{query}}“: {{count}} Seiten",
+  "Searched: „{{query}}“: 1 page": "Gesucht: „{{query}}“: 1 Seite",
+  "Searched: „{{query}}“: no pages": "Gesucht: „{{query}}“: keine Seiten",
+  "Read: „{{title}}“": "Gelesen: „{{title}}“",
+  "Proposal created: „{{title}}“": "Vorschlag erstellt: „{{title}}“",
+  "Step without result": "Schritt ohne Ergebnis",
+  "Step {{count}} of at most 20": "Schritt {{count}} von höchstens 20",
+  "{{minutes}}:{{seconds}} min": "{{minutes}}:{{seconds}} min"
 }

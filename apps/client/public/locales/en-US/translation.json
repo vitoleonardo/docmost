@@ -1610,5 +1610,22 @@
   "The file is {{size}} MB. Files up to 10 pages, 10 MB and 30,000 characters of text are extracted.": "The file is {{size}} MB. Files up to 10 pages, 10 MB and 30,000 characters of text are extracted.",
   "The file contains {{count}} characters of text. Files up to 10 pages, 10 MB and 30,000 characters of text are extracted.": "The file contains {{count}} characters of text. Files up to 10 pages, 10 MB and 30,000 characters of text are extracted.",
   "This PDF cannot be read.": "This PDF cannot be read.",
-  "The attachment is no longer available or you may not edit the page.": "The attachment is no longer available or you may not edit the page."
+  "The attachment is no longer available or you may not edit the page.": "The attachment is no longer available or you may not edit the page.",
+  "No space": "No space",
+  "The assistant can search pages, read them and suggest changes. Nothing is changed without your confirmation.": "The assistant can search pages, read them and suggest changes. Nothing is changed without your confirmation.",
+  "Examples": "Examples",
+  "Find outdated pages about travel expenses and suggest updates": "Find outdated pages about travel expenses and suggest updates",
+  "Check whether pages about vacation requests contradict each other": "Check whether pages about vacation requests contradict each other",
+  "Describe the task …": "Describe the task …",
+  "Start": "Start",
+  "A task is already running. Wait until it finishes or cancel it.": "A task is already running. Wait until it finishes or cancel it.",
+  "{{task}} · {{space}}": "{{task}} · {{space}}",
+  "Searched: „{{query}}“: {{count}} pages": "Searched: „{{query}}“: {{count}} pages",
+  "Searched: „{{query}}“: 1 page": "Searched: „{{query}}“: 1 page",
+  "Searched: „{{query}}“: no pages": "Searched: „{{query}}“: no pages",
+  "Read: „{{title}}“": "Read: „{{title}}“",
+  "Proposal created: „{{title}}“": "Proposal created: „{{title}}“",
+  "Step without result": "Step without result",
+  "Step {{count}} of at most 20": "Step {{count}} of at most 20",
+  "{{minutes}}:{{seconds}} min": "{{minutes}}:{{seconds}} min"
 }
