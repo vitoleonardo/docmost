@@ -4,7 +4,7 @@ import time
 from collections.abc import Callable
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from types import TracebackType
 from typing import NoReturn
 
@@ -251,40 +251,41 @@ class Worker:
 
     def _retain(self, session: IndexSession) -> None:
         try:
-            self._retain_agent_runs(session)
-            self._retain_request_log(session)
+            self._retain_rows(
+                "Agent run",
+                session.delete_agent_runs_started_before,
+                RUN_RETENTION,
+                "retention deleted_runs=%d",
+            )
+            self._retain_rows(
+                "Request log",
+                session.delete_request_log_rows_before,
+                REQUEST_LOG_RETENTION,
+                "retention deleted_requests=%d",
+            )
         finally:
             self._last_retention = self._clock()
 
-    def _retain_agent_runs(self, session: IndexSession) -> None:
+    def _retain_rows(
+        self,
+        label: str,
+        delete_before: Callable[[datetime], int],
+        retention: timedelta,
+        deleted_line: str,
+    ) -> None:
         try:
-            deleted = session.delete_agent_runs_started_before(self._wall_clock() - RUN_RETENTION)
+            deleted = delete_before(self._wall_clock() - retention)
         except psycopg.OperationalError:
             raise
         except Exception as error:
             self._logger.warning(
-                "Agent run retention failed, next retention in %d s: %s",
+                "%s retention failed, next retention in %d s: %s",
+                label,
                 RETENTION_INTERVAL_SECONDS,
                 type(error).__name__,
             )
         else:
-            self._logger.info("retention deleted_runs=%d", deleted)
-
-    def _retain_request_log(self, session: IndexSession) -> None:
-        try:
-            deleted = session.delete_request_log_rows_before(
-                self._wall_clock() - REQUEST_LOG_RETENTION
-            )
-        except psycopg.OperationalError:
-            raise
-        except Exception as error:
-            self._logger.warning(
-                "Request log retention failed, next retention in %d s: %s",
-                RETENTION_INTERVAL_SECONDS,
-                type(error).__name__,
-            )
-        else:
-            self._logger.info("retention deleted_requests=%d", deleted)
+            self._logger.info(deleted_line, deleted)
 
 
 def main() -> None:

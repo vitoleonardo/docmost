@@ -207,8 +207,8 @@ class ExtractionPipeline:
             LOGGER.warning("extract attachment=%s error=%s", attachment_id, type(error).__name__)
             self._request_log.finish(timer, "error", run.tally)
             raise
-        self._request_log.finish(timer, run.outcome, run.tally)
         self._log(attachment_id, run, self._clock() - started_at)
+        self._request_log.finish(timer, run.outcome, run.tally)
         return result
 
     def _extract(self, attachment_id: str, file_size: int, run: ExtractionRun) -> ExtractionResult:

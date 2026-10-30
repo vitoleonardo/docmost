@@ -926,3 +926,22 @@ def test_reqlog_ac48_complete_json_with_only_a_prompt_count_gives_completion_non
     body = envelope('{"parties": "A"}', {"prompt_tokens": 4814})
     result = chat_model(serving(body)).complete_json(MESSAGES, SCHEMA)
     assert (result.prompt_tokens, result.completion_tokens) == (4814, None)
+
+
+def test_reqlog_ac48_a_negative_count_in_a_completion_counts_as_missing():
+    body = envelope('{"parties": "A"}', {"prompt_tokens": -1, "completion_tokens": 250})
+    result = chat_model(serving(body)).complete_json(MESSAGES, SCHEMA)
+    assert (result.prompt_tokens, result.completion_tokens) == (None, 250)
+
+
+def test_reqlog_ac48_a_negative_count_in_the_stream_counts_as_missing():
+    chunk = {"choices": [], "usage": {"prompt_tokens": 12, "completion_tokens": -3}}
+    usage = StreamUsage()
+    list(chat_model(serving(stream_of(chunk_line(chunk)))).stream(MESSAGES, usage))
+    assert (usage.prompt_tokens, usage.completion_tokens) == (12, None)
+
+
+def test_reqlog_ac48_a_zero_count_is_kept():
+    body = envelope('{"parties": "A"}', {"prompt_tokens": 0, "completion_tokens": 0})
+    result = chat_model(serving(body)).complete_json(MESSAGES, SCHEMA)
+    assert (result.prompt_tokens, result.completion_tokens) == (0, 0)

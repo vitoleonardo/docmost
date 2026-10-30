@@ -1,5 +1,7 @@
 import hmac
 import logging
+import queue
+import threading
 import time
 import uuid
 from collections.abc import Callable, Sequence
@@ -18,8 +20,18 @@ Task = Literal["ask", "extraction", "agent"]
 
 REQUEST_LOG_RETENTION = timedelta(days=30)
 WRITE_TIMEOUT_SECONDS = 5
+QUEUE_ROWS = 1_000
+WRITER_NAME = "request-log-writer"
 LOGGER = logging.getLogger("ai_service.request_log")
 UTC_NOW = partial(datetime.now, UTC)
+
+
+class QueueFull(Exception):
+    pass
+
+
+class RequestLogClosed(Exception):
+    pass
 
 
 def pseudonym(secret: str, user_id: str) -> str:
@@ -72,15 +84,14 @@ class RequestLogStore:
         self._conn = conn
 
     def insert(self, record: RequestRecord) -> None:
-        with self._conn.transaction():
-            self._conn.execute(
-                """
-                INSERT INTO ai.request_log (id, created_at, task, mode, model, prompt_tokens,
-                    completion_tokens, latency_ms, cost_usd, status, user_pseudonym, workspace_id)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                """,
-                astuple(record),
-            )
+        self._conn.execute(
+            """
+            INSERT INTO ai.request_log (id, created_at, task, mode, model, prompt_tokens,
+                completion_tokens, latency_ms, cost_usd, status, user_pseudonym, workspace_id)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """,
+            astuple(record),
+        )
 
     def rows_since(self, cutoff: datetime) -> list[RequestRecord]:
         with self._conn.transaction():
@@ -122,6 +133,7 @@ class RequestLog:
         wall_clock: Callable[[], datetime] = UTC_NOW,
         clock: Callable[[], float] = time.monotonic,
         logger: logging.Logger = LOGGER,
+        queue_rows: int = QUEUE_ROWS,
     ) -> None:
         self._database_url = database_url
         self._secret = secret
@@ -131,6 +143,10 @@ class RequestLog:
         self._wall_clock = wall_clock
         self._clock = clock
         self._logger = logger
+        self._rows: queue.Queue[RequestRecord | threading.Event | None] = queue.Queue(queue_rows)
+        self._lock = threading.Lock()
+        self._accepting = True
+        self._writer: threading.Thread | None = None
 
     def start(self, task: Task, user_id: str, workspace_id: str) -> RequestTimer:
         return RequestTimer(
@@ -168,15 +184,74 @@ class RequestLog:
 
     def finish(self, timer: RequestTimer, status: str, tally: TokenTally) -> None:
         try:
-            record = self.record(timer, status, tally)
-            with psycopg.connect(
-                self._database_url,
-                autocommit=True,
-                connect_timeout=WRITE_TIMEOUT_SECONDS,
-                options=f"-c statement_timeout={WRITE_TIMEOUT_SECONDS * 1000}",
-            ) as conn:
-                RequestLogStore(conn).insert(record)
+            self._enqueue(self.record(timer, status, tally))
         except Exception as error:
-            self._logger.warning(
-                "request log write failed task=%s error=%s", timer.task, type(error).__name__
-            )
+            self._failed(timer.task, error)
+
+    def flush(self, timeout: float) -> bool:
+        with self._lock:
+            writer = self._writer
+            accepting = self._accepting
+        if writer is None:
+            return True
+        if not accepting:
+            writer.join(timeout)
+            return not writer.is_alive()
+        deadline = time.monotonic() + timeout
+        written = threading.Event()
+        try:
+            self._rows.put(written, timeout=timeout)
+        except queue.Full:
+            return False
+        return written.wait(max(deadline - time.monotonic(), 0))
+
+    def close(self, timeout: float) -> None:
+        with self._lock:
+            self._accepting = False
+            writer = self._writer
+        if writer is None:
+            return
+        deadline = time.monotonic() + timeout
+        try:
+            self._rows.put(None, timeout=timeout)
+        except queue.Full:
+            return
+        writer.join(max(deadline - time.monotonic(), 0))
+
+    def _enqueue(self, record: RequestRecord) -> None:
+        with self._lock:
+            if not self._accepting:
+                raise RequestLogClosed
+            if self._writer is None:
+                self._writer = threading.Thread(
+                    target=self._write_rows, name=WRITER_NAME, daemon=True
+                )
+                self._writer.start()
+            try:
+                self._rows.put_nowait(record)
+            except queue.Full:
+                raise QueueFull from None
+
+    def _write_rows(self) -> None:
+        while (item := self._rows.get()) is not None:
+            if isinstance(item, threading.Event):
+                item.set()
+                continue
+            try:
+                self._write(item)
+            except Exception as error:
+                self._failed(item.task, error)
+
+    def _write(self, record: RequestRecord) -> None:
+        with psycopg.connect(
+            self._database_url,
+            autocommit=True,
+            connect_timeout=WRITE_TIMEOUT_SECONDS,
+            options=f"-c statement_timeout={WRITE_TIMEOUT_SECONDS * 1000}",
+        ) as conn:
+            RequestLogStore(conn).insert(record)
+
+    def _failed(self, task: Task, error: Exception) -> None:
+        self._logger.warning(
+            "request log write failed task=%s error=%s", task, type(error).__name__
+        )

@@ -157,10 +157,13 @@ class FakeStore:
     ended: list[tuple[str, RunOutcome, int, int]] = field(default_factory=list)
     proposals: list[StoredProposal] = field(default_factory=list)
     save_failure: Exception | None = None
+    create_failure: Exception | None = None
 
     def create_run(
         self, run_id: str, user_id: str, workspace_id: str, space_id: str, task: str
     ) -> None:
+        if self.create_failure is not None:
+            raise self.create_failure
         self.runs.append((run_id, user_id, workspace_id, space_id, task))
 
     def append_step(self, run_id: str, label: dict[str, Any], step_count: int) -> None:
@@ -1224,3 +1227,42 @@ def test_reqlog_ac8_the_token_limit_keeps_summing_prompt_and_completion() -> Non
 
     assert end_event(events)["outcome"] == "token_limit"
     assert logged(harness) == [("agent", "token_limit", 150_000, 60_000)]
+
+
+def test_reqlog_ac8_a_wiki_failure_at_the_task_token_writes_one_error_record_without_tokens() -> (
+    None
+):
+    harness = Harness(travel_page())
+    harness.bridge.fail_next("unreachable")
+
+    with pytest.raises(BridgeUnreachable):
+        harness.prepare()
+
+    assert harness.recording.started == [("agent", USER_ID, WORKSPACE_ID)]
+    assert logged(harness) == [("agent", "error", 0, 0)]
+
+
+def test_reqlog_ac8_a_failing_create_run_writes_one_error_record_and_reraises() -> None:
+    harness = Harness(travel_page())
+    harness.store.create_failure = RuntimeError("database gone")
+
+    with pytest.raises(RuntimeError, match="database gone"):
+        harness.prepare()
+
+    assert logged(harness) == [("agent", "error", 0, 0)]
+
+
+def test_reqlog_ac19_the_latency_of_a_run_includes_the_task_token_exchange() -> None:
+    harness = Harness(travel_page()).script(final())
+    original = harness.bridge.handle
+
+    def slow_task_token(request: httpx.Request) -> httpx.Response:
+        if request.url.path == TASK_TOKEN_PATH:
+            harness.recording.fake_clock.now += 1.5
+        return original(request)
+
+    harness.bridge_client = mock_client(slow_task_token)
+
+    harness.run()
+
+    assert [record.latency_ms for record in harness.recording.records] == [1_500]

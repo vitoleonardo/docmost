@@ -637,6 +637,43 @@ def test_reqlog_ac52_an_unreachable_log_database_changes_nothing_the_client_rece
         RUNS, headers=headers, json=RUN_BODY
     )
 
+    assert harness.request_log.flush(WAIT_SECONDS)
+
     assert response.status_code == 200
     assert without_run_id(lines(response)) == working
     assert any(line.startswith("request log write failed task=agent") for line in warnings(caplog))
+
+
+def test_reqlog_ac8_a_wiki_failure_before_the_stream_is_503_with_one_error_record(
+    harness: Harness, redis_client: Redis, headers: dict[str, str]
+):
+    harness.bridge.fail_next("unreachable")
+
+    response = TestClient(make_app(harness, redis_client)).post(
+        RUNS, headers=headers, json=RUN_BODY
+    )
+
+    assert response.status_code == 503
+    assert response.json() == {
+        "code": "assistant_unavailable",
+        "message": "The wiki is not available.",
+    }
+    assert redis_client.get(LOCK_KEY) is None
+    assert [
+        (record.task, record.status, record.prompt_tokens, record.completion_tokens)
+        for record in harness.recording.records
+    ] == [("agent", "error", 0, 0)]
+
+
+def test_reqlog_ac12_a_run_in_progress_is_refused_before_the_runner_is_prepared(
+    harness: Harness, redis_client: Redis, headers: dict[str, str]
+):
+    redis_client.set(LOCK_KEY, "another-run")
+
+    response = TestClient(make_app(harness, redis_client)).post(
+        RUNS, headers=headers, json=RUN_BODY
+    )
+
+    assert response.status_code == 409
+    assert harness.recording.started == []
+    assert harness.recording.records == []

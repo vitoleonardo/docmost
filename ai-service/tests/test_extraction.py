@@ -10,6 +10,7 @@ from ai_service import extraction
 from ai_service.bridge_client import BridgeUnavailable
 from ai_service.extraction import ExtractionPipeline
 from ai_service.inference import JsonCompletion, ModelUnavailable
+from ai_service.request_log import RequestTimer, TokenTally
 from tests.conftest import USER_ID, WORKSPACE_ID, FakeClock, RecordingRequestLog
 from tests.pdf_fixtures import build_blank_pdf, build_pdf
 
@@ -612,3 +613,21 @@ def test_reqlog_ac46_an_unexpected_error_is_logged_as_error_and_reraised() -> No
     with pytest.raises(RuntimeError):
         built.extract(ATTACHMENT_ID, 1000, USER_ID, WORKSPACE_ID)
     assert [r.status for r in request_log.records] == ["error"]
+
+
+def test_reqlog_ac5_the_extraction_log_line_leaves_out_the_request_log(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    clock = FakeClock()
+
+    class SlowRequestLog(RecordingRequestLog):
+        def finish(self, timer: RequestTimer, status: str, tally: TokenTally) -> None:
+            super().finish(timer, status, tally)
+            clock.now += 5.0
+
+    model = StubModel(answer(term=field_answer("2 Jahre", PLAIN_QUOTE)))
+    built, _ = pipeline(build_pdf([PLAIN_QUOTE]), model, clock, SlowRequestLog())
+    with caplog.at_level(logging.INFO, logger=LOGGER_NAME):
+        built.extract(ATTACHMENT_ID, 1000, USER_ID, WORKSPACE_ID)
+    [line] = log_lines(caplog)
+    assert " duration_ms=0 " in line

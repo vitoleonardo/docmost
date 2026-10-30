@@ -20,19 +20,22 @@ from ai_service.app import create_app
 from ai_service.auth import UserSession, decode_user_token
 from ai_service.embedding import EmbeddingModelError
 from ai_service.inference import StreamUsage
-from ai_service.request_log import RequestLog
+from ai_service.request_log import RequestLog, TokenTally
 from tests.conftest import (
     BRIDGE_KEY,
     REQUEST_LOG_KEY,
     SERVICE_CREDENTIAL,
     USER_ID,
     WORKSPACE_ID,
+    HeldRequestLog,
     idle_extraction_pipeline,
     make_settings,
     warnings,
 )
+from tests.hashing_embedder import HashingEmbedder
 from tests.index_db import SPACE_A, page_id
 from tests.test_ask import CONVERSATION_ID, OTHER_USER_ID, Harness, hit
+from tests.test_request_log import AT_ONCE_SECONDS, database_url_on, silent_server
 
 PATH = "/v1/ask"
 QUESTION = "Wie lautet die Regel?"
@@ -574,10 +577,43 @@ def test_reqlog_ac35_an_unreachable_log_database_changes_nothing_the_client_rece
     caplog.set_level(logging.WARNING)
 
     response = ask(make_client(harness, unreachable), headers)
+    assert unreachable.flush(TOKEN_TIMEOUT_SECONDS)
 
     assert response.status_code == 200
     assert without_turn_ids(lines(response)) == working
     assert any(line.startswith("request log write failed task=ask") for line in warnings(caplog))
+
+
+def test_reqlog_ac4_a_client_disconnect_does_not_wait_for_a_database_that_never_answers(
+    harness: Harness, headers: dict[str, str]
+):
+    harness.model.deltas = ["Erster Teil [1] ", "zweiter Teil ", "dritter Teil."]
+
+    async def disconnect(app: FastAPI) -> float:
+        call = AsgiCall(app, headers, BODY)
+        call.start()
+        assert await call.next_line() == {"type": "delta", "text": "Erster Teil [1] "}
+        started = time.monotonic()
+        call.disconnected.set()
+        await call.finish()
+        return time.monotonic() - started
+
+    with silent_server() as port:
+        held = HeldRequestLog(database_url_on(port))
+        app = create_app(
+            make_settings(),
+            fakeredis.FakeRedis(),
+            harness.pipeline(held),
+            idle_extraction_pipeline(),
+        )
+        try:
+            elapsed = asyncio.run(disconnect(app))
+        finally:
+            held.release.set()
+        assert elapsed < AT_ONCE_SECONDS
+        assert held.flush(TOKEN_TIMEOUT_SECONDS)
+
+    assert [(record.task, record.status) for record in held.written] == [("ask", "stopped")]
 
 
 def settings_environment(**overrides: str) -> dict[str, str]:
@@ -655,3 +691,25 @@ def test_ask_ac9_start_serves_the_app_with_the_loaded_model(
 
     assert loaded == ["jinaai/jina-embeddings-v2-base-de"]
     assert "/v1/ask" in [route.path for route in served[0].routes]
+
+
+def test_reqlog_ac1_the_api_writes_the_queued_rows_before_it_exits(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+):
+    monkeypatch.chdir(tmp_path)
+    for name, value in settings_environment().items():
+        monkeypatch.setenv(name, value)
+    monkeypatch.setattr(api_main, "check_database_role", lambda url: None)
+    monkeypatch.setattr(api_main, "load_embedder", lambda model_name: HashingEmbedder())
+    held = HeldRequestLog()
+    monkeypatch.setattr(api_main, "build_request_log", lambda settings: held)
+
+    def serve(app: FastAPI, **options: Any) -> None:
+        held.finish(held.start("ask", USER_ID, WORKSPACE_ID), "answered", TokenTally())
+        threading.Timer(0.2, held.release.set).start()
+
+    monkeypatch.setattr(api_main.uvicorn, "run", serve)
+
+    api_main.main()
+
+    assert [(record.task, record.status) for record in held.written] == [("ask", "answered")]

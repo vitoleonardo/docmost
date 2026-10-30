@@ -27,6 +27,8 @@ from ai_service.worker import (
     load_embedder,
 )
 
+REQUEST_LOG_DRAIN_SECONDS = 10.0
+
 
 def load_settings() -> AskSettings:
     return AskSettings()  # pyright: ignore[reportCallIssue]
@@ -115,17 +117,20 @@ def main() -> None:
         exit_with(str(error), error)
     redis: Redis = Redis.from_url(settings.redis_url, decode_responses=True)
     request_log = build_request_log(settings)
-    uvicorn.run(
-        create_app(
-            settings,
-            redis,
-            build_pipeline(settings, embedder, redis, request_log),
-            build_extraction_pipeline(settings, request_log),
-            build_agent_services(settings, request_log),
-        ),
-        host=settings.ai_service_host,
-        port=settings.ai_service_port,
-    )
+    try:
+        uvicorn.run(
+            create_app(
+                settings,
+                redis,
+                build_pipeline(settings, embedder, redis, request_log),
+                build_extraction_pipeline(settings, request_log),
+                build_agent_services(settings, request_log),
+            ),
+            host=settings.ai_service_host,
+            port=settings.ai_service_port,
+        )
+    finally:
+        request_log.close(REQUEST_LOG_DRAIN_SECONDS)
 
 
 if __name__ == "__main__":

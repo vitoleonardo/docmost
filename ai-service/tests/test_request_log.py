@@ -16,14 +16,16 @@ import pytest
 
 from ai_service.prices import LOCAL_MODE, Price
 from ai_service.request_log import (
+    QUEUE_ROWS,
     REQUEST_LOG_RETENTION,
+    WRITER_NAME,
     RequestLog,
     RequestLogStore,
     RequestRecord,
     TokenTally,
     pseudonym,
 )
-from tests.conftest import REQUEST_LOG_KEY, FakeClock, warnings
+from tests.conftest import REQUEST_LOG_KEY, FakeClock, HeldRequestLog, warnings
 from tests.test_db_role import AI_URL
 from tests.test_migrations import fresh_ai_schema, migrate, run_alembic, schemas_holding
 
@@ -37,6 +39,7 @@ HOUR = datetime(2026, 10, 30, 10, 0, tzinfo=UTC)
 RFC4231_KEY = "Jefe"
 RFC4231_DATA = "what do ya want for nothing?"
 RFC4231_DIGEST = "5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843"
+AT_ONCE_SECONDS = 0.5
 AGENT_REVISION = "0002_agent_tables"
 REQUEST_LOG_COLUMNS = [
     "id",
@@ -214,6 +217,133 @@ def test_reqlog_ac37_retention_is_thirty_days():
     assert REQUEST_LOG_RETENTION == timedelta(days=30)
 
 
+def writer_threads() -> set[threading.Thread]:
+    return {thread for thread in threading.enumerate() if thread.name == WRITER_NAME}
+
+
+def test_reqlog_ac35_finish_hands_the_row_to_the_writer_and_returns_at_once():
+    log = HeldRequestLog()
+    started = time.monotonic()
+    log.finish(log.start("ask", USER, WORKSPACE), "answered", tally((1_200, 300)))
+    elapsed = time.monotonic() - started
+    assert log.writing.wait(1)
+    log.release.set()
+    assert log.flush(1)
+    assert elapsed < AT_ONCE_SECONDS
+    assert [(r.task, r.status, r.prompt_tokens, r.completion_tokens) for r in log.written] == [
+        ("ask", "answered", 1_200, 300)
+    ]
+
+
+def test_reqlog_ac20_latency_ends_when_finish_is_called_not_when_the_row_is_written():
+    clock = FakeClock(now=100.0)
+    log = HeldRequestLog(clock=clock)
+    timer = log.start("ask", USER, WORKSPACE)
+    clock.now = 102.5
+    log.finish(timer, "answered", tally())
+    assert log.writing.wait(1)
+    clock.now = 110.0
+    log.release.set()
+    assert log.flush(1)
+    assert [record.latency_ms for record in log.written] == [2_500]
+
+
+def test_reqlog_ac36_the_queue_holds_1000_rows():
+    assert QUEUE_ROWS == 1_000
+
+
+def test_reqlog_ac36_a_full_queue_drops_the_row_with_one_failure_line_without_blocking(
+    caplog: pytest.LogCaptureFixture,
+):
+    caplog.set_level(logging.WARNING, logger="ai_service.request_log")
+    log = HeldRequestLog(queue_rows=1)
+    timer = log.start("ask", USER, WORKSPACE)
+    log.finish(timer, "answered", tally())
+    assert log.writing.wait(1)
+    log.finish(timer, "no_source", tally())
+    started = time.monotonic()
+    log.finish(timer, "stopped", tally())
+    elapsed = time.monotonic() - started
+    log.release.set()
+    assert log.flush(1)
+    assert elapsed < AT_ONCE_SECONDS
+    assert warnings(caplog) == ["request log write failed task=ask error=QueueFull"]
+    assert [record.status for record in log.written] == ["answered", "no_source"]
+    assert USER not in caplog.text
+    assert pseudonym(REQUEST_LOG_KEY, USER) not in caplog.text
+
+
+class FirstWriteFails(HeldRequestLog):
+    def __init__(self) -> None:
+        super().__init__()
+        self.failures = [RuntimeError("Urlaubsregeln")]
+
+    def _write(self, record: RequestRecord) -> None:
+        if self.failures:
+            raise self.failures.pop()
+        self.written.append(record)
+
+
+def test_reqlog_ac36_a_failing_write_logs_one_line_and_the_writer_goes_on(
+    caplog: pytest.LogCaptureFixture,
+):
+    caplog.set_level(logging.WARNING, logger="ai_service.request_log")
+    log = FirstWriteFails()
+    timer = log.start("agent", USER, WORKSPACE)
+    log.finish(timer, "finished", tally())
+    log.finish(timer, "cancelled", tally())
+    assert log.flush(1)
+    assert warnings(caplog) == ["request log write failed task=agent error=RuntimeError"]
+    assert [record.status for record in log.written] == ["cancelled"]
+    assert "Urlaubsregeln" not in caplog.text
+
+
+def test_reqlog_ac44_close_writes_the_queued_rows_and_stops_the_writer():
+    before = writer_threads()
+    log = HeldRequestLog()
+    timer = log.start("ask", USER, WORKSPACE)
+    for status in ("answered", "no_source", "stopped"):
+        log.finish(timer, status, tally())
+    assert len(writer_threads() - before) == 1
+    log.release.set()
+    log.close(1)
+    assert [record.status for record in log.written] == ["answered", "no_source", "stopped"]
+    assert writer_threads() == before
+
+
+def test_reqlog_ac36_close_gives_up_on_a_hanging_write_within_its_timeout():
+    log = HeldRequestLog()
+    log.finish(log.start("ask", USER, WORKSPACE), "answered", tally())
+    assert log.writing.wait(1)
+    started = time.monotonic()
+    log.close(0.2)
+    elapsed = time.monotonic() - started
+    log.release.set()
+    assert elapsed < AT_ONCE_SECONDS
+    assert log.flush(1)
+
+
+def test_reqlog_ac36_a_row_after_close_is_dropped_with_one_failure_line(
+    caplog: pytest.LogCaptureFixture,
+):
+    caplog.set_level(logging.WARNING, logger="ai_service.request_log")
+    log = HeldRequestLog()
+    log.close(1)
+    log.finish(log.start("extraction", USER, WORKSPACE), "extracted", tally())
+    assert warnings(caplog) == ["request log write failed task=extraction error=RequestLogClosed"]
+    assert log.written == []
+
+
+def test_reqlog_ac36_close_and_flush_without_any_row_return_at_once():
+    before = writer_threads()
+    log = HeldRequestLog()
+    started = time.monotonic()
+    assert log.flush(1)
+    log.close(1)
+    assert time.monotonic() - started < AT_ONCE_SECONDS
+    assert writer_threads() == before
+
+
 @pytest.fixture(scope="module")
 def database(tmp_path_factory: pytest.TempPathFactory) -> Iterator[None]:
     with fresh_ai_schema(tmp_path_factory.mktemp("request-log")):
@@ -260,6 +390,7 @@ def silent_server() -> Iterator[int]:
 def test_reqlog_ac14_finish_writes_one_row_with_mode_and_model(raw: psycopg.Connection):
     log = recorder()
     log.finish(log.start("ask", USER, WORKSPACE), "answered", tally((1_200, 300)))
+    assert log.flush(6)
     rows = stored_rows(raw)
     assert len(rows) == 1
     _, created_at, task, mode, model, prompt, completion, latency, cost, status, user, space = rows[
@@ -276,6 +407,7 @@ def test_reqlog_ac14_finish_writes_one_row_with_mode_and_model(raw: psycopg.Conn
 def test_reqlog_ac48_finish_writes_empty_counts_and_empty_cost(raw: psycopg.Connection):
     log = recorder(mode="api", model=API_MODEL)
     log.finish(log.start("agent", USER, WORKSPACE), "model_failed", tally((1_200, None)))
+    assert log.flush(6)
     [row] = stored_rows(raw)
     assert (row[5], row[6], row[8]) == (1_200, None, None)
 
@@ -296,6 +428,7 @@ def test_reqlog_ac25_table_holds_exactly_the_planned_columns(raw: psycopg.Connec
 def test_reqlog_ac25_row_holds_no_user_id(raw: psycopg.Connection):
     log = recorder()
     log.finish(log.start("ask", USER, WORKSPACE), "answered", tally((1, 1)))
+    assert log.flush(6)
     [row] = stored_rows(raw)
     assert all(USER not in str(value) for value in row)
 
@@ -338,6 +471,7 @@ def test_reqlog_ac44_two_requests_ending_at_the_same_moment_write_two_rows(
         thread.start()
     for thread in threads:
         thread.join()
+    assert log.flush(6)
     rows = stored_rows(raw)
     assert len(rows) == 2
     assert [row[1:] for row in rows][0] == [row[1:] for row in rows][1]
@@ -350,6 +484,7 @@ def test_reqlog_ac36_write_failure_logs_one_line_without_user_or_pseudonym(
     log = recorder(database_url=database_url_on(free_port()))
     caplog.set_level(logging.WARNING, logger="ai_service.request_log")
     log.finish(log.start("ask", USER, WORKSPACE), "answered", tally((1_200, 300)))
+    assert log.flush(6)
     assert warnings(caplog) == ["request log write failed task=ask error=OperationalError"]
     text = caplog.text
     assert USER not in text
@@ -358,7 +493,7 @@ def test_reqlog_ac36_write_failure_logs_one_line_without_user_or_pseudonym(
 
 
 @pytest.mark.integration
-def test_reqlog_ac53_silent_database_is_given_up_within_six_seconds(
+def test_reqlog_ac53_silent_database_holds_no_request_and_is_given_up_within_six_seconds(
     caplog: pytest.LogCaptureFixture,
 ):
     caplog.set_level(logging.WARNING, logger="ai_service.request_log")
@@ -367,8 +502,13 @@ def test_reqlog_ac53_silent_database_is_given_up_within_six_seconds(
         timer = log.start("extraction", USER, WORKSPACE)
         started = time.monotonic()
         log.finish(timer, "extracted", tally((4_814, 250)))
-        elapsed = time.monotonic() - started
-    assert elapsed < 6
+        returned = time.monotonic() - started
+        assert warnings(caplog) == []
+        flushed = log.flush(6)
+        given_up = time.monotonic() - started
+    assert returned < AT_ONCE_SECONDS
+    assert flushed
+    assert given_up < 6
     [line] = warnings(caplog)
     assert line.startswith("request log write failed task=extraction error=")
     assert USER not in caplog.text

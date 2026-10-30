@@ -296,7 +296,9 @@ class ChatModel:
         )
 
     def _token_count(self, value: object) -> int | None:
-        return value if isinstance(value, int) and not isinstance(value, bool) else None
+        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            return None
+        return value
 
     def _completion(self, response: httpx.Response) -> JsonCompletion:
         try:
@@ -347,13 +349,12 @@ class ChatModel:
     def _delta_text(self, payload: str, usage: StreamUsage | None) -> str:
         try:
             chunk = json.loads(payload)
-            reported = chunk.get("usage")
-            if isinstance(reported, dict) and usage is not None:
-                usage.prompt_tokens = self._token_count(reported.get("prompt_tokens"))
-                usage.completion_tokens = self._token_count(reported.get("completion_tokens"))
+            has_usage = isinstance(chunk.get("usage"), dict)
+            if has_usage and usage is not None:
+                usage.prompt_tokens, usage.completion_tokens = self._usage(chunk)
             choices = chunk.get("choices")
             if not isinstance(choices, list):
-                if isinstance(reported, dict):
+                if has_usage:
                     return ""
                 raise TypeError
             if not choices:

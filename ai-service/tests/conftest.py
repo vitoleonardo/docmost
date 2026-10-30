@@ -1,4 +1,5 @@
 import logging
+import threading
 import time
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
@@ -29,6 +30,8 @@ USER_ID = "0192f000-0000-7000-8000-000000000001"
 WORKSPACE_ID = "0192f000-0000-7000-8000-000000000002"
 TEST_REDIS_URL = "redis://127.0.0.1:6380/15"
 TEST_DATABASE_URL = "postgresql://docmost_ai:test-ai-password@127.0.0.1:5433/docmost"
+UNREACHABLE_DATABASE_URL = "postgresql://docmost_ai:test-ai-password@127.0.0.1:1/docmost"
+HOLD_SECONDS = 5
 
 
 class IsolatedSettings(Settings):
@@ -74,6 +77,20 @@ class RecordingRequestLog(RequestLog):
 
     def finish(self, timer: RequestTimer, status: str, tally: TokenTally) -> None:
         self.records.append(self.record(timer, status, tally))
+
+
+class HeldRequestLog(RequestLog):
+    def __init__(self, database_url: str = UNREACHABLE_DATABASE_URL, **overrides: Any) -> None:
+        super().__init__(database_url, REQUEST_LOG_KEY, "local", "stub-model", **overrides)
+        self.writing = threading.Event()
+        self.release = threading.Event()
+        self.written: list[RequestRecord] = []
+
+    def _write(self, record: RequestRecord) -> None:
+        self.writing.set()
+        if not self.release.wait(HOLD_SECONDS):
+            raise TimeoutError
+        self.written.append(record)
 
 
 def idle_ask_pipeline(redis: Redis) -> AskPipeline:

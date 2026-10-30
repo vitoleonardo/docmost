@@ -242,11 +242,15 @@ class AgentRunner:
     logger: logging.Logger = LOGGER
 
     def prepare(self, session: UserSession, space_id: str, task: str) -> PreparedRun:
+        timer = self.request_log.start("agent", session.user_id, session.workspace_id)
         started_at = self.clock()
         run_id = str(uuid.uuid4())
-        task_token = self.bridge.task_token(session.token, run_id).token
-        self.store.create_run(run_id, session.user_id, session.workspace_id, space_id, task)
-        timer = self.request_log.start("agent", session.user_id, session.workspace_id)
+        try:
+            task_token = self.bridge.task_token(session.token, run_id).token
+            self.store.create_run(run_id, session.user_id, session.workspace_id, space_id, task)
+        except Exception:
+            self.request_log.finish(timer, "error", TokenTally())
+            raise
         return PreparedRun(
             self, run_id, session.user_id, space_id, task, task_token, started_at, timer
         )
