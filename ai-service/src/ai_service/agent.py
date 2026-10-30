@@ -14,6 +14,7 @@ from ai_service.bridge_client import BlockRead, BridgeClient, BridgeError, NotFo
 from ai_service.extraction import MAX_CHARACTERS_PER_PROMPT_TOKEN
 from ai_service.inference import ModelCallCancelled, ModelUnavailable, ToolCall, ToolCompletion
 from ai_service.proposals import Block, PageRead, ProposalDraft, ProposalRefused, build_proposal
+from ai_service.request_log import RequestLog, RequestTimer, TokenTally
 
 LOGGER = logging.getLogger("ai_service.agent")
 MAX_STEPS = 20
@@ -236,6 +237,7 @@ class AgentRunner:
     store: RunStore
     inference_mode: str
     model_name: str
+    request_log: RequestLog
     clock: Callable[[], float] = time.monotonic
     logger: logging.Logger = LOGGER
 
@@ -244,7 +246,10 @@ class AgentRunner:
         run_id = str(uuid.uuid4())
         task_token = self.bridge.task_token(session.token, run_id).token
         self.store.create_run(run_id, session.user_id, session.workspace_id, space_id, task)
-        return PreparedRun(self, run_id, session.user_id, space_id, task, task_token, started_at)
+        timer = self.request_log.start("agent", session.user_id, session.workspace_id)
+        return PreparedRun(
+            self, run_id, session.user_id, space_id, task, task_token, started_at, timer
+        )
 
 
 class PreparedRun:
@@ -257,6 +262,7 @@ class PreparedRun:
         task: str,
         task_token: str,
         started_at: float,
+        timer: RequestTimer,
     ) -> None:
         self.run_id = run_id
         self._runner = runner
@@ -270,6 +276,8 @@ class PreparedRun:
         ]
         self._steps = 0
         self._tokens = 0
+        self._tally = TokenTally()
+        self._timer = timer
         self._reads: dict[str, PageRead] = {}
         self._proposed: set[str] = set()
         self._tools: dict[str, Callable[[dict[str, Any]], ToolOutcome]] = {
@@ -281,21 +289,26 @@ class PreparedRun:
     def events(self, cancel: threading.Event) -> Generator[Event]:
         outcome: RunOutcome = "model_failed"
         message: str | None = None
+        status = "error"
         try:
-            yield {"type": "run", "runId": self.run_id}
-            outcome, message = yield from self._answers(cancel)
-        except GeneratorExit:
-            outcome = "cancelled"
-            raise
+            try:
+                yield {"type": "run", "runId": self.run_id}
+                outcome, message = yield from self._answers(cancel)
+                status = outcome
+            except GeneratorExit:
+                outcome = status = "cancelled"
+                raise
+            finally:
+                self._finish(outcome)
+            if outcome != "cancelled":
+                yield {
+                    "type": "end",
+                    "outcome": outcome,
+                    "pagesRead": len(self._reads),
+                    "message": message,
+                }
         finally:
-            self._finish(outcome)
-        if outcome != "cancelled":
-            yield {
-                "type": "end",
-                "outcome": outcome,
-                "pagesRead": len(self._reads),
-                "message": message,
-            }
+            self._runner.request_log.finish(self._timer, status, self._tally)
 
     def _remaining_seconds(self) -> float:
         return self._started_at + RUN_SECONDS - self._runner.clock()
@@ -331,12 +344,17 @@ class PreparedRun:
                 yield from self._step(call)
 
     def _complete(self, cancel: threading.Event) -> ToolCompletion:
-        completion = self._runner.model.complete_tools(
-            self._messages,
-            TOOLS,
-            deadline_seconds=min(MODEL_CALL_SECONDS, self._remaining_seconds()),
-            cancel=cancel,
-        )
+        try:
+            completion = self._runner.model.complete_tools(
+                self._messages,
+                TOOLS,
+                deadline_seconds=min(MODEL_CALL_SECONDS, self._remaining_seconds()),
+                cancel=cancel,
+            )
+        except ModelCallCancelled, ModelUnavailable:
+            self._tally.mark_unknown()
+            raise
+        self._tally.add(completion.prompt_tokens, completion.completion_tokens)
         self._tokens += (completion.prompt_tokens or 0) + (completion.completion_tokens or 0)
         self._messages.append(assistant_message(completion))
         return completion

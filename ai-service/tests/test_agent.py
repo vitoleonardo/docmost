@@ -24,7 +24,14 @@ from ai_service.bridge_client import (
 )
 from ai_service.inference import ModelCallCancelled, ModelUnavailable, ToolCall, ToolCompletion
 from ai_service.proposals import Block, ProposalDraft
-from tests.conftest import USER_ID, WORKSPACE_ID, FakeClock
+from ai_service.request_log import RequestLog, pseudonym
+from tests.conftest import (
+    REQUEST_LOG_KEY,
+    USER_ID,
+    WORKSPACE_ID,
+    FakeClock,
+    RecordingRequestLog,
+)
 from tests.fake_bridge import (
     TASK_TOKEN,
     USER_TOKEN,
@@ -198,6 +205,8 @@ class Harness:
         self.bridge = AgentBridge(pages=list(pages), spaces=spaces)
         self.model = ScriptedModel()
         self.cancel = threading.Event()
+        self.recording = RecordingRequestLog()
+        self.request_log: RequestLog = self.recording
         self.bridge_client: BridgeClient | None = None
 
     def script(self, *steps: Scripted) -> Harness:
@@ -211,6 +220,7 @@ class Harness:
             store=self.store,
             inference_mode=MODE,
             model_name=MODEL_NAME,
+            request_log=self.request_log,
             clock=self.clock,
         )
 
@@ -1105,3 +1115,112 @@ def test_agent_ac117_an_empty_read_gives_the_title_only_without_a_note() -> None
     assert harness.last_tool_answer(1) == f"Seite „Nur Code“ ({page_id(3)})"
     assert labels(events) == [{"kind": "read", "title": "Nur Code"}]
     assert end_event(events)["pagesRead"] == 1
+
+
+def logged(harness: Harness) -> list[tuple[str, str, int | None, int | None]]:
+    return [
+        (record.task, record.status, record.prompt_tokens, record.completion_tokens)
+        for record in harness.recording.records
+    ]
+
+
+def test_reqlog_ac8_a_run_ending_with_a_final_message_writes_one_finished_record() -> None:
+    harness = Harness(travel_page()).script(answer(search("Reisekosten")), final())
+
+    harness.run()
+
+    assert harness.recording.started == [("agent", USER_ID, WORKSPACE_ID)]
+    assert len(harness.recording.records) == 1
+    record = harness.recording.records[0]
+    assert (record.task, record.status, record.workspace_id) == ("agent", "finished", WORKSPACE_ID)
+    assert record.user_pseudonym == pseudonym(REQUEST_LOG_KEY, USER_ID)
+
+
+def test_reqlog_ac8_the_record_is_written_after_the_end_event() -> None:
+    harness = Harness(travel_page()).script(final("Das Wetter ist schön."))
+    events = harness.prepare().events(harness.cancel)
+
+    seen = [(event["type"], len(harness.recording.records)) for event in events]
+
+    assert seen[-1] == ("end", 0)
+    assert len(harness.recording.records) == 1
+    assert harness.recording.records[0].status == "out_of_scope"
+
+
+def test_reqlog_ac8_an_unexpected_exception_writes_one_error_record() -> None:
+    harness = Harness(travel_page()).script(RuntimeError("boom"))
+
+    with pytest.raises(RuntimeError):
+        harness.run()
+
+    assert [record.status for record in harness.recording.records] == ["error"]
+
+
+def test_reqlog_ac9_a_cancelled_run_writes_one_cancelled_record() -> None:
+    harness = Harness(travel_page()).script(answer(read(1)), cancelled_by_the_user, final())
+
+    harness.run()
+
+    assert logged(harness) == [("agent", "cancelled", None, None)]
+
+
+def test_reqlog_ac9_closing_the_event_stream_writes_one_cancelled_record() -> None:
+    harness = Harness(travel_page()).script(answer(search("Reisekosten")), final())
+    events = harness.prepare().events(harness.cancel)
+    next(events)
+    events.close()
+
+    assert [record.status for record in harness.recording.records] == ["cancelled"]
+
+
+def test_reqlog_ac10_the_step_limit_writes_one_step_limit_record() -> None:
+    harness = Harness(travel_page()).script(*[answer(search(f"Suche {n}")) for n in range(21)])
+
+    harness.run()
+
+    assert [record.status for record in harness.recording.records] == ["step_limit"]
+
+
+def test_reqlog_ac16_three_model_calls_are_summed_per_run() -> None:
+    harness = Harness(travel_page()).script(
+        answer(search("a"), prompt=1000, completion=100),
+        answer(search("b"), prompt=2000, completion=200),
+        final(prompt=3000, completion=300),
+    )
+
+    harness.run()
+
+    assert logged(harness) == [("agent", "finished", 6000, 600)]
+    assert harness.store.ended[0][3] == 6600
+
+
+def test_reqlog_ac17_a_failing_third_call_leaves_both_counts_empty() -> None:
+    harness = Harness(travel_page()).script(
+        answer(search("a"), prompt=1000, completion=100),
+        answer(search("b"), prompt=1000, completion=100),
+        ModelUnavailable("HTTP 500"),
+    )
+
+    harness.run()
+
+    assert logged(harness) == [("agent", "model_failed", None, None)]
+
+
+def test_reqlog_ac48_a_call_without_completion_count_leaves_completion_empty() -> None:
+    harness = Harness(travel_page()).script(
+        answer(search("a"), prompt=1200, completion=None),
+        final(prompt=800, completion=50),
+    )
+
+    harness.run()
+
+    assert logged(harness) == [("agent", "finished", 2000, None)]
+
+
+def test_reqlog_ac8_the_token_limit_keeps_summing_prompt_and_completion() -> None:
+    harness = Harness(travel_page()).script(answer(search("a"), prompt=150_000, completion=60_000))
+
+    events = harness.run()
+
+    assert end_event(events)["outcome"] == "token_limit"
+    assert logged(harness) == [("agent", "token_limit", 150_000, 60_000)]

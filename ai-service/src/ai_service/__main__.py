@@ -77,7 +77,7 @@ def build_extraction_pipeline(settings: AskSettings, request_log: RequestLog) ->
     )
 
 
-def build_agent_services(settings: AskSettings) -> AgentServices:
+def build_agent_services(settings: AskSettings, request_log: RequestLog) -> AgentServices:
     bridge = BridgeClient(settings.ai_wiki_url, settings.ai_service_token)
     model = ChatModel(settings.ai_llm_base_url, settings.ai_llm_model)
 
@@ -93,6 +93,7 @@ def build_agent_services(settings: AskSettings) -> AgentServices:
             store=records,
             inference_mode=settings.ai_inference_mode,
             model_name=settings.ai_llm_model,
+            request_log=request_log,
         )
 
     return AgentServices(open_records=open_records, make_runner=make_runner)
@@ -120,7 +121,7 @@ def main() -> None:
             redis,
             build_pipeline(settings, embedder, redis, request_log),
             build_extraction_pipeline(settings, request_log),
-            build_agent_services(settings),
+            build_agent_services(settings, request_log),
         ),
         host=settings.ai_service_host,
         port=settings.ai_service_port,
