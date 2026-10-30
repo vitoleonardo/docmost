@@ -330,7 +330,7 @@ Against a stack that already runs (wiki, ai-service, worker, Ollama, indexed see
 
 - `EVAL_WIKI_URL` (required): address of the wiki.
 - `EVAL_SEED_PASSWORD`: the seed users' demo password (default `seed-demo-password`).
-- `EVAL_ANTHROPIC_API_KEY`: the judge key; without it, or with `--no-judge`, no judge call is made.
+- `EVAL_ANTHROPIC_API_KEY`: the judge key; with `--no-judge` no judge call is made. Without the key and without `--no-judge` the command exits 2.
 - `EVAL_INFERENCE_MODE`, `EVAL_MODEL`, `EVAL_EMBEDDING_MODEL`: only printed in the report; default to the AI service's defaults. Set them when the stack runs with other values.
 - `EVAL_REPORT_PATH` (default `reports/eval-local.md`), `EVAL_THRESHOLDS_PATH` (default `reports/eval-thresholds.json`), `EVAL_CONTENT_DIR` (default the seed content folder).
 
@@ -338,7 +338,7 @@ Against a stack that already runs (wiki, ai-service, worker, Ollama, indexed see
 
 - Outputs: the report `reports/eval-local.md` and the thresholds `reports/eval-thresholds.json`; the last line is the summary.
 - Exit codes: 0 all metrics reached their threshold; 1 a metric failed or fell below its threshold, or a request or judge call failed; 2 start-up problem (settings, wiki not reachable, login failed, index not ready), the report is left as it was.
-- Threshold rule: the first run of a metric sets its baseline and exits 0; later runs must not fall below the stored threshold. To re-baseline, delete the metric's entries from `reports/eval-thresholds.json` and run again, then commit both files.
+- Threshold rule: the first run of a metric sets its baseline and exits 0, unless `agent_no_unconfirmed_write` is below 100 %, a metric has no cases, or a request or judgement failed, which exit 1; later runs must not fall below the stored threshold. To re-baseline, delete the metric's entries from `reports/eval-thresholds.json` and run again, then commit both files.
 - A write without confirmation (`agent_no_unconfirmed_write`) is held to 100 %.
 
 ### Judge (human step)

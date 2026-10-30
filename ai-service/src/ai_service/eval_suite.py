@@ -3,11 +3,12 @@ import platform
 import subprocess
 import sys
 import time
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from contextlib import ExitStack
 from dataclasses import dataclass, replace
 from datetime import date
 from pathlib import Path
+from typing import Any
 
 import anthropic
 import httpx
@@ -57,7 +58,7 @@ from ai_service.wiki_session import (
     Sleep,
     StartFailed,
     default_client_factory,
-    list_space_pages,
+    list_all_wiki_pages,
     log_in_all,
     post_data,
 )
@@ -105,17 +106,23 @@ def judge_key(settings: EvalSettings) -> str:
     return key.get_secret_value()
 
 
-def wiki_page_ids(gf: httpx.Client) -> dict[str, str]:
+WikiListing = list[tuple[dict[str, Any], list[dict[str, Any]]]]
+
+
+def wiki_page_ids(listing: WikiListing) -> dict[str, str]:
     page_ids: dict[str, str] = {}
-    for space in post_data(gf, "/api/spaces", {})["items"]:
-        for page in list_space_pages(gf, space["id"]):
+    for _, pages in listing:
+        for page in pages:
             page_ids.setdefault(page["title"], page["id"])
     return page_ids
 
 
-def check_seed_titles(page_ids: dict[str, str], pages: list[SeedPageEntry]) -> None:
+def check_seed_titles(listings: Iterable[WikiListing], pages: list[SeedPageEntry]) -> None:
     seed_titles = {entry.title for entry in pages}
-    foreign = sorted(title for title in page_ids if title not in seed_titles)
+    listed = {
+        page["title"] for listing in listings for _, space_pages in listing for page in space_pages
+    }
+    foreign = sorted(listed - seed_titles)
     if foreign:
         raise StartFailed(f"The wiki holds pages that are not seed data: {', '.join(foreign)}")
 
@@ -162,9 +169,11 @@ def find_case_targets(
     sets: EvalSets, clients: dict[str, httpx.Client], judged: bool
 ) -> CaseTargets:
     gf = clients[EXTRACTING_USER]
-    page_ids = wiki_page_ids(gf)
+    listed_users = clients if judged else {EXTRACTING_USER: gf}
+    listings = {user: list_all_wiki_pages(client) for user, client in listed_users.items()}
+    page_ids = wiki_page_ids(listings[EXTRACTING_USER])
     if judged:
-        check_seed_titles(page_ids, sets.pages)
+        check_seed_titles(listings.values(), sets.pages)
     check_expected_pages_exist(sets, page_ids)
     spaces = scenario_spaces(sets, clients)
     return CaseTargets(contract_targets(sets, page_ids, gf), spaces)

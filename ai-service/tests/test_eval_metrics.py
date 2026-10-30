@@ -449,6 +449,14 @@ def test_eval_ac42_no_unconfirmed_write_always_gets_threshold_100():
     assert partial.entries[0].threshold == Decimal(100)
 
 
+def test_eval_ac42_a_hand_edited_threshold_below_100_does_not_relax_no_unconfirmed_write():
+    existing = [entry("agent_no_unconfirmed_write", "50")]
+    evaluated, _ = evaluate_one(metric("agent_no_unconfirmed_write", 5, 6), existing=existing)
+    assert evaluated.result is Result.FAILED
+    assert evaluated.threshold == Decimal(100)
+    assert exit_status([evaluated], 0, 0) == 1
+
+
 def test_eval_ac43_75_below_80_fails_keeps_the_threshold_and_exits_1():
     existing = [entry("rag_refusal", "80")]
     result, updated = evaluate_one(metric("rag_refusal", 3, 4), existing=existing)

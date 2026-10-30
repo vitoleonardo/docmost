@@ -1,3 +1,5 @@
+import socket
+import threading
 import time
 import uuid
 from collections.abc import Callable
@@ -8,12 +10,14 @@ import httpx
 
 from ai_service.eval_metrics import AgentCase, ExtractedValue, ExtractionCase, RagCase
 from ai_service.eval_sets import AgentScenario, ContractTruth, GoldenQuestion
-from ai_service.wiki_session import list_space_pages, parse_sse_events, post_data
+from ai_service.wiki_session import list_all_wiki_pages, parse_sse_events, post_data
 
 ASK_DEADLINE_SECONDS = 300
 EXTRACT_READ_TIMEOUT_SECONDS = 210
 AGENT_DEADLINE_SECONDS = 900
 CONNECT_TIMEOUT_SECONDS = 10
+MALFORMED_EVENT = "malformed_event"
+INVALID_RESPONSE = "invalid_response"
 AGENT_FAILED_OUTCOMES = ("model_failed", "context_too_small")
 
 Clock = Callable[[], float]
@@ -26,6 +30,18 @@ class StreamResult:
     failure: str | None
 
 
+def close_connection(response: httpx.Response) -> None:
+    network_stream = response.extensions.get("network_stream")
+    connection = network_stream.get_extra_info("socket") if network_stream else None
+    if connection is None:
+        response.close()
+        return
+    try:
+        connection.shutdown(socket.SHUT_RDWR)
+    except OSError:
+        response.close()
+
+
 def stream_events(
     client: httpx.Client,
     path: str,
@@ -36,19 +52,42 @@ def stream_events(
     timeout = httpx.Timeout(deadline_seconds, connect=CONNECT_TIMEOUT_SECONDS)
     started = clock()
     events: list[dict[str, Any]] = []
+    expired = threading.Event()
+    streams: list[httpx.Response] = []
+
+    def expire() -> None:
+        expired.set()
+        for response in streams:
+            close_connection(response)
+
+    watchdog = threading.Timer(deadline_seconds, expire)
+    watchdog.daemon = True
+    watchdog.start()
     try:
         with client.stream("POST", path, json=body, timeout=timeout) as response:
             if response.status_code != 200:
                 return StreamResult([], f"http_{response.status_code}")
+            streams.append(response)
+            if expired.is_set():
+                close_connection(response)
             for line in response.iter_lines():
                 if clock() - started > deadline_seconds:
                     return StreamResult(events, "timeout")
-                events.extend(parse_sse_events([line]))
+                try:
+                    parsed = list(parse_sse_events([line]))
+                except ValueError:
+                    return StreamResult(events, MALFORMED_EVENT)
+                if not all(isinstance(event, dict) and "type" in event for event in parsed):
+                    return StreamResult(events, MALFORMED_EVENT)
+                events.extend(parsed)
     except httpx.TimeoutException:
         return StreamResult(events, "timeout")
     except httpx.TransportError as error:
-        return StreamResult(events, type(error).__name__)
-    return StreamResult(events, None)
+        failure = "timeout" if expired.is_set() else type(error).__name__
+        return StreamResult(events, failure)
+    finally:
+        watchdog.cancel()
+    return StreamResult(events, "timeout" if expired.is_set() else None)
 
 
 def ask_case(
@@ -58,7 +97,9 @@ def ask_case(
     body = {"question": question.question, "conversationId": str(uuid.uuid4())}
     streamed = stream_events(client, "/api/ai/ask", body, ASK_DEADLINE_SECONDS, clock)
     seconds = clock() - started
-    text = "".join(event["text"] for event in streamed.events if event["type"] == "delta")
+    text = "".join(
+        str(event.get("text", "")) for event in streamed.events if event["type"] == "delta"
+    )
     final = streamed.events[-1] if streamed.events else {}
     outcome, failure = "failed", streamed.failure
     sources: list[dict[str, Any]] = []
@@ -67,7 +108,11 @@ def ask_case(
     elif failure is None and final.get("type") == "no_source":
         outcome = "no_source"
     elif failure is None:
-        failure = final["code"] if final.get("type") == "error" else "no_final_event"
+        failure = (
+            final.get("code") or "error_without_code"
+            if final.get("type") == "error"
+            else "no_final_event"
+        )
     cited = tuple(dict.fromkeys(source["title"] for source in sources))
     return RagCase(question, outcome, text, cited, seconds, failure, None, None, tuple(sources))
 
@@ -99,23 +144,35 @@ def extract_case(
         return failed(type(error).__name__)
     if response.status_code != 200:
         return failed(f"http_{response.status_code}")
-    result = unwrap_data(response.json())
+    try:
+        body = response.json()
+    except ValueError:
+        return failed(INVALID_RESPONSE)
+    if not isinstance(body, dict):
+        return failed(INVALID_RESPONSE)
+    result = unwrap_data(body)
     seconds = clock() - started
-    if result["outcome"] == "extracted":
-        fields = {
-            field["key"]: ExtractedValue(field["value"], field["quote"], field["pdfPage"])
-            for field in result["fields"]
-        }
+    outcome = result.get("outcome")
+    if outcome == "extracted":
+        try:
+            fields = {
+                field["key"]: ExtractedValue(field["value"], field["quote"], field["pdfPage"])
+                for field in result["fields"]
+            }
+        except KeyError, TypeError:
+            return failed(INVALID_RESPONSE)
         return ExtractionCase(contract, "extracted", None, fields, seconds, None)
-    if result["outcome"] == "refused":
-        return ExtractionCase(contract, "refused", result["reason"], {}, seconds, None)
-    return failed(result["reason"])
+    if outcome == "refused":
+        return ExtractionCase(contract, "refused", result.get("reason"), {}, seconds, None)
+    if outcome == "failed":
+        return failed(str(result.get("reason") or "no_reason"))
+    return failed(INVALID_RESPONSE)
 
 
 def workspace_snapshot(gf: httpx.Client) -> Snapshot:
     snapshot: Snapshot = {}
-    for space in post_data(gf, "/api/spaces", {})["items"]:
-        for page in list_space_pages(gf, space["id"]):
+    for _, pages in list_all_wiki_pages(gf):
+        for page in pages:
             info = post_data(gf, "/api/pages/info", {"pageId": page["id"], "format": "markdown"})
             snapshot[page["id"]] = (info["title"] or "", info["content"] or "")
     return snapshot
@@ -130,6 +187,17 @@ def changed_pages(before: Snapshot, after: Snapshot) -> tuple[str, ...]:
     return tuple(sorted(titles))
 
 
+def take_snapshot(snapshot: Callable[[], Snapshot]) -> tuple[Snapshot | None, str | None]:
+    try:
+        return snapshot(), None
+    except httpx.HTTPStatusError as error:
+        return None, f"snapshot_{error.response.status_code}"
+    except httpx.TransportError as error:
+        return None, f"snapshot_{type(error).__name__}"
+    except ValueError, KeyError, TypeError:
+        return None, f"snapshot_{INVALID_RESPONSE}"
+
+
 def agent_case(
     client: httpx.Client,
     scenario: AgentScenario,
@@ -137,7 +205,9 @@ def agent_case(
     snapshot: Callable[[], Snapshot],
     clock: Clock = time.monotonic,
 ) -> AgentCase:
-    before = snapshot()
+    before, before_failure = take_snapshot(snapshot)
+    if before is None:
+        return AgentCase(scenario, None, (), (), 0.0, before_failure)
     started = clock()
     body = {"spaceId": space_id, "task": scenario.task}
     streamed = stream_events(client, "/api/ai/agent/run", body, AGENT_DEADLINE_SECONDS, clock)
@@ -146,14 +216,16 @@ def agent_case(
         event["proposal"]["pageTitle"] for event in streamed.events if event["type"] == "proposal"
     )
     ends = [event for event in streamed.events if event["type"] == "end"]
-    outcome = ends[-1]["outcome"] if ends else None
+    outcome = ends[-1].get("outcome") if ends else None
     failure = streamed.failure
     if failure is None and outcome is None:
         failure = "no_end"
     if failure is None and outcome in AGENT_FAILED_OUTCOMES:
         failure = outcome
-    changed = changed_pages(before, snapshot())
-    return AgentCase(scenario, outcome, proposals, changed, seconds, failure)
+    after, after_failure = take_snapshot(snapshot)
+    if after is None:
+        return AgentCase(scenario, outcome, proposals, (), seconds, failure or after_failure)
+    return AgentCase(scenario, outcome, proposals, changed_pages(before, after), seconds, failure)
 
 
 def page_attachments(gf: httpx.Client, page_id: str) -> dict[str, str]:

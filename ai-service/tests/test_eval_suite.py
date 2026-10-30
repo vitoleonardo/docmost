@@ -30,6 +30,7 @@ SPACE_NAMES = {entry.file.split("/")[0]: entry.space for entry in SETS.pages}
 OTHER_VIEWABLE_PAGE = "Willkommen bei Ostmooimooi"
 INJECTION_TITLE = "Leak-Test Injektion 1"
 ANSWERED = [question for question in SETS.questions if question.expected_pages]
+UNANSWERABLE = [question for question in SETS.questions if not question.expected_pages]
 
 Event = dict[str, Any]
 
@@ -104,6 +105,7 @@ class FakeWiki:
     missing_titles: tuple[str, ...] = ()
     hidden_spaces: frozenset[tuple[str, str]] = frozenset()
     missing_attachments: frozenset[str] = frozenset()
+    restricted_viewers: dict[str, frozenset[str]] = field(default_factory=dict)
     answers: dict[str, list[Event]] = field(default_factory=dict)
     agent_writes: dict[str, str] = field(default_factory=dict)
     requests: list[httpx.Request] = field(default_factory=list)
@@ -126,6 +128,8 @@ class FakeWiki:
         return {page.title: page.page_id for page in self.pages.values()}
 
     def may_view(self, user: str, page: WikiPage) -> bool:
+        if user not in self.restricted_viewers.get(page.title, frozenset(SEED_EMAILS)):
+            return False
         return page.space_dir in SPACE_MEMBERS[user] and user not in DENIED.get(
             page.title, frozenset()
         )
@@ -396,6 +400,38 @@ def test_eval_ac51_a_model_failure_is_a_failed_request_exits_1_and_adds_no_thres
     assert len(result.judge.requests) == len(ANSWERED) - 1
 
 
+def judge_bodies_about(result: EvalRunResult, question: GoldenQuestion) -> list[dict[str, Any]]:
+    bodies = [json.loads(request.content) for request in result.judge.requests]
+    return [body for body in bodies if question.question in json.dumps(body, ensure_ascii=False)]
+
+
+def test_eval_ac11_a_question_with_expected_pages_answered_no_source_gets_no_judge_request(
+    tmp_path: Path,
+):
+    question = ANSWERED[0]
+    wiki = FakeWiki(answers={question.id: [{"type": "no_source"}]})
+    result = run_eval(tmp_path, wiki)
+    assert judge_bodies_about(result, question) == []
+    assert len(result.judge.requests) == len(ANSWERED) - 1
+
+
+def test_eval_ac13_a_question_without_expected_pages_answered_is_judged_for_grounded_only(
+    tmp_path: Path,
+):
+    question = UNANSWERABLE[0]
+    sources = [{"pageId": "page-0", "title": OTHER_VIEWABLE_PAGE, "fileName": None}]
+    events = [
+        {"type": "delta", "text": "Erfundene Antwort."},
+        {"type": "sources", "sources": sources},
+    ]
+    result = run_eval(tmp_path, FakeWiki(answers={question.id: events}))
+    [body] = judge_bodies_about(result, question)
+    schema = body["output_config"]["format"]["schema"]
+    assert set(schema["properties"]) == {"grounded", "grounded_reason"}
+    assert "REFERENCE ANSWER" not in json.dumps(body["messages"])
+    assert len(result.judge.requests) == len(ANSWERED) + 1
+
+
 def test_eval_ac37_an_agent_run_that_changes_a_page_exits_1(tmp_path: Path):
     wiki = FakeWiki(agent_writes={"agent-01": "Reisekosten Richtlinie 2022"})
     result = run_eval(tmp_path, wiki)
@@ -556,6 +592,24 @@ def test_eval_ac21_a_non_seed_page_with_the_judge_exits_2_naming_it(
 ):
     before = pre_create_files(tmp_path)
     wiki = FakeWiki(extra_titles=(INJECTION_TITLE,))
+    result = run_eval(tmp_path, wiki)
+    err = capsys.readouterr().err
+    assert result.code == 2
+    assert INJECTION_TITLE in err
+    assert wiki.paths("/api/ai/ask") == []
+    assert result.judge.requests == []
+    assert_files_unchanged(tmp_path, before)
+
+
+@pytest.mark.parametrize("user", ["PL", "VT", "WS"])
+def test_eval_ac21_a_non_seed_page_only_one_seed_user_can_see_exits_2_naming_it(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], user: str
+):
+    before = pre_create_files(tmp_path)
+    wiki = FakeWiki(
+        extra_titles=(INJECTION_TITLE,),
+        restricted_viewers={INJECTION_TITLE: frozenset({user})},
+    )
     result = run_eval(tmp_path, wiki)
     err = capsys.readouterr().err
     assert result.code == 2

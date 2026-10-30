@@ -75,6 +75,13 @@ def list_space_pages(client: httpx.Client, space_id: str) -> list[dict[str, Any]
         cursor = data["meta"]["nextCursor"]
 
 
+def list_all_wiki_pages(
+    client: httpx.Client,
+) -> list[tuple[dict[str, Any], list[dict[str, Any]]]]:
+    spaces = post_data(client, "/api/spaces", {})["items"]
+    return [(space, list_space_pages(client, space["id"])) for space in spaces]
+
+
 def parse_sse_events(lines: Iterable[str]) -> Iterator[dict[str, Any]]:
     for line in lines:
         if line.startswith("data:"):

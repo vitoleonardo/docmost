@@ -299,8 +299,9 @@ def find_entry(
 
 
 def compare(metric: Metric, entry: ThresholdEntry) -> MetricResult:
-    reached = metric.percentage is not None and metric.percentage >= entry.threshold
-    return MetricResult(metric, entry.threshold, Result.PASSED if reached else Result.FAILED)
+    threshold = FIXED_THRESHOLDS.get(metric.name, entry.threshold)
+    reached = metric.percentage is not None and metric.percentage >= threshold
+    return MetricResult(metric, threshold, Result.PASSED if reached else Result.FAILED)
 
 
 def first_run_result(metric: Metric, new: ThresholdEntry) -> MetricResult:

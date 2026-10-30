@@ -1,9 +1,13 @@
 import json
+import threading
+import time
 from collections.abc import Callable, Iterator
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from itertools import count
 from typing import Any
 
 import httpx
+import pytest
 
 from ai_service.eval_cases import (
     agent_case,
@@ -11,6 +15,7 @@ from ai_service.eval_cases import (
     changed_pages,
     extract_case,
     page_attachments,
+    stream_events,
     workspace_snapshot,
 )
 from ai_service.eval_sets import AgentScenario, ContractTruth, FieldTruth, GoldenQuestion
@@ -348,3 +353,117 @@ def test_eval_ac62_attachment_lookup_finds_the_pdf_by_name() -> None:
 
     assert page_attachments(client_for(handler), "p1") == {"vertrag.pdf": "att-1"}
     assert bodies == [{"pageId": "p1"}]
+
+
+@pytest.mark.parametrize("line", ["data: {broken", "data: 5", 'data: {"text": "ohne Typ"}'])
+def test_eval_ac8_a_malformed_event_line_is_a_failed_case_and_the_run_goes_on(line: str) -> None:
+    content = f'data: {{"type": "delta", "text": "x"}}\n\n{line}\n\n'.encode()
+    client = client_for(lambda request: httpx.Response(200, content=content))
+    case = ask_case(client, QUESTION)
+    assert (case.outcome, case.failure) == ("failed", "malformed_event")
+
+
+def test_eval_ac8_an_error_event_without_a_code_is_a_failed_case() -> None:
+    client = client_for(lambda request: httpx.Response(200, content=sse({"type": "error"})))
+    case = ask_case(client, QUESTION)
+    assert (case.outcome, case.failure) == ("failed", "error_without_code")
+
+
+def test_eval_ac32_a_malformed_agent_event_is_a_failed_case() -> None:
+    wiki = AgentWiki(lambda request: httpx.Response(200, content=b"data: {broken\n\n"))
+    client = client_for(wiki.handler)
+    case = agent_case(client, SCENARIO, "s", lambda: workspace_snapshot(client))
+    assert (case.outcome, case.failure) == (None, "malformed_event")
+
+
+def test_eval_ac22_a_200_with_a_body_that_is_no_json_is_a_failed_case() -> None:
+    client = client_for(lambda request: httpx.Response(200, content=b"<html>Bad gateway</html>"))
+    case = extract_case(client, CONTRACT, "p", "a")
+    assert (case.outcome, case.failure) == ("failed", "invalid_response")
+
+
+@pytest.mark.parametrize(
+    "result", [{}, {"outcome": "extracted"}, {"outcome": "extracted", "fields": [{"key": "term"}]}]
+)
+def test_eval_ac22_a_result_without_outcome_or_fields_is_a_failed_case(
+    result: dict[str, Any],
+) -> None:
+    case = extract_case(client_for(extract_response(result)), CONTRACT, "p", "a")
+    assert (case.outcome, case.failure) == ("failed", "invalid_response")
+
+
+def test_eval_ac22_a_body_that_is_no_object_is_a_failed_case() -> None:
+    client = client_for(lambda request: httpx.Response(200, json=["x"]))
+    case = extract_case(client, CONTRACT, "p", "a")
+    assert (case.outcome, case.failure) == ("failed", "invalid_response")
+
+
+def test_eval_ac36_a_failing_snapshot_before_the_run_fails_the_scenario_without_a_run() -> None:
+    wiki = AgentWiki(lambda request: httpx.Response(200, content=sse({"type": "run"})))
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/pages/info":
+            return httpx.Response(500)
+        return wiki.handler(request)
+
+    client = client_for(handler)
+    case = agent_case(client, SCENARIO, "s", lambda: workspace_snapshot(client))
+    assert (case.outcome, case.failure) == (None, "snapshot_500")
+    assert "/api/ai/agent/run" not in wiki.paths
+
+
+def test_eval_ac36_a_failing_snapshot_after_the_run_fails_the_scenario() -> None:
+    end = {"type": "end", "outcome": "finished", "pagesRead": 1, "message": None}
+    wiki = AgentWiki(lambda request: httpx.Response(200, content=sse(end)))
+    ran = False
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal ran
+        ran = ran or request.url.path == "/api/ai/agent/run"
+        if ran and request.url.path == "/api/pages/recent":
+            return httpx.Response(500)
+        return wiki.handler(request)
+
+    client = client_for(handler)
+    case = agent_case(client, SCENARIO, "s", lambda: workspace_snapshot(client))
+    assert (case.outcome, case.failure) == ("finished", "snapshot_500")
+
+
+class SilentAfterEvents(BaseHTTPRequestHandler):
+    release: threading.Event
+    pauses: list[float]
+
+    def do_POST(self) -> None:
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream")
+        self.end_headers()
+        for pause in self.pauses:
+            self.wfile.write(b'data: {"type": "delta", "text": "x"}\n\n')
+            self.wfile.flush()
+            if self.release.wait(pause):
+                return
+        self.release.wait(30)
+
+    def log_message(self, format: str, *args: Any) -> None:
+        return None
+
+
+def test_eval_ac52_a_silent_stream_is_cut_at_the_deadline_not_one_read_timeout_later() -> None:
+    handler = type(
+        "Handler", (SilentAfterEvents,), {"release": threading.Event(), "pauses": [0.8, 0]}
+    )
+    server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    server.daemon_threads = True
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    client = httpx.Client(base_url=f"http://127.0.0.1:{server.server_port}")
+    started = time.monotonic()
+    try:
+        streamed = stream_events(client, "/stream", {}, 1.0, time.monotonic)
+    finally:
+        elapsed = time.monotonic() - started
+        handler.release.set()
+        server.shutdown()
+        client.close()
+    assert streamed.failure == "timeout"
+    assert len(streamed.events) == 2
+    assert 0.9 <= elapsed < 1.4

@@ -4,9 +4,9 @@ from pathlib import Path
 from typing import cast
 
 import anthropic
-import httpx2
 from pydantic import BaseModel, Field
 from pypdf import PdfReader
+from pypdf.errors import PyPdfError
 
 from ai_service.eval_metrics import Ratings
 from ai_service.eval_sets import SeedPageEntry
@@ -81,12 +81,17 @@ def seed_source_texts(
         entry = entries.get(title)
         if entry is None:
             raise JudgeFailed(NON_SEED_SOURCE)
+        if file_name is not None and file_name not in entry.attachments:
+            raise JudgeFailed(NON_SEED_SOURCE)
         if (title, file_name) in texts:
             continue
-        if file_name is None:
-            text = (content_dir / "pages" / entry.file).read_text()
-        else:
-            text = pdf_text(content_dir / "generated" / file_name)
+        try:
+            if file_name is None:
+                text = (content_dir / "pages" / entry.file).read_text()
+            else:
+                text = pdf_text(content_dir / "generated" / file_name)
+        except (OSError, PyPdfError, UnicodeDecodeError) as error:
+            raise JudgeFailed(type(error).__name__) from error
         texts[(title, file_name)] = JudgeSource(title if file_name is None else file_name, text)
     return list(texts.values())
 
@@ -104,7 +109,7 @@ def build_judge_request(
 
 
 def make_judge_client(
-    api_key: str, http_client: httpx2.Client | None = None
+    api_key: str, http_client: anthropic.DefaultHttpxClient | None = None
 ) -> anthropic.Anthropic:
     return anthropic.Anthropic(
         api_key=api_key,
@@ -137,7 +142,7 @@ class Judge:
             )
         except anthropic.APIStatusError as error:
             raise JudgeFailed(error.type or type(error).__name__) from error
-        except anthropic.APIConnectionError as error:
+        except (anthropic.APIConnectionError, anthropic.APIResponseValidationError) as error:
             raise JudgeFailed(type(error).__name__) from error
         except ValueError as error:
             raise JudgeFailed(INVALID_VERDICT) from error

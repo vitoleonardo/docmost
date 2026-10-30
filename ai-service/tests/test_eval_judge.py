@@ -1,11 +1,13 @@
 import json
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 
 import anthropic
 import httpx2
 import pytest
 
+from ai_service import eval_judge
 from ai_service.eval_judge import (
     JUDGE_INSTRUCTIONS,
     JUDGE_MODEL,
@@ -361,3 +363,51 @@ def test_eval_ac57_a_refusal_is_a_failed_judgement():
     with pytest.raises(JudgeFailed) as raised:
         judge.rate(QUESTION, REFERENCE, ANSWER, judge_sources())
     assert raised.value.error_class == "refusal"
+
+
+@pytest.mark.parametrize("file_name", ["../pyproject.toml", "unbekannt.pdf"])
+def test_eval_ac15_a_file_name_the_seed_page_does_not_list_fails_without_a_read_or_request(
+    file_name: str, monkeypatch: pytest.MonkeyPatch
+):
+    judge, recorder = judge_with(lambda request: message_response(FULL_VERDICT))
+    reads: list[Path] = []
+    monkeypatch.setattr(eval_judge, "pdf_text", lambda path: reads.append(path) or "")
+    source = {"title": PDF_SOURCE["title"], "fileName": file_name}
+    with pytest.raises(JudgeFailed) as raised:
+        seed_source_texts([source], PAGES, CONTENT_DIR)
+    assert raised.value.error_class == "non_seed_source"
+    assert reads == []
+    assert judge is not None
+    assert recorder.requests == []
+
+
+def test_eval_ac15_a_file_of_another_seed_page_is_no_source_of_this_page():
+    source = {"title": "Reisekosten Richtlinie 2026", "fileName": PDF_SOURCE["fileName"]}
+    with pytest.raises(JudgeFailed) as raised:
+        seed_source_texts([source], PAGES, CONTENT_DIR)
+    assert raised.value.error_class == "non_seed_source"
+
+
+def test_eval_ac55_a_missing_or_unreadable_source_file_is_a_failed_judgement(tmp_path: Path):
+    with pytest.raises(JudgeFailed) as missing:
+        seed_source_texts([PAGE_SOURCE], PAGES, tmp_path)
+    assert missing.value.error_class == "FileNotFoundError"
+    (tmp_path / "generated").mkdir()
+    (tmp_path / "generated" / PDF_SOURCE["fileName"]).write_bytes(b"kein pdf")
+    with pytest.raises(JudgeFailed) as broken:
+        seed_source_texts([PDF_SOURCE], PAGES, tmp_path)
+    assert broken.value.error_class == "PdfStreamError"
+
+
+def test_eval_ac55_a_response_that_fails_the_sdk_validation_is_a_failed_judgement():
+    recorder = Recorder(lambda request: httpx2.Response(200, json={"unexpected": True}))
+    client = anthropic.Anthropic(
+        api_key=JUDGE_KEY,
+        max_retries=0,
+        _strict_response_validation=True,
+        http_client=httpx2.Client(transport=httpx2.MockTransport(recorder)),
+    )
+    with pytest.raises(JudgeFailed) as raised:
+        Judge(client).rate(QUESTION, REFERENCE, ANSWER, judge_sources())
+    assert raised.value.error_class == "APIResponseValidationError"
+    assert len(recorder.requests) == 1

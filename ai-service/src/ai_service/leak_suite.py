@@ -19,7 +19,7 @@ from ai_service.wiki_session import (
     Sleep,
     StartFailed,
     default_client_factory,
-    list_space_pages,
+    list_all_wiki_pages,
     log_in_all,
     parse_sse_events,
     post_data,
@@ -146,19 +146,16 @@ class WikiPages:
 
 
 def list_wiki_pages(gf: httpx.Client) -> WikiPages:
-    spaces = post_data(gf, "/api/spaces", {})["items"]
-    open_space_ids = [space["id"] for space in spaces if space["name"] == OPEN_SPACE_NAME]
-    if not open_space_ids:
+    listed = list_all_wiki_pages(gf)
+    open_spaces = [(space, pages) for space, pages in listed if space["name"] == OPEN_SPACE_NAME]
+    if not open_spaces:
         raise StartFailed(f"The wiki has no space {OPEN_SPACE_NAME}")
     ids_by_title: dict[str, set[str]] = {}
-    open_space_pages: list[dict[str, Any]] = []
-    for space in spaces:
-        pages = list_space_pages(gf, space["id"])
-        if space["id"] == open_space_ids[0]:
-            open_space_pages = pages
+    for _, pages in listed:
         for page in pages:
             ids_by_title.setdefault(page["title"], set()).add(page["id"])
-    return WikiPages(open_space_ids[0], open_space_pages, ids_by_title)
+    open_space, open_space_pages = open_spaces[0]
+    return WikiPages(open_space["id"], open_space_pages, ids_by_title)
 
 
 def check_wiki_has_canary_pages(lists: Lists, wiki_pages: WikiPages) -> None:
