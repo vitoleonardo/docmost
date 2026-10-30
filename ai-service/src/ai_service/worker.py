@@ -21,6 +21,7 @@ from ai_service.indexer import Indexer
 from ai_service.jobs import REDIS_ERRORS, RETRY_DELAY_SECONDS, JobConsumer, wait_for_redis
 from ai_service.migrations_check import MigrationsMissingError, assert_migrated
 from ai_service.reconcile import ReconcileAborted, ReconcileResult, reconcile
+from ai_service.request_log import REQUEST_LOG_RETENTION, RequestLogStore
 from ai_service.settings import WorkerSettings
 
 RECONCILE_INTERVAL_SECONDS = 600
@@ -128,6 +129,9 @@ class IndexSession:
     def delete_agent_runs_started_before(self, cutoff: datetime) -> int:
         return AgentStore(self._conn).delete_runs_started_before(cutoff)
 
+    def delete_request_log_rows_before(self, cutoff: datetime) -> int:
+        return RequestLogStore(self._conn).delete_older_than(cutoff)
+
     def close(self) -> None:
         self._conn.close()
 
@@ -181,7 +185,7 @@ class Worker:
             if self._reconcile_due():
                 self._reconcile(session)
             if self._retention_due():
-                self._retain_agent_runs(session)
+                self._retain(session)
             consumer.process_next(self._block_ms)
         except psycopg.OperationalError as error:
             self._wait_for_database(error)
@@ -245,6 +249,13 @@ class Worker:
             return True
         return self._clock() - self._last_retention >= RETENTION_INTERVAL_SECONDS
 
+    def _retain(self, session: IndexSession) -> None:
+        try:
+            self._retain_agent_runs(session)
+            self._retain_request_log(session)
+        finally:
+            self._last_retention = self._clock()
+
     def _retain_agent_runs(self, session: IndexSession) -> None:
         try:
             deleted = session.delete_agent_runs_started_before(self._wall_clock() - RUN_RETENTION)
@@ -258,8 +269,22 @@ class Worker:
             )
         else:
             self._logger.info("retention deleted_runs=%d", deleted)
-        finally:
-            self._last_retention = self._clock()
+
+    def _retain_request_log(self, session: IndexSession) -> None:
+        try:
+            deleted = session.delete_request_log_rows_before(
+                self._wall_clock() - REQUEST_LOG_RETENTION
+            )
+        except psycopg.OperationalError:
+            raise
+        except Exception as error:
+            self._logger.warning(
+                "Request log retention failed, next retention in %d s: %s",
+                RETENTION_INTERVAL_SECONDS,
+                type(error).__name__,
+            )
+        else:
+            self._logger.info("retention deleted_requests=%d", deleted)
 
 
 def main() -> None:

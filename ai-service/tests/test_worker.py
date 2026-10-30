@@ -22,6 +22,7 @@ from ai_service import reconcile_command
 from ai_service.index_store import IndexStore
 from ai_service.jobs import CONSUMER_GROUP, JOB_STREAM, enqueue_job
 from ai_service.migrations_check import MIGRATION_COMMAND
+from ai_service.request_log import REQUEST_LOG_RETENTION, RequestLogStore, RequestRecord
 from ai_service.settings import WorkerSettings
 from ai_service.worker import RECONCILE_INTERVAL_SECONDS, IndexSession, Runtime, Worker
 from tests.conftest import BRIDGE_KEY, SERVICE_CREDENTIAL, TEST_REDIS_URL, FakeClock, warnings
@@ -489,6 +490,7 @@ class RetentionConnection:
     rows_deleted: int = 0
     failure: Exception | None = None
     statements: list[tuple[str, tuple[Any, ...]]] = field(default_factory=list)
+    request_log_statements: list[tuple[str, tuple[Any, ...]]] = field(default_factory=list)
     closed: bool = False
 
     def transaction(self) -> AbstractContextManager[None]:
@@ -497,7 +499,8 @@ class RetentionConnection:
     def execute(self, query: str, params: tuple[Any, ...]) -> SimpleNamespace:
         if self.failure is not None:
             raise self.failure
-        self.statements.append((query, params))
+        target = self.statements if "agent_runs" in query else self.request_log_statements
+        target.append((query, params))
         return SimpleNamespace(rowcount=self.rows_deleted)
 
     def close(self) -> None:
@@ -555,7 +558,7 @@ def test_agent_ac109_retention_runs_when_the_worker_starts(
     worker.run_once()
 
     assert len(retention_connection.statements) == 1
-    assert info_messages(caplog) == ["retention deleted_runs=2"]
+    assert info_messages(caplog) == ["retention deleted_runs=2", "retention deleted_requests=2"]
 
 
 def test_agent_ac109_retention_does_not_run_again_before_24_h(
@@ -628,3 +631,107 @@ def test_agent_ac109_a_failing_retention_is_logged_and_the_worker_goes_on(
     worker.run_once()
 
     assert len(retention_connection.statements) == 1
+
+
+def request_log_record(number: int, created_at: datetime) -> RequestRecord:
+    return RequestRecord(
+        id=f"0192f000-0000-7000-a000-{number:012d}",
+        created_at=created_at,
+        task="ask",
+        mode="local",
+        model="stub-model",
+        prompt_tokens=1,
+        completion_tokens=1,
+        latency_ms=1,
+        cost_usd=None,
+        status="answered",
+        user_pseudonym="a" * 64,
+        workspace_id=WORKSPACE_A,
+    )
+
+
+@pytest.fixture
+def process_next_calls(monkeypatch: pytest.MonkeyPatch) -> list[int]:
+    calls: list[int] = []
+    monkeypatch.setattr(
+        worker_module.JobConsumer, "process_next", lambda self, block_ms: calls.append(block_ms)
+    )
+    return calls
+
+
+@pytest.mark.integration
+def test_reqlog_ac37_retention_deletes_only_rows_older_than_30_days(
+    no_reconcile: None,
+    store: IndexStore,
+    connect: RecordingConnect,
+    bridge: FakeBridge,
+    redis: Redis,
+    clock: FakeClock,
+):
+    just_expired = RUN_START - REQUEST_LOG_RETENTION - timedelta(minutes=1)
+    still_kept = RUN_START - REQUEST_LOG_RETENTION + timedelta(hours=1)
+    with psycopg.connect(AI_URL, autocommit=True) as conn:
+        log = RequestLogStore(conn)
+        log.insert(request_log_record(1, just_expired))
+        log.insert(request_log_record(2, still_kept))
+        runtime = Runtime(worker_settings(), HashingEmbedder(), bridge.client(), connect)
+        worker = Worker(
+            runtime,
+            redis,
+            clock=clock,
+            sleep=clock.sleep,
+            block_ms=BLOCK_MS,
+            wall_clock=FakeWallClock(RUN_START),
+        )
+
+        worker.run_once()
+
+        remaining = conn.execute("SELECT id::text FROM ai.request_log").fetchall()
+    assert remaining == [(request_log_record(2, still_kept).id,)]
+
+
+def test_reqlog_ac45_a_failing_request_log_retention_is_logged_once_and_the_rest_goes_on(
+    make_retention_worker: Callable[..., Worker],
+    retention_connection: RetentionConnection,
+    monkeypatch: pytest.MonkeyPatch,
+    process_next_calls: list[int],
+    caplog: pytest.LogCaptureFixture,
+):
+    def fail(self: IndexSession, cutoff: datetime) -> int:
+        raise RuntimeError("user text")
+
+    monkeypatch.setattr(IndexSession, "delete_request_log_rows_before", fail, raising=False)
+    worker = make_retention_worker()
+
+    worker.run_once()
+
+    lines = warnings(caplog)
+    assert len(lines) == 1
+    assert "Request log retention failed" in lines[0]
+    assert "RuntimeError" in lines[0]
+    assert "user text" not in lines[0]
+    assert len(retention_connection.statements) == 1
+    assert retention_connection.request_log_statements == []
+    assert process_next_calls == [BLOCK_MS]
+
+
+def test_reqlog_ac45_a_failing_agent_run_retention_still_deletes_request_log_rows(
+    make_retention_worker: Callable[..., Worker],
+    retention_connection: RetentionConnection,
+    monkeypatch: pytest.MonkeyPatch,
+    process_next_calls: list[int],
+    caplog: pytest.LogCaptureFixture,
+):
+    def fail(self: IndexSession, cutoff: datetime) -> int:
+        raise RuntimeError("agent task text")
+
+    monkeypatch.setattr(IndexSession, "delete_agent_runs_started_before", fail)
+    worker = make_retention_worker()
+
+    worker.run_once()
+
+    lines = warnings(caplog)
+    assert len(lines) == 1
+    assert "Agent run retention failed" in lines[0]
+    assert len(retention_connection.request_log_statements) == 1
+    assert process_next_calls == [BLOCK_MS]
