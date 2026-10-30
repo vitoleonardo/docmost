@@ -224,8 +224,39 @@ describe('seed page list', () => {
         title: page.title,
         file: page.file,
         attachments: page.attachments ?? [],
+        viewers: expect.any(Array),
       });
     });
+  });
+
+  it('EVAL-AC60: lists the seed users who may view each page, in seed user order', () => {
+    const viewersOf = (space: string, title: string) =>
+      seedPageList().find((p) => p.space === space && p.title === title)
+        ?.viewers;
+    expect(viewersOf('Allgemein', 'Umstrukturierung 2027')).toEqual(['GF']);
+    expect(
+      viewersOf('Projekte', 'Baustelle Nordhafen Zugangscodes'),
+    ).toEqual(['GF', 'PL', 'WS']);
+    expect(
+      viewersOf('Geschäftsführung', 'Gehaltsbänder Führungsebene'),
+    ).toEqual(['GF']);
+    expect(viewersOf('Allgemein', 'Reisekosten Richtlinie 2026')).toEqual([
+      'GF',
+      'PL',
+      'VT',
+      'WS',
+    ]);
+    expect(viewersOf('Projekte', 'Projektübersicht 2026')).toEqual([
+      'GF',
+      'PL',
+      'VT',
+      'WS',
+    ]);
+    expect(viewersOf('IT', 'VPN Einrichtung Classic')).toEqual([
+      'GF',
+      'PL',
+      'WS',
+    ]);
   });
 
   it('EVAL-AC3: the committed pages.json matches the seed page list', () => {

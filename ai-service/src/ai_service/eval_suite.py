@@ -120,20 +120,11 @@ def check_seed_titles(page_ids: dict[str, str], pages: list[SeedPageEntry]) -> N
         raise StartFailed(f"The wiki holds pages that are not seed data: {', '.join(foreign)}")
 
 
-def check_askers_view_expected_pages(
-    sets: EvalSets, page_ids: dict[str, str], clients: dict[str, httpx.Client]
-) -> None:
+def check_expected_pages_exist(sets: EvalSets, page_ids: dict[str, str]) -> None:
     for question in sets.questions:
         for title in question.expected_pages:
-            page_id = page_ids.get(title)
-            if page_id is None:
+            if title not in page_ids:
                 raise StartFailed(f"Golden question {question.id}: the wiki has no page {title}")
-            response = clients[question.user].post("/api/pages/info", json={"pageId": page_id})
-            if response.status_code != 200:
-                raise StartFailed(
-                    f"Golden question {question.id}: {question.user} may not view the expected "
-                    f"page {title} (HTTP {response.status_code})"
-                )
 
 
 def scenario_spaces(sets: EvalSets, clients: dict[str, httpx.Client]) -> dict[str, str]:
@@ -174,7 +165,7 @@ def find_case_targets(
     page_ids = wiki_page_ids(gf)
     if judged:
         check_seed_titles(page_ids, sets.pages)
-    check_askers_view_expected_pages(sets, page_ids, clients)
+    check_expected_pages_exist(sets, page_ids)
     spaces = scenario_spaces(sets, clients)
     return CaseTargets(contract_targets(sets, page_ids, gf), spaces)
 

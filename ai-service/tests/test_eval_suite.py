@@ -1,6 +1,6 @@
 import json
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -11,6 +11,7 @@ import httpx2
 import pytest
 from pydantic import SecretStr
 
+from ai_service import eval_suite
 from ai_service.eval_judge import JUDGE_MODEL, make_judge_client
 from ai_service.eval_sets import AgentScenario, ContractTruth, GoldenQuestion, load_eval_sets
 from ai_service.eval_suite import machine_processor, main, run
@@ -101,7 +102,6 @@ class FakeWiki:
     login_status: dict[str, int] = field(default_factory=dict)
     extra_titles: tuple[str, ...] = ()
     missing_titles: tuple[str, ...] = ()
-    denied_views: frozenset[tuple[str, str]] = frozenset()
     hidden_spaces: frozenset[tuple[str, str]] = frozenset()
     missing_attachments: frozenset[str] = frozenset()
     answers: dict[str, list[Event]] = field(default_factory=dict)
@@ -126,10 +126,8 @@ class FakeWiki:
         return {page.title: page.page_id for page in self.pages.values()}
 
     def may_view(self, user: str, page: WikiPage) -> bool:
-        return (
-            page.space_dir in SPACE_MEMBERS[user]
-            and user not in DENIED.get(page.title, frozenset())
-            and (user, page.title) not in self.denied_views
+        return page.space_dir in SPACE_MEMBERS[user] and user not in DENIED.get(
+            page.title, frozenset()
         )
 
     def paths(self, path: str) -> list[tuple[str, str, dict[str, Any]]]:
@@ -495,18 +493,24 @@ def test_eval_ac59_a_throttled_login_waits_and_retries(tmp_path: Path):
     assert result.sleeps == [61]
 
 
-def test_eval_ac60_an_asker_who_may_not_view_an_expected_page_exits_2_naming_the_question(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+def test_eval_ac60_an_asker_who_may_not_view_an_expected_page_exits_2_before_any_wiki_request(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ):
     before = pre_create_files(tmp_path)
-    wiki = FakeWiki(denied_views=frozenset({("VT", "Reisekosten Richtlinie 2026")}))
+    pages = [
+        replace(page, viewers=page.viewers - {"VT"})
+        if page.title == "Reisekosten Richtlinie 2026"
+        else page
+        for page in SETS.pages
+    ]
+    monkeypatch.setattr(eval_suite, "load_eval_sets", lambda _: replace(SETS, pages=pages))
+    wiki = FakeWiki()
     result = run_eval(tmp_path, wiki)
     err = capsys.readouterr().err
     assert result.code == 2
     assert "rag-01" in err
-    assert wiki.paths("/api/ai/ask") == []
-    info_users = {user for _, user, body in wiki.paths("/api/pages/info") if "format" not in body}
-    assert "VT" in info_users
+    assert wiki.requests == []
+    assert wiki.clients_made == 0
     assert_files_unchanged(tmp_path, before)
 
 

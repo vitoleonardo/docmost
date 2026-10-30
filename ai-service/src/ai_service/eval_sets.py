@@ -60,6 +60,7 @@ class SeedPageEntry:
     title: str
     file: str
     attachments: list[str]
+    viewers: frozenset[str]
 
 
 @dataclass(frozen=True)
@@ -113,6 +114,7 @@ def seed_page_entry(entry: Entry) -> SeedPageEntry:
         title=entry["title"],
         file=entry["file"],
         attachments=list(entry["attachments"]),
+        viewers=frozenset(entry["viewers"]),
     )
 
 
@@ -150,6 +152,15 @@ def check_user(owner: str, user: str) -> None:
         raise StartFailed(f"{owner} names an unknown seed user: {user}")
 
 
+def check_asker_views(question: GoldenQuestion, pages: list[SeedPageEntry]) -> None:
+    for page in pages:
+        if page.title in question.expected_pages and question.user not in page.viewers:
+            raise StartFailed(
+                f"Golden question {question.id}: {question.user} may not view the expected "
+                f"page {page.title}"
+            )
+
+
 def check_question(question: GoldenQuestion, seed_titles: set[str]) -> None:
     owner = f"Golden question {question.id}"
     check_user(owner, question.user)
@@ -174,6 +185,7 @@ def check_eval_sets(sets: EvalSets) -> None:
     check_unique_ids("golden question", [question.id for question in sets.questions])
     for question in sets.questions:
         check_question(question, seed_titles)
+        check_asker_views(question, sets.pages)
     check_unique_ids("agent scenario", [scenario.id for scenario in sets.scenarios])
     for scenario in sets.scenarios:
         check_scenario(scenario, seed_titles, seed_spaces)

@@ -1,6 +1,11 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { SeedPageRef } from './seed-definition';
+import {
+  deniedUserKeys,
+  SEED_USERS,
+  SeedPageRef,
+  SeedUserKey,
+} from './seed-definition';
 
 export type SeedPdfKind = 'contract' | 'minutes' | 'scan';
 
@@ -233,6 +238,12 @@ export interface SeedPageListEntry {
   title: string;
   file: string;
   attachments: string[];
+  viewers: SeedUserKey[];
+}
+
+function viewersOf(page: SeedPageRef): SeedUserKey[] {
+  const denied = new Set(deniedUserKeys(page));
+  return SEED_USERS.map((user) => user.key).filter((key) => !denied.has(key));
 }
 
 export function seedPageList(): SeedPageListEntry[] {
@@ -241,6 +252,7 @@ export function seedPageList(): SeedPageListEntry[] {
     title: page.title,
     file: page.file,
     attachments: page.attachments ?? [],
+    viewers: viewersOf(page),
   }));
 }
 

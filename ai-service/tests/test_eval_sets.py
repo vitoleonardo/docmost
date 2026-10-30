@@ -320,6 +320,7 @@ PAGE = SeedPageEntry(
     title="Kundenvertrag",
     file="vertrieb/kundenvertrag.md",
     attachments=["kundenvertrag.pdf"],
+    viewers=frozenset({"VT", "GF"}),
 )
 QUESTION = GoldenQuestion(
     id="rag-01",
@@ -424,3 +425,19 @@ def test_eval_ac60_a_missing_or_malformed_list_fails_the_start_naming_the_file(t
     (tmp_path / "golden-questions.json").write_text('[{"id": "rag-01"}]')
     with pytest.raises(StartFailed, match="golden-questions.json"):
         load_eval_sets(tmp_path)
+
+
+def test_eval_ac60_an_asker_who_may_not_view_an_expected_page_fails_the_start_naming_the_question():
+    page = replace(PAGE, viewers=frozenset({"GF"}))
+    sets = replace(MINIMAL, pages=[page])
+    with pytest.raises(StartFailed, match="rag-01.*VT.*Kundenvertrag"):
+        check_eval_sets(sets)
+
+
+def test_eval_ac60_the_pages_json_viewers_agree_with_the_seed_matrix():
+    seed_pages = {page.page_id: page for page in load_seed_pages()}
+    assert len(SETS.pages) == len(seed_pages)
+    for entry in SETS.pages:
+        matrix_page = seed_pages[seed_id(f"page:{entry.file.removesuffix('.md')}")]
+        expected = {user for user in SEED_USERS if matrix_page.viewable_by(user)}
+        assert entry.viewers == expected, entry.title

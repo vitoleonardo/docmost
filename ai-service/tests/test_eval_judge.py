@@ -36,16 +36,25 @@ JUDGE_KEY = "test-judge-key"
 CONTENT_DIR = PAGES_DIR.parent
 PAGES = [
     SeedPageEntry(
-        "Allgemein", "Reisekosten Richtlinie 2022", "allgemein/reisekosten-richtlinie-2022.md", []
+        "Allgemein",
+        "Reisekosten Richtlinie 2022",
+        "allgemein/reisekosten-richtlinie-2022.md",
+        [],
+        frozenset(),
     ),
     SeedPageEntry(
-        "Allgemein", "Reisekosten Richtlinie 2026", "allgemein/reisekosten-richtlinie-2026.md", []
+        "Allgemein",
+        "Reisekosten Richtlinie 2026",
+        "allgemein/reisekosten-richtlinie-2026.md",
+        [],
+        frozenset(),
     ),
     SeedPageEntry(
         "Vertrieb",
         "Kundenvertrag Stadtwerke Beispielstadt",
         "vertrieb/kundenvertrag-stadtwerke.md",
         ["kundenvertrag-stadtwerke-beispielstadt.pdf"],
+        frozenset(),
     ),
 ]
 PAGE_SOURCE = {"title": "Reisekosten Richtlinie 2026", "fileName": None}
