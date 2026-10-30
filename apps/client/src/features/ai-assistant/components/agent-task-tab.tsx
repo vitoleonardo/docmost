@@ -9,6 +9,7 @@ import {
 } from "@mantine/core";
 import { useTranslation } from "react-i18next";
 import { useParams } from "react-router-dom";
+import AgentRunResult from "@/features/ai-assistant/components/agent-run-result.tsx";
 import AgentSpaceSelect from "@/features/ai-assistant/components/agent-space-select.tsx";
 import ExampleButton from "@/features/ai-assistant/components/example-button.tsx";
 import AskInput from "@/features/ai-assistant/components/ask-input.tsx";
@@ -98,6 +99,7 @@ function RunView({
           </Text>
         ))}
       </Stack>
+      {!isRunning && <AgentRunResult run={run} />}
       {isRunning && (
         <Stack gap="xs">
           <Group justify="space-between">
@@ -119,16 +121,20 @@ function RunView({
 
 function StartView({
   inProgressRefused,
+  initialSpaceId,
   onStart,
 }: {
   inProgressRefused: boolean;
+  initialSpaceId: string | null;
   onStart: (spaceId: string, spaceName: string, task: string) => void;
 }) {
   const { t } = useTranslation();
   const { pageSlug } = useParams();
   const { data: page } = usePageQuery({ pageId: extractPageSlugId(pageSlug) });
   const { data } = useGetSpacesQuery({ limit: 100 });
-  const [chosenSpaceId, setChosenSpaceId] = useState<string | null>(null);
+  const [chosenSpaceId, setChosenSpaceId] = useState<string | null>(
+    initialSpaceId,
+  );
   const [task, setTask] = useState("");
 
   const spaces = [...(data?.items ?? [])].sort((a, b) =>
@@ -188,10 +194,17 @@ function StartView({
 }
 
 export default function AgentTaskTab() {
-  const { run, inProgressRefused, isRunning, start, cancel } = useAgentRun();
+  const { run, inProgressRefused, isRunning, nextTaskSpaceId, start, cancel } =
+    useAgentRun();
 
   if (!run || inProgressRefused) {
-    return <StartView inProgressRefused={inProgressRefused} onStart={start} />;
+    return (
+      <StartView
+        inProgressRefused={inProgressRefused}
+        initialSpaceId={nextTaskSpaceId}
+        onStart={start}
+      />
+    );
   }
 
   return <RunView run={run} isRunning={isRunning} onCancel={cancel} />;

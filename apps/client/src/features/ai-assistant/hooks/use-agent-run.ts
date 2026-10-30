@@ -13,6 +13,7 @@ import type {
 
 const agentRunAtom = atom(null as IAgentRun | null);
 const agentUnavailableAtom = atom(false);
+const nextTaskSpaceIdAtom = atom(null as string | null);
 const runningAgentAtom = atom(null as AbortController | null);
 
 function staleTaskOf(
@@ -55,6 +56,7 @@ export function useAgentRun() {
   const store = useStore();
   const run = useAtomValue(agentRunAtom);
   const unavailable = useAtomValue(agentUnavailableAtom);
+  const nextTaskSpaceId = useAtomValue(nextTaskSpaceIdAtom);
 
   const updateRun = useCallback(
     (update: (current: IAgentRun) => IAgentRun) => {
@@ -71,6 +73,7 @@ export function useAgentRun() {
       const controller = new AbortController();
       store.set(runningAgentAtom, controller);
       store.set(agentUnavailableAtom, false);
+      store.set(nextTaskSpaceIdAtom, null);
       store.set(agentRunAtom, {
         spaceId,
         spaceName,
@@ -123,6 +126,7 @@ export function useAgentRun() {
   const newTask = useCallback(() => {
     store.get(runningAgentAtom)?.abort();
     store.set(runningAgentAtom, null);
+    store.set(nextTaskSpaceIdAtom, store.get(agentRunAtom)?.spaceId ?? null);
     store.set(agentRunAtom, null);
     store.set(agentUnavailableAtom, false);
   }, [store]);
@@ -155,6 +159,7 @@ export function useAgentRun() {
   return {
     run,
     unavailable,
+    nextTaskSpaceId,
     inProgressRefused: run?.status === "in_progress_refused",
     isRunning: run?.status === "running",
     start,
