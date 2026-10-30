@@ -128,8 +128,10 @@ export class CollaborationHandler {
           },
         );
       },
-      readAgentBlocks: async (documentName: string) =>
-        this.withYdocConnection(hocuspocus, documentName, {}, readAgentBlocks),
+      readAgentBlocks: async (documentName: string) => {
+        const document = hocuspocus.documents.get(documentName);
+        return document ? readAgentBlocks(document) : null;
+      },
       applyAgentChanges: async (
         documentName: string,
         payload: AgentChangesInput & { user: User },

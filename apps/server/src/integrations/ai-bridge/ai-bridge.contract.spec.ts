@@ -268,7 +268,10 @@ const internalController = new AiBridgeInternalController(
   ),
   new AiAgentToolsService(
     stub<AiPageAccessService>(aiPageAccessService),
-    new AiLiveDocumentService(stub<CollaborationGateway>(collaborationGateway)),
+    new AiLiveDocumentService(
+      stub<CollaborationGateway>(collaborationGateway),
+      stub(pageRepo),
+    ),
   ),
 );
 
@@ -369,7 +372,7 @@ const servedProposal = async <T>(
             new AiServiceClient(stub<EnvironmentService>(environmentService)),
           ),
           stub<AiPageAccessService>(aiPageAccessService),
-          new AiLiveDocumentService(gateway),
+          new AiLiveDocumentService(gateway, stub(pageRepo)),
         ),
       ),
     );
@@ -1079,6 +1082,7 @@ describe('agent proposal endpoints', () => {
         stub<AiPageAccessService>(aiPageAccessService),
         new AiLiveDocumentService(
           stub<CollaborationGateway>(collaborationGateway),
+          stub(pageRepo),
         ),
       ).viewProposal(USER, STORED_PROPOSAL.id);
       shown.push(view.status);

@@ -1,3 +1,4 @@
+import { TiptapTransformer } from '@hocuspocus/transformer';
 import { stub } from '../test-stub';
 import { ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
@@ -9,6 +10,7 @@ import { SpaceRepo } from '@docmost/db/repos/space/space.repo';
 import { UserRepo } from '@docmost/db/repos/user/user.repo';
 import { Page, Space, User } from '@docmost/db/types/entity.types';
 import { CollaborationGateway } from '../../../collaboration/collaboration.gateway';
+import { tiptapExtensions } from '../../../collaboration/collaboration.util';
 import { PageAccessService } from '../../../core/page/page-access/page-access.service';
 import { EnvironmentService } from '../../environment/environment.service';
 import { AiBridgeError } from '../ai-bridge.errors';
@@ -18,7 +20,7 @@ import {
   AiBridgeRequest,
 } from '../decorators/ai-bridge-auth.decorator';
 import { AiInternalAuthGuard } from '../guards/ai-internal-auth.guard';
-import { AgentBlockRead } from './agent-document';
+import { agentDocumentFingerprint, AgentBlockRead } from './agent-document';
 import { AiAgentToolsService } from './ai-agent-tools.service';
 import { AiLiveDocumentService } from './ai-live-document.service';
 import { AiPageAccessService } from './ai-page-access.service';
@@ -55,6 +57,29 @@ const LIVE_READ: AgentBlockRead = {
     },
   ],
 };
+
+const STORED_CONTENT = {
+  type: 'doc',
+  content: [
+    {
+      type: 'heading',
+      attrs: { level: 2 },
+      content: [{ type: 'text', text: 'Reisekosten' }],
+    },
+    {
+      type: 'paragraph',
+      content: [{ type: 'text', text: 'Pro Kilometer 0,25 €.' }],
+    },
+  ],
+};
+
+function storedPages() {
+  return {
+    findById: jest.fn(async (id: string) =>
+      stub<Page>({ id, ydoc: null, content: STORED_CONTENT }),
+    ),
+  };
+}
 
 interface WikiPage {
   spaceId: string;
@@ -158,14 +183,19 @@ async function refusalOf(promise: Promise<unknown>): Promise<unknown> {
 describe('AiAgentToolsService.readBlocks', () => {
   let wiki: WikiState;
   let gateway: { handleYjsEvent: jest.Mock };
+  let pages: ReturnType<typeof storedPages>;
   let service: AiAgentToolsService;
 
   beforeEach(() => {
     wiki = seedWiki();
     gateway = { handleYjsEvent: jest.fn().mockResolvedValue(LIVE_READ) };
+    pages = storedPages();
     service = new AiAgentToolsService(
       pageAccessFor(wiki),
-      new AiLiveDocumentService(stub<CollaborationGateway>(gateway)),
+      new AiLiveDocumentService(
+        stub<CollaborationGateway>(gateway),
+        stub<PageRepo>(pages),
+      ),
     );
   });
 
@@ -186,7 +216,9 @@ describe('AiAgentToolsService.readBlocks', () => {
       'readAgentBlocks',
       `page.${PAGE_ID}`,
       undefined,
+      true,
     );
+    expect(pages.findById).not.toHaveBeenCalled();
   });
 
   it('refuses an unknown page id with page_not_found', async () => {
@@ -257,18 +289,45 @@ describe('AiAgentToolsService.readBlocks', () => {
     expect(gateway.handleYjsEvent).toHaveBeenCalledTimes(1);
   });
 
-  it('answers assistant_unavailable, not page_not_found, when the collaboration event has no result', async () => {
-    gateway.handleYjsEvent.mockResolvedValue(undefined);
+  it.each([null, undefined])(
+    'AGENT-AC37: when no collaboration node holds the page (%s), the read comes from the stored page without loading it',
+    async (answer) => {
+      gateway.handleYjsEvent.mockResolvedValue(answer);
+
+      const read = await service.readBlocks(USER, PAGE_ID, ALLGEMEIN);
+
+      expect(read.blocks.map((block) => block.text)).toEqual([
+        'Reisekosten',
+        'Pro Kilometer 0,25 €.',
+      ]);
+      expect(read.fingerprint).toBe(
+        agentDocumentFingerprint(
+          TiptapTransformer.toYdoc(STORED_CONTENT, 'default', tiptapExtensions),
+        ),
+      );
+      expect(pages.findById).toHaveBeenCalledWith(PAGE_ID, {
+        includeContent: true,
+        includeYdoc: true,
+      });
+      expect(gateway.handleYjsEvent).toHaveBeenCalledWith(
+        'readAgentBlocks',
+        `page.${PAGE_ID}`,
+        undefined,
+        true,
+      );
+    },
+  );
+
+  it('AGENT-AC28: a page deleted after the access check and held by no node is refused as not found', async () => {
+    gateway.handleYjsEvent.mockResolvedValue(null);
+    pages.findById.mockResolvedValue(undefined);
 
     const refusal = await refusalOf(
       service.readBlocks(USER, PAGE_ID, ALLGEMEIN),
     );
 
     expect(refusal).toBeInstanceOf(AiBridgeError);
-    expect(refusal).toMatchObject({
-      code: 'assistant_unavailable',
-      status: 503,
-    });
+    expect(refusal).toMatchObject({ code: 'page_not_found', status: 404 });
   });
 
   it('answers assistant_unavailable, not page_not_found, when the collaboration event fails', async () => {
@@ -329,7 +388,10 @@ describe('tools/read-blocks route', () => {
       stub({}),
       new AiAgentToolsService(
         pageAccess,
-        new AiLiveDocumentService(stub<CollaborationGateway>(gateway)),
+        new AiLiveDocumentService(
+          stub<CollaborationGateway>(gateway),
+          stub<PageRepo>(storedPages()),
+        ),
       ),
     );
   });

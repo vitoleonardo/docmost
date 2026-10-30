@@ -235,7 +235,24 @@ describe('AiAgentProposalService', () => {
       aiServiceClient,
     ),
     pageAccess,
-    new AiLiveDocumentService(gateway),
+    new AiLiveDocumentService(
+      gateway,
+      stub<PageRepo>({
+        findById: async () =>
+          stub<Page>({
+            ydoc: null,
+            content: {
+              type: 'doc',
+              content: [
+                {
+                  type: 'paragraph',
+                  content: [{ type: 'text', text: 'Gespeicherter Text.' }],
+                },
+              ],
+            },
+          }),
+      }),
+    ),
   );
 
   const writes = () =>
@@ -379,28 +396,27 @@ describe('AiAgentProposalService', () => {
       expect(transitions).toEqual([]);
     });
 
-    it.each([
-      ['answers nothing', async () => undefined],
-      [
-        'rejects',
-        async () => {
-          throw new Error('TIMEOUT');
-        },
-      ],
-    ])(
-      'AGENT-AC91: a live document that %s answers 503 assistant_unavailable and the proposal stays open',
-      async (_case, read) => {
-        liveRead = read;
+    it('AGENT-AC91: a live document that rejects answers 503 assistant_unavailable and the proposal stays open', async () => {
+      liveRead = async () => {
+        throw new Error('TIMEOUT');
+      };
 
-        expect(
-          await refusalOf(service.viewProposal(USER, PROPOSAL_ID)),
-        ).toEqual({
-          code: 'assistant_unavailable',
-          status: 503,
-        });
-        expect(stored.status).toBe('open');
-      },
-    );
+      expect(await refusalOf(service.viewProposal(USER, PROPOSAL_ID))).toEqual({
+        code: 'assistant_unavailable',
+        status: 503,
+      });
+      expect(stored.status).toBe('open');
+    });
+
+    it('AGENT-AC91: a page no collaboration node holds is compared with the stored page and shown stale when it changed', async () => {
+      liveRead = async () => undefined;
+
+      expect(await service.viewProposal(USER, PROPOSAL_ID)).toMatchObject({
+        status: 'stale',
+      });
+      expect(transitions).toEqual(['stale']);
+      expect(writes()).toHaveLength(0);
+    });
 
     it.each(['restricted', 'trashed', 'deleted', 'space_left'] as const)(
       'AGENT-AC100: a page that is %s answers 404 page_not_found with no text of the proposal',

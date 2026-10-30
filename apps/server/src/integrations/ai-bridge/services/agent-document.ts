@@ -1,6 +1,8 @@
 import { createHash } from 'node:crypto';
 import { TiptapTransformer } from '@hocuspocus/transformer';
 import * as Y from 'yjs';
+import { Page } from '@docmost/db/types/entity.types';
+import { tiptapExtensions } from '../../../collaboration/collaboration.util';
 
 export interface AgentBlock {
   number: number;
@@ -59,6 +61,20 @@ export function readAgentBlocks(doc: Y.Doc): AgentBlockRead {
     fingerprint: agentDocumentFingerprint(doc),
     blocks: locateBlocks(doc).map(({ block }) => block),
   };
+}
+
+export function storedPageDocument(
+  page: Pick<Page, 'ydoc' | 'content'>,
+): Y.Doc {
+  if (page.ydoc) {
+    const doc = new Y.Doc();
+    Y.applyUpdate(doc, new Uint8Array(page.ydoc));
+    return doc;
+  }
+  if (page.content) {
+    return TiptapTransformer.toYdoc(page.content, 'default', tiptapExtensions);
+  }
+  return new Y.Doc();
 }
 
 export function opsMatchOldText(ops: AgentDiffOp[], oldText: string): boolean {

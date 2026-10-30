@@ -1,10 +1,17 @@
 import { TiptapTransformer } from '@hocuspocus/transformer';
-import { Document, Hocuspocus } from '@hocuspocus/server';
+import {
+  Document,
+  Hocuspocus,
+  onLoadDocumentPayload,
+} from '@hocuspocus/server';
 import { JSONContent } from '@tiptap/core';
 import * as Y from 'yjs';
+import { PageRepo } from '@docmost/db/repos/page/page.repo';
 import { tiptapExtensions } from '../../../collaboration/collaboration.util';
 import { CollaborationHandler } from '../../../collaboration/collaboration.handler';
-import { User } from '@docmost/db/types/entity.types';
+import { PersistenceExtension } from '../../../collaboration/extensions/persistence.extension';
+import { Page, User } from '@docmost/db/types/entity.types';
+import { stub } from '../test-stub';
 import {
   AgentChangesInput,
   AgentDiffOp,
@@ -12,6 +19,7 @@ import {
   applyAgentChanges,
   opsMatchOldText,
   readAgentBlocks,
+  storedPageDocument,
 } from './agent-document';
 
 type Mark = JSONContent['marks'][number];
@@ -338,6 +346,93 @@ describe('readAgentBlocks', () => {
           ['level', 2],
         ]),
       ),
+    );
+  });
+});
+
+describe('storedPageDocument', () => {
+  const documents: Y.Doc[] = [];
+
+  afterEach(() => {
+    documents.splice(0).forEach((document) => document.destroy());
+  });
+
+  async function loadedForApply(
+    page: Pick<Page, 'ydoc' | 'content'>,
+  ): Promise<Y.Doc> {
+    const extension = new PersistenceExtension(
+      stub<PageRepo>({ findById: async () => page }),
+      stub({}),
+      stub({}),
+      stub({}),
+      stub({}),
+      stub({}),
+      stub({}),
+    );
+    const document = new Document('page.page-1');
+    documents.push(document);
+    const loaded = await extension.onLoadDocument(
+      stub<onLoadDocumentPayload>({ documentName: 'page.page-1', document }),
+    );
+    documents.push(loaded);
+    return loaded;
+  }
+
+  function built(page: Pick<Page, 'ydoc' | 'content'>): Y.Doc {
+    const doc = storedPageDocument(page);
+    documents.push(doc);
+    return doc;
+  }
+
+  const seededContent = {
+    type: 'doc',
+    content: [heading(2, 'Reisekosten'), paragraph('Alte Regel gilt.')],
+  };
+
+  it('AGENT-AC89: a page with a stored ydoc reads with the fingerprint the collaboration server loads for apply', async () => {
+    const edited = sixBlockDoc();
+    blockText(edited, 1).insert(0, 'Neu: ');
+    const page = {
+      ydoc: Buffer.from(Y.encodeStateAsUpdate(edited)),
+      content: seededContent,
+    };
+
+    const read = readAgentBlocks(built(page));
+
+    expect(read.fingerprint).toBe(
+      agentDocumentFingerprint(await loadedForApply(page)),
+    );
+    expect(read.fingerprint).toBe(agentDocumentFingerprint(edited));
+    expect(read.blocks[1].text).toBe('Neu: Erste Regel gilt.');
+  });
+
+  it('AGENT-AC89: a page with only stored content reads with the fingerprint the collaboration server loads for apply', async () => {
+    const page = { ydoc: null, content: seededContent };
+
+    const read = readAgentBlocks(built(page));
+
+    expect(read.fingerprint).toBe(
+      agentDocumentFingerprint(await loadedForApply(page)),
+    );
+    expect(read.fingerprint).toBe(
+      agentDocumentFingerprint(
+        TiptapTransformer.toYdoc(seededContent, 'default', tiptapExtensions),
+      ),
+    );
+    expect(read.blocks.map((block) => block.text)).toEqual([
+      'Reisekosten',
+      'Alte Regel gilt.',
+    ]);
+  });
+
+  it('AGENT-AC117: a page without content or ydoc reads as no blocks with the fingerprint of the loaded empty page', async () => {
+    const page = { ydoc: null, content: null };
+
+    const read = readAgentBlocks(built(page));
+
+    expect(read.blocks).toEqual([]);
+    expect(read.fingerprint).toBe(
+      agentDocumentFingerprint(await loadedForApply(page)),
     );
   });
 });
@@ -810,7 +905,7 @@ describe('applyAgentChanges', () => {
 describe('CollaborationHandler agent events', () => {
   const user = { id: 'user-1' } as User;
 
-  function fakeHocuspocus(document: Document) {
+  function fakeHocuspocus(document: Document, loaded = [document]) {
     const disconnect = jest.fn(async () => undefined);
     type LiveConnection = Awaited<
       ReturnType<Hocuspocus['openDirectConnection']>
@@ -825,8 +920,9 @@ describe('CollaborationHandler agent events', () => {
     const openDirectConnection = jest.fn(
       async () => connection as LiveConnection,
     );
-    const hocuspocus: Pick<Hocuspocus, 'openDirectConnection'> = {
+    const hocuspocus: Pick<Hocuspocus, 'openDirectConnection' | 'documents'> = {
       openDirectConnection,
+      documents: new Map(loaded.map((live) => [live.name, live])),
     };
     return {
       handlers: new CollaborationHandler().getHandlers(
@@ -850,17 +946,25 @@ describe('CollaborationHandler agent events', () => {
     return document;
   }
 
-  it('AGENT-AC33: readAgentBlocks reads the live document through a direct connection', async () => {
+  it('AGENT-AC33: readAgentBlocks reads the loaded live document without opening a direct connection', async () => {
     const document = liveDocument();
-    const { handlers, openDirectConnection, disconnect } =
-      fakeHocuspocus(document);
+    const { handlers, openDirectConnection } = fakeHocuspocus(document);
 
     const read = await handlers.readAgentBlocks('page.page-1');
 
     expect(read).toEqual(readAgentBlocks(document));
     expect(read.blocks).toHaveLength(6);
-    expect(openDirectConnection).toHaveBeenCalledWith('page.page-1', {});
-    expect(disconnect).toHaveBeenCalled();
+    expect(openDirectConnection).not.toHaveBeenCalled();
+  });
+
+  it('AGENT-AC37: readAgentBlocks answers null and opens no direct connection when the document is not loaded', async () => {
+    const document = liveDocument();
+    const { handlers, openDirectConnection } = fakeHocuspocus(document, []);
+
+    const read = await handlers.readAgentBlocks('page.page-1');
+
+    expect(read).toBeNull();
+    expect(openDirectConnection).not.toHaveBeenCalled();
   });
 
   it('AGENT-AC76: applyAgentChanges writes with the user as connection context and returns the result', async () => {
