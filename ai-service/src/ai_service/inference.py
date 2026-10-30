@@ -18,6 +18,7 @@ COMPLETION_TIMEOUT_SECONDS = 180.0
 DONE_MARKER = "[DONE]"
 DATA_PREFIX = "data:"
 CANCEL_POLL_SECONDS = 0.05
+CONNECTED_EVENT = "connection.connect_tcp.complete"
 
 
 @dataclass(frozen=True)
@@ -64,21 +65,43 @@ class FirstTextWatchdog:
 
     def _expire(self) -> None:
         self.expired.set()
-        get_extra_info = getattr(
-            self._response.extensions.get("network_stream"), "get_extra_info", None
-        )
-        if get_extra_info is None:
+        shut_down_socket(self._response.extensions.get("network_stream"), "first-text watchdog")
+
+
+def shut_down_socket(network_stream: object, closer: str) -> None:
+    get_extra_info = getattr(network_stream, "get_extra_info", None)
+    if get_extra_info is None:
+        return
+    try:
+        sock = get_extra_info("socket")
+        if sock is not None:
+            sock.shutdown(socket.SHUT_RDWR)
+    except OSError:
+        return
+    except Exception as error:
+        LOGGER.warning("%s could not close the socket: %s", closer, type(error).__name__)
+
+
+class ToolCallConnection:
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._network_stream: object = None
+        self._closed = False
+
+    def trace(self, event: str, info: dict[str, Any]) -> None:
+        if event != CONNECTED_EVENT:
             return
-        try:
-            sock = get_extra_info("socket")
-            if sock is not None:
-                sock.shutdown(socket.SHUT_RDWR)
-        except OSError:
-            return
-        except Exception as error:
-            LOGGER.warning(
-                "first-text watchdog could not close the socket: %s", type(error).__name__
-            )
+        with self._lock:
+            self._network_stream = info.get("return_value")
+            closed = self._closed
+        if closed:
+            shut_down_socket(self._network_stream, "model call abort")
+
+    def close(self) -> None:
+        with self._lock:
+            self._closed = True
+            network_stream = self._network_stream
+        shut_down_socket(network_stream, "model call abort")
 
 
 class ChatModel:
@@ -168,17 +191,29 @@ class ChatModel:
             "temperature": 0,
             "reasoning_effort": "none",
         }
-        timeout = httpx.Timeout(deadline_seconds, connect=CONNECT_TIMEOUT_SECONDS)
+        connection = ToolCallConnection()
+        request = self.http.build_request(
+            "POST",
+            self._url,
+            json=body,
+            headers={"Connection": "close"},
+            timeout=httpx.Timeout(deadline_seconds, connect=CONNECT_TIMEOUT_SECONDS),
+            extensions={"trace": connection.trace},
+        )
         outcome: queue.Queue[httpx.Response | Exception] = queue.Queue(maxsize=1)
 
         def send() -> None:
             try:
-                outcome.put(self.http.post(self._url, json=body, timeout=timeout))
+                outcome.put(self.http.send(request))
             except Exception as error:
                 outcome.put(error)
 
-        threading.Thread(target=send, daemon=True).start()
-        response = self._await_response(outcome, deadline_seconds, cancel)
+        threading.Thread(target=send, name="model-tool-call", daemon=True).start()
+        try:
+            response = self._await_response(outcome, deadline_seconds, cancel)
+        except ModelCallCancelled, ModelUnavailable:
+            connection.close()
+            raise
         if response.status_code >= 400:
             raise ModelUnavailable(f"HTTP {response.status_code}")
         return self._tool_completion(response)

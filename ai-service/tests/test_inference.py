@@ -658,3 +658,176 @@ def test_agent_ac59_an_unset_cancel_event_does_not_disturb_the_call():
         MESSAGES, TOOLS, deadline_seconds=5, cancel=threading.Event()
     )
     assert result.text == "x"
+
+
+class HangingModelServer:
+    def __init__(self, answers: list[bytes]):
+        self.answers = answers
+        self.received = threading.Event()
+        self.client_closed = threading.Event()
+        self.listener = socket.socket()
+        self.listener.bind(("127.0.0.1", 0))
+        self.listener.listen(4)
+        self.port = self.listener.getsockname()[1]
+        threading.Thread(target=self._serve, daemon=True).start()
+
+    def _serve(self) -> None:
+        while True:
+            try:
+                connection, _ = self.listener.accept()
+            except OSError:
+                return
+            with connection:
+                self._handle(connection)
+
+    def _handle(self, connection: socket.socket) -> None:
+        pending = b""
+        while True:
+            while b"\r\n\r\n" not in pending:
+                chunk = connection.recv(65536)
+                if not chunk:
+                    return
+                pending += chunk
+            head, pending = pending.split(b"\r\n\r\n", 1)
+            length = int(
+                next(
+                    line.split(b":", 1)[1]
+                    for line in head.split(b"\r\n")
+                    if line.lower().startswith(b"content-length:")
+                )
+            )
+            while len(pending) < length:
+                pending += connection.recv(65536)
+            pending = pending[length:]
+            if not self.answers:
+                self._hang_until_closed(connection)
+                return
+            body = self.answers.pop(0)
+            connection.sendall(
+                b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n"
+                + f"Content-Length: {len(body)}\r\n\r\n".encode()
+                + body
+            )
+
+    def _hang_until_closed(self, connection: socket.socket) -> None:
+        self.received.set()
+        connection.settimeout(30)
+        try:
+            while connection.recv(65536):
+                continue
+        except OSError:
+            return
+        self.client_closed.set()
+
+    def model(self, clock: FakeClock | None = None) -> ChatModel:
+        return ChatModel(
+            f"http://127.0.0.1:{self.port}/v1",
+            "qwen3:8b",
+            clock=time.monotonic if clock is None else clock,
+        )
+
+
+@pytest.fixture
+def hanging_model_server() -> Iterator[HangingModelServer]:
+    server = HangingModelServer(answers=[])
+    yield server
+    server.listener.close()
+
+
+def tool_call_threads_alive() -> bool:
+    deadline = time.monotonic() + 2
+    while time.monotonic() < deadline:
+        if not any(thread.name == "model-tool-call" for thread in threading.enumerate()):
+            return False
+        time.sleep(0.02)
+    return True
+
+
+def cancel_once_received(server: HangingModelServer) -> threading.Event:
+    cancel = threading.Event()
+    threading.Thread(target=lambda: server.received.wait(5) and cancel.set(), daemon=True).start()
+    return cancel
+
+
+def test_agent_ac66_cancel_during_the_call_closes_the_connection_to_the_model(
+    hanging_model_server: HangingModelServer,
+):
+    cancel = cancel_once_received(hanging_model_server)
+    with pytest.raises(ModelCallCancelled):
+        hanging_model_server.model().complete_tools(
+            MESSAGES, TOOLS, deadline_seconds=30, cancel=cancel
+        )
+    assert hanging_model_server.client_closed.wait(2)
+    assert not tool_call_threads_alive()
+
+
+def test_agent_ac59_the_deadline_closes_the_connection_to_the_model(
+    hanging_model_server: HangingModelServer,
+):
+    clock = FakeClock()
+    threading.Thread(
+        target=lambda: hanging_model_server.received.wait(5) and setattr(clock, "now", 600.0),
+        daemon=True,
+    ).start()
+    with pytest.raises(ModelUnavailable) as error:
+        hanging_model_server.model(clock).complete_tools(MESSAGES, TOOLS, deadline_seconds=120)
+    assert "timeout" in error.value.cause
+    assert hanging_model_server.client_closed.wait(2)
+    assert not tool_call_threads_alive()
+
+
+def test_agent_ac66_a_cancelled_call_after_an_answered_one_also_closes_its_connection(
+    hanging_model_server: HangingModelServer,
+):
+    hanging_model_server.answers.append(tool_envelope("erste Antwort"))
+    model = hanging_model_server.model()
+    assert model.complete_tools(MESSAGES, TOOLS, deadline_seconds=30).text == "erste Antwort"
+
+    cancel = cancel_once_received(hanging_model_server)
+    with pytest.raises(ModelCallCancelled):
+        model.complete_tools(MESSAGES, TOOLS, deadline_seconds=30, cancel=cancel)
+    assert hanging_model_server.client_closed.wait(2)
+
+
+class ShutdownRecordingSocket:
+    def __init__(self) -> None:
+        self.shut_down = threading.Event()
+
+    def shutdown(self, how: int) -> None:
+        self.shut_down.set()
+
+
+class StreamWithSocket:
+    def __init__(self, sock: ShutdownRecordingSocket):
+        self.sock = sock
+
+    def get_extra_info(self, name: str) -> object:
+        return self.sock if name == "socket" else None
+
+
+class ConnectsAfterTheCallerLeft(httpx.BaseTransport):
+    def __init__(self, caller_left: threading.Event):
+        self.caller_left = caller_left
+        self.sock = ShutdownRecordingSocket()
+
+    def handle_request(self, request: httpx.Request) -> httpx.Response:
+        self.caller_left.wait(5)
+        request.extensions["trace"](
+            "connection.connect_tcp.complete", {"return_value": StreamWithSocket(self.sock)}
+        )
+        if not self.sock.shut_down.wait(5):
+            return httpx.Response(200, content=tool_envelope("zu spät"))
+        raise httpx.ReadError("connection shut down")
+
+
+def test_agent_ac66_a_connection_made_after_the_cancel_is_closed_at_once():
+    caller_left = threading.Event()
+    transport = ConnectsAfterTheCallerLeft(caller_left)
+    model = ChatModel(BASE_URL, "qwen3:8b", http=httpx.Client(transport=transport))
+    cancel = threading.Event()
+    threading.Timer(0.1, cancel.set).start()
+    with pytest.raises(ModelCallCancelled):
+        model.complete_tools(MESSAGES, TOOLS, deadline_seconds=30, cancel=cancel)
+    caller_left.set()
+    assert transport.sock.shut_down.wait(2)
+    assert not tool_call_threads_alive()

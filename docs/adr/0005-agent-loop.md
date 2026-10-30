@@ -18,5 +18,5 @@ The agent is a plain loop in `ai-service` over the OpenAI-compatible tools API o
 
 - The loop enforces the limits itself: 20 tool calls, 10 minutes, 200,000 tokens, a cut-off input detected from `prompt_tokens`, and 120 s per model call.
 - One model call runs at a time, which suits a single local model.
-- A call abandoned by a cancel or deadline ends in its background thread at the read timeout, which equals the deadline; its answer is discarded.
+- A cancel or deadline shuts down the call's socket, so the model server sees the client leave and stops generating, and the background thread ends at once. Each call opens its own connection (`Connection: close`) so that its socket is known from the connect trace; a connection that opens after the abort is shut down as soon as it exists.
 - The M10 evals measure task success, because the loop cannot make a model choose the right tool.
