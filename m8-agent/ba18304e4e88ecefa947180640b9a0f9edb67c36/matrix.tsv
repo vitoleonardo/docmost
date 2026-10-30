@@ -1,0 +1,380 @@
+AGENT-AC1	happy path	AGENT-AC1: the first open shows the tabs Fragen and Aufgabe with Fragen selected	pass
+AGENT-AC1	happy path	n/a: Playwright, "AGENT-AC1: the panel shows the tabs Fragen and Aufgabe with Fragen selected" in apps/client/e2e/agent.screenshots.ts, run in verify step 4	n/a
+AGENT-AC2	happy path	AGENT-AC2: shows the selector, hint, examples and the input	pass
+AGENT-AC2	happy path	n/a: Playwright, "AGENT-AC2: G1 shows the space, the hint, the examples and the input" in apps/client/e2e/agent.screenshots.ts, run in verify step 4	n/a
+AGENT-AC3	error path	AGENT-AC3: an unavailable assistant shows state A4 with a retry button in the Aufgabe tab	pass
+AGENT-AC3	error path	AGENT-AC3: an unavailable assistant shows state A4 in the Fragen tab too	pass
+AGENT-AC3	error path	AGENT-AC3: an unreachable service during the start shows state A4 and retry clears it	pass
+AGENT-AC4	empty data	AGENT-AC4: lists the user	pass
+AGENT-AC5	happy path	AGENT-AC5: preselects the space of the open page	pass
+AGENT-AC6	happy path	AGENT-AC6: falls back to the first space when the page	pass
+AGENT-AC7	empty data	AGENT-AC7: an example fills the input and starts nothing	pass
+AGENT-AC8	limit	AGENT-AC8: 2,001 characters disable Starten and show the limit hint	pass
+AGENT-AC8	limit	AGENT-AC8: 2,000 characters surrounded by whitespace can start	pass
+AGENT-AC9	empty data	AGENT-AC9: whitespace only disables Starten	pass
+AGENT-AC10	empty data	AGENT-AC10: a user without spaces sees Kein Bereich and cannot start	pass
+AGENT-AC11	happy path	AGENT-AC11: Enter starts the run with the trimmed task in the chosen space	pass
+AGENT-AC12	happy path	AGENT-AC12: an ask turn is still there after switching to Aufgabe and back	pass
+AGENT-AC13	happy path	AGENT-AC13: a running agent task is not stopped by switching tabs	pass
+AGENT-AC14	happy path	AGENT-AC14: Neue Unterhaltung is shown on Fragen and hidden on Aufgabe	pass
+AGENT-AC15	happy path	AGENT-AC15: Zu dieser Seite fragen selects Fragen with the scope Diese Seite while Aufgabe was selected	pass
+AGENT-AC15	happy path	AGENT-AC15: the last selected tab is kept when the aside is opened again	pass
+AGENT-AC16	limit	AGENT-AC16: shows task and space, step 0 and Abbrechen before the first step	pass
+AGENT-AC16	happy path	AGENT-AC16: Abbrechen stops the run and keeps header and step lines	pass
+AGENT-AC16	happy path	AGENT-AC16: an ended run keeps header and step lines	pass
+AGENT-AC16	limit	n/a: Playwright, "AGENT-AC16: G2 shows the task, Schritt 0 von höchstens 20 and Abbrechen before the first step ended" in apps/client/e2e/agent.screenshots.ts, run in verify step 4	n/a
+AGENT-AC17	happy path	AGENT-AC17: a search step shows its line and counts the step	pass
+AGENT-AC17	happy path	AGENT-AC17: run_in_progress shows the hint in the start state	pass
+AGENT-AC17	happy path	AGENT-AC17: the run endpoint streams with the contract content type	pass
+AGENT-AC17	happy path	AGENT-AC17: every event the wiki streams has exactly the fields of the contract, the same as the AI service sends	pass
+AGENT-AC17	happy path	AGENT-AC17: relays the run, step, proposal and end events in their order	pass
+AGENT-AC17	happy path	AGENT-AC17: relays only the fields of the contract	pass
+AGENT-AC17	happy path	AGENT-AC17: writes each event as one server-sent event and ends the response	pass
+AGENT-AC17	happy path	test_agent_ac17_a_search_step_reports_its_query_and_count	pass
+AGENT-AC18	limit	AGENT-AC18: a search with one or no page ends in 1 Seite or keine Seiten	pass
+AGENT-AC18	empty data	test_agent_ac18_a_search_step_counts_one_page_or_none	pass
+AGENT-AC19	happy path	AGENT-AC19: a read step shows the page title	pass
+AGENT-AC19	happy path	test_agent_ac19_a_read_step_reports_the_page_title_and_gives_numbered_blocks	pass
+AGENT-AC20	happy path	AGENT-AC20: a propose step shows Vorschlag erstellt	pass
+AGENT-AC20	happy path	test_agent_ac20_a_proposal_step_is_followed_by_the_proposal_event	pass
+AGENT-AC21	happy path	AGENT-AC21: shows the run time since the start and ticks every second	pass
+AGENT-AC22	error path	AGENT-AC22: a refused step reads Schritt ohne Ergebnis	pass
+AGENT-AC22	missing permission or unreadable page	test_agent_ac22_an_unknown_tool_is_refused_and_the_run_goes_on	pass
+AGENT-AC22	error path	test_agent_ac22_invalid_arguments_are_refused_and_the_run_goes_on	pass
+AGENT-AC22	error path	test_agent_ac22_a_refused_proposal_gives_its_reason_and_stores_nothing	pass
+AGENT-AC23	missing permission or unreadable page	test_agent_ac23_a_bridge_failure_at_the_task_token_exchange_propagates_before_storing	pass
+AGENT-AC23	missing permission or unreadable page	test_agent_ac23_a_failing_wiki_is_answered_as_unavailable_not_as_not_found	pass
+AGENT-AC23	missing permission or unreadable page	test_agent_ac23_failures_are_unavailable_and_not_not_found	pass
+AGENT-AC24	double submit or concurrent	AGENT-AC24: two steps show in order and count 2	pass
+AGENT-AC24	happy path	n/a: Playwright, "AGENT-AC24: G2 shows the search line before the read line and Schritt 2 von höchstens 20" in apps/client/e2e/agent.screenshots.ts, run in verify step 4	n/a
+AGENT-AC24	double submit or concurrent	test_agent_ac24_two_calls_of_one_answer_run_in_order_as_two_steps	pass
+AGENT-AC25	happy path	test_agent_ac25_search_and_read_always_send_the_run_space	pass
+AGENT-AC25	missing permission or unreadable page	test_agent_ac25_results_of_another_space_never_reach_the_model	pass
+AGENT-AC26	missing permission or unreadable page	AGENT-AC26: a page of another space the user may view is refused as not found	pass
+AGENT-AC26	missing permission or unreadable page	test_agent_ac26_a_page_out_of_reach_is_not_found_with_no_page_text	pass
+AGENT-AC26	missing permission or unreadable page	test_agent_ac26_read_blocks_sends_the_task_token_and_parses_blocks	pass
+AGENT-AC26	missing permission or unreadable page	test_agent_ac26_tools_reject_the_user_token	pass
+AGENT-AC26	happy path	test_agent_ac26_search_returns_viewable_pages_of_the_space	pass
+AGENT-AC27	missing permission or unreadable page	AGENT-AC27: a restricted page is refused with the same answer as an unknown id	pass
+AGENT-AC27	missing permission or unreadable page	test_agent_ac27_ac28_unreadable_page_is_not_found	pass
+AGENT-AC28	missing permission or unreadable page	AGENT-AC28: a trashed page is refused with the same answer as an unknown id	pass
+AGENT-AC28	missing permission or unreadable page	AGENT-AC28: a page deleted after the access check and held by no node is refused as not found	pass
+AGENT-AC28	missing permission or unreadable page	test_agent_ac27_ac28_unreadable_page_is_not_found	pass
+AGENT-AC29	missing permission or unreadable page	AGENT-AC29: a page of a run space marked as deleted is refused as not found	pass
+AGENT-AC29	missing permission or unreadable page	test_agent_ac29_a_search_in_a_space_the_wiki_no_longer_knows_is_refused_as_not_found	pass
+AGENT-AC29	missing permission or unreadable page	test_agent_ac29_page_in_another_space_or_unknown_is_not_found	pass
+AGENT-AC30	missing permission or unreadable page	test_agent_ac30_a_restricted_page_is_not_in_the_search_answer	pass
+AGENT-AC31	missing permission or unreadable page	AGENT-AC31: after the user is removed from the run space the next read is refused as not found	pass
+AGENT-AC31	missing permission or unreadable page	n/a: e2e only, "AGENT-AC31: a member removed from the run space gets 404 page_not_found on read-blocks with a still valid token" in apps/server/test/ai-agent.e2e-spec.ts, 157 passed on 30.10.2026 (server e2e run)	n/a
+AGENT-AC31	missing permission or unreadable page	test_agent_ac31_not_found_variants_share_one_handling	pass
+AGENT-AC32	missing permission or unreadable page	AGENT-AC32: the route accepts a task token	pass
+AGENT-AC32	missing permission or unreadable page	AGENT-AC32: three minutes into a run the task token still reads the blocks for the run user	pass
+AGENT-AC32	missing permission or unreadable page	n/a: e2e only, "AGENT-AC32: three minutes into a run the task token still reads blocks while the user token has expired" in apps/server/test/ai-agent.e2e-spec.ts, 157 passed on 30.10.2026 (server e2e run)	n/a
+AGENT-AC33	happy path	AGENT-AC33: an edit made to the live document is in the next read	pass
+AGENT-AC33	happy path	AGENT-AC33: reading does not change the document	pass
+AGENT-AC33	empty data	AGENT-AC33: readAgentBlocks reads the loaded live document without opening a direct connection	pass
+AGENT-AC33	empty data	n/a: e2e only, "AGENT-AC33: read-blocks holds a character typed in an open editor that the wiki has not saved, and stores nothing" in apps/server/test/ai-agent.e2e-spec.ts, 157 passed on 30.10.2026 (server e2e run)	n/a
+AGENT-AC34	happy path	AGENT-AC34: numbers heading, paragraph, list items and table cells in document order	pass
+AGENT-AC34	happy path	AGENT-AC34: counts toggle content but not its summary	pass
+AGENT-AC34	happy path	AGENT-AC34: counts paragraphs in task lists, quotes and callouts	pass
+AGENT-AC34	empty data	AGENT-AC34: skips whitespace-only paragraphs and headings	pass
+AGENT-AC34	happy path	AGENT-AC34: a block takes the nearest preceding heading as context	pass
+AGENT-AC34	happy path	test_agent_ac34_a_heading_block_is_marked_in_the_read	pass
+AGENT-AC34	happy path	test_agent_ac34_read_blocks_parses_is_heading	pass
+AGENT-AC34	happy path	test_agent_ac34_read_blocks_is_heading_must_be_a_bool	pass
+AGENT-AC35	limit	test_agent_ac35_a_read_keeps_the_blocks_within_6000_characters_and_notes_the_rest	pass
+AGENT-AC35	limit	test_agent_ac35_a_block_ending_exactly_at_6000_characters_is_kept	pass
+AGENT-AC36	happy path	test_agent_ac36_page_text_cannot_make_the_agent_write	pass
+AGENT-AC37	error path	AGENT-AC37: every bridge endpoint for the AI service declares that it does not change page content	pass
+AGENT-AC37	error path	AGENT-AC37: every route of the internal controller is a bridge endpoint of the contract	pass
+AGENT-AC37	empty data	AGENT-AC37: readAgentBlocks answers null and opens no direct connection when the document is not loaded	pass
+AGENT-AC37	empty data	AGENT-AC37: when no collaboration node holds the page (	pass
+AGENT-AC37	empty data	n/a: e2e only, "AGENT-AC37: a read through read-blocks attempts no store and leaves the stored page and its updated_at unchanged" in apps/server/test/ai-agent.e2e-spec.ts, 157 passed on 30.10.2026 (server e2e run)	n/a
+AGENT-AC38	happy path	test_agent_ac38_accepted_change_holds_old_text_of_the_read_and_new_text	pass
+AGENT-AC38	happy path	test_agent_ac38_json_form_has_the_stored_shape	pass
+AGENT-AC38	happy path	test_agent_ac38_new_text_is_kept_as_given	pass
+AGENT-AC39	error path	test_agent_ac39_refuses_a_page_that_was_not_read	pass
+AGENT-AC40	error path	test_agent_ac40_refuses_a_block_number_not_in_the_read	pass
+AGENT-AC40	error path	test_agent_ac40_refuses_a_block_that_is_not_an_int	pass
+AGENT-AC41	error path	test_agent_ac41_refuses_unusable_new_texts	pass
+AGENT-AC41	limit	test_agent_ac41_accepts_2000_characters	pass
+AGENT-AC41	error path	test_agent_ac41_refuses_a_new_text_that_is_not_a_string	pass
+AGENT-AC41	error path	test_agent_ac41_refuses_malformed_changes	pass
+AGENT-AC42	error path	test_agent_ac42_refuses_unusable_reasons	pass
+AGENT-AC42	error path	test_agent_ac42_refuses_a_reason_that_is_not_a_string	pass
+AGENT-AC42	error path	test_agent_ac42_accepts_500_characters	pass
+AGENT-AC43	double submit or concurrent	test_agent_ac43_refuses_two_changes_to_one_block	pass
+AGENT-AC44	error path	test_agent_ac44_refuses_changes_that_are_not_a_list	pass
+AGENT-AC44	error path	test_agent_ac44_refuses_11_changes_and_no_changes	pass
+AGENT-AC44	limit	test_agent_ac44_accepts_10_changes	pass
+AGENT-AC45	missing permission or unreadable page	AGENT-AC45: a block with a mention is not editable and its text leaves the mention out	pass
+AGENT-AC45	error path	AGENT-AC45: a change to a block with a mention makes apply stale	pass
+AGENT-AC45	missing permission or unreadable page	test_agent_ac45_refuses_a_block_that_is_not_editable	pass
+AGENT-AC46	double submit or concurrent	test_agent_ac46_refuses_a_second_proposal_for_a_page	pass
+AGENT-AC46	happy path	test_agent_ac46_uses_the_most_recent_read_passed_in	pass
+AGENT-AC46	double submit or concurrent	n/a: integration only, test_agent_ac46_second_proposal_for_a_page_in_one_run_is_refused in ai-service/tests/test_migrations.py, 72 passed on 30.10.2026 (ai-service integration run: agent store, migrations, worker)	n/a
+AGENT-AC46	double submit or concurrent	n/a: integration only, test_agent_ac46_second_proposal_for_a_page_in_one_run_is_refused_by_the_store in ai-service/tests/test_agent_store.py, 72 passed on 30.10.2026 (ai-service integration run: agent store, migrations, worker)	n/a
+AGENT-AC47	happy path	AGENT-AC47: a proposal event adds a card with Ansehen	pass
+AGENT-AC48	happy path	AGENT-AC48: summary, cards in order, final message and Neue Aufgabe	pass
+AGENT-AC48	double submit or concurrent	n/a: Playwright, "AGENT-AC48: G3 shows the summary, two cards, the final message and Neue Aufgabe" in apps/client/e2e/agent.screenshots.ts, run in verify step 4	n/a
+AGENT-AC48	happy path	test_agent_ac48_pages_read_counts_distinct_pages_and_proposals_keep_their_order	pass
+AGENT-AC49	happy path	AGENT-AC49: one proposal and one page read use the singular	pass
+AGENT-AC49	happy path	AGENT-AC49: stores steps, the proposal and the end event of a run	pass
+AGENT-AC49	happy path	AGENT-AC49: setProposalStatus updates one proposal card	pass
+AGENT-AC49	missing permission or unreadable page	AGENT-AC49: posts to /api/ai/agent/run and delivers events from one shared frame reader	pass
+AGENT-AC49	happy path	AGENT-AC49: getAgentProposal posts the id and parses the view	pass
+AGENT-AC49	happy path	AGENT-AC49: apply and discard post to their routes	pass
+AGENT-AC49	error path	AGENT-AC49: a malformed view maps to unreachable	pass
+AGENT-AC50	empty data	AGENT-AC50: no proposal and no page read	pass
+AGENT-AC50	empty data	test_agent_ac50_a_run_without_found_pages_reads_zero_pages	pass
+AGENT-AC51	limit	AGENT-AC51: the card shows title, +3 −3, reason and Ansehen	pass
+AGENT-AC51	missing permission or unreadable page	test_agent_ac51_counts_added_and_removed_words_over_all_changes	pass
+AGENT-AC52	empty data	AGENT-AC52: the final message renders bold, loads no image, has no script link	pass
+AGENT-AC53	happy path	AGENT-AC53: reason, title and new text are shown literally	pass
+AGENT-AC53	happy path	AGENT-AC53: a query with markup shows literally	pass
+AGENT-AC53	happy path	AGENT-AC53: reason and title with markup show literally on the card	pass
+AGENT-AC54	happy path	AGENT-AC54: an out of scope run shows only the capability text	pass
+AGENT-AC54	empty data	test_agent_ac54_a_first_answer_without_tool_calls_is_out_of_scope	pass
+AGENT-AC55	empty data	AGENT-AC55: Neue Aufgabe shows the start view with the run	pass
+AGENT-AC56	happy path	AGENT-AC56: state persists after the component unmounts and remounts	pass
+AGENT-AC57	happy path	test_agent_ac57_the_21st_tool_call_is_not_executed	pass
+AGENT-AC57	limit	test_agent_ac57_a_final_message_after_20_steps_still_finishes	pass
+AGENT-AC58	limit	test_agent_ac58_at_19_steps_only_the_first_of_three_calls_runs	pass
+AGENT-AC59	happy path	AGENT-AC59: every end outcome and step kind of the contract is streamed, others end the stream	pass
+AGENT-AC59	limit	n/a: Playwright, "AGENT-AC59: a run stopped after 10 minutes shows the orange limit hint and its card" in apps/client/e2e/agent.screenshots.ts, run in verify step 4	n/a
+AGENT-AC59	error path	test_agent_ac59_setting_the_cancel_event_during_the_call_raises_model_call_cancelled	pass
+AGENT-AC59	error path	test_agent_ac59_a_cancel_event_that_is_already_set_makes_no_request	pass
+AGENT-AC59	error path	test_agent_ac59_an_unset_cancel_event_does_not_disturb_the_call	pass
+AGENT-AC59	error path	test_agent_ac59_the_deadline_closes_the_connection_to_the_model	pass
+AGENT-AC59	error path	test_agent_ac59_a_model_call_at_the_10_minute_mark_is_aborted_as_time_limit	pass
+AGENT-AC59	limit	test_agent_ac59_tool_calls_after_the_deadline_are_not_executed	pass
+AGENT-AC59	limit	test_agent_ac59_no_model_call_starts_after_the_deadline	pass
+AGENT-AC60	limit	test_agent_ac60_an_answer_crossing_200000_tokens_stops_without_its_tool_call	pass
+AGENT-AC61	limit	test_agent_ac61_an_answer_reaching_exactly_200000_tokens_runs_its_tool_call	pass
+AGENT-AC62	limit	AGENT-AC62: a final message after crossing the token limit shows no hint	pass
+AGENT-AC62	limit	test_agent_ac62_a_final_message_crossing_200000_tokens_still_finishes	pass
+AGENT-AC63	happy path	test_agent_ac63_returns_prompt_and_completion_tokens	pass
+AGENT-AC63	empty data	test_agent_ac63_missing_or_non_integer_token_counts_are_none	pass
+AGENT-AC63	limit	test_agent_ac63_too_few_prompt_tokens_for_the_input_stops_as_context_too_small	pass
+AGENT-AC63	missing permission or unreadable page	test_agent_ac63_enough_or_unknown_prompt_tokens_go_on	pass
+AGENT-AC64	error path	AGENT-AC64: Abbrechen keeps the card and shows the cancelled text	pass
+AGENT-AC64	error path	AGENT-AC64: cancel aborts the request and later events are not applied	pass
+AGENT-AC64	error path	AGENT-AC64: a stream that ends without an end event ends without one	pass
+AGENT-AC64	error path	AGENT-AC64: aborting the request closes the AI service request and sends no further event	pass
+AGENT-AC64	limit	AGENT-AC64: a long run is not cut off by the head timeout	pass
+AGENT-AC64	error path	AGENT-AC64: closing the client connection aborts the signal passed to the service	pass
+AGENT-AC64	error path	test_agent_ac64_cancel_during_a_model_call_ends_the_run_without_further_calls	pass
+AGENT-AC64	error path	test_agent_ac64_cancel_between_tool_calls_runs_no_further_call	pass
+AGENT-AC64	error path	test_agent_ac64_closing_the_event_stream_ends_the_run_as_cancelled	pass
+AGENT-AC65	empty data	AGENT-AC65: a fresh store starts empty	pass
+AGENT-AC65	happy path	AGENT-AC65: a client that leaves before the AI service answers ends quietly	pass
+AGENT-AC65	happy path	AGENT-AC65: a client that left before the request is sent ends quietly	pass
+AGENT-AC65	empty data	AGENT-AC65: a client that left before the stream gets nothing written	pass
+AGENT-AC66	error path	AGENT-AC66: after cancel a new start is allowed at once	pass
+AGENT-AC66	error path	AGENT-AC66: newTask clears the run and aborts a running request	pass
+AGENT-AC66	error path	test_agent_ac66_cancel_during_the_call_closes_the_connection_to_the_model	pass
+AGENT-AC66	error path	test_agent_ac66_a_cancelled_call_after_an_answered_one_also_closes_its_connection	pass
+AGENT-AC66	error path	test_agent_ac66_a_connection_made_after_the_cancel_is_closed_at_once	pass
+AGENT-AC66	happy path	test_agent_ac66_after_a_disconnect_the_lock_is_gone_at_once_and_a_new_run_starts	pass
+AGENT-AC66	error path	test_agent_ac66_a_disconnect_sets_the_cancel_event_of_the_model_call	pass
+AGENT-AC66	happy path	test_agent_ac66_a_finished_run_does_not_delete_the_lock_of_a_newer_run	pass
+AGENT-AC67	error path	AGENT-AC67: a model failure shows the card and the failure text	pass
+AGENT-AC67	double submit or concurrent	AGENT-AC67: a stream that breaks after two reads shows 2 Seiten gelesen with the model failure text	pass
+AGENT-AC67	error path	AGENT-AC67: a line that is not JSON ends the stream without an end event and is logged without its content	pass
+AGENT-AC67	error path	AGENT-AC67:	pass
+AGENT-AC67	error path	AGENT-AC67: a body that breaks off ends the stream without an end event	pass
+AGENT-AC67	error path	test_agent_ac67_connection_refused_raises_model_unavailable	pass
+AGENT-AC67	error path	test_agent_ac67_server_error_raises_model_unavailable	pass
+AGENT-AC67	error path	test_agent_ac67_malformed_body_raises_model_unavailable	pass
+AGENT-AC67	error path	test_agent_ac67_a_failing_model_after_a_proposal_keeps_the_proposal	pass
+AGENT-AC68	error path	test_agent_ac68_a_call_that_does_not_complete_within_the_deadline_raises_model_unavailable	pass
+AGENT-AC68	limit	test_agent_ac68_the_transport_gets_the_deadline_as_read_timeout	pass
+AGENT-AC68	error path	test_agent_ac68_a_model_call_silent_for_120_seconds_is_a_model_failure	pass
+AGENT-AC69	error path	AGENT-AC69: a rejected request sets the unavailable flag and keeps no run	pass
+AGENT-AC69	error path	AGENT-AC69: a stream that ends without an end event counts as a model failure	pass
+AGENT-AC69	error path	AGENT-AC69: an invalid event counts as a model failure and stops the stream	pass
+AGENT-AC69	error path	AGENT-AC69: a rejected fetch throws assistant_unavailable	pass
+AGENT-AC69	limit	AGENT-AC69: 401 maps to unauthorized	pass
+AGENT-AC69	error path	AGENT-AC69: a refused connection answers 503 assistant_unavailable	pass
+AGENT-AC69	error path	AGENT-AC69: HTTP	pass
+AGENT-AC69	error path	AGENT-AC69: an AI service that sends no response head within the timeout answers 503 assistant_unavailable	pass
+AGENT-AC70	error path	AGENT-AC70: run_in_progress sets inProgressRefused	pass
+AGENT-AC70	happy path	AGENT-AC70: the run call posts the contract request fields with both token headers and passes run_in_progress	pass
+AGENT-AC70	error path	AGENT-AC70: run_in_progress from the AI service answers 409 run_in_progress	pass
+AGENT-AC70	error path	AGENT-AC70: a 409 with another code answers 503 assistant_unavailable	pass
+AGENT-AC70	double submit or concurrent	test_agent_ac70_a_held_lock_is_409_run_in_progress_before_anything_runs	pass
+AGENT-AC70	missing permission or unreadable page	test_agent_ac70_the_lock_of_another_user_does_not_block	pass
+AGENT-AC70	error path	test_agent_ac70_a_bridge_failure_before_the_stream_is_503_and_frees_the_lock	pass
+AGENT-AC71	happy path	AGENT-AC71: shows title, reason, save hint and both buttons	pass
+AGENT-AC71	happy path	AGENT-AC71: shows a loading state before the view arrives	pass
+AGENT-AC71	happy path	n/a: Playwright, "AGENT-AC71: G4 shows the reason, the diff and the buttons Verwerfen and Übernehmen" in apps/client/e2e/agent.screenshots.ts, run in verify step 4	n/a
+AGENT-AC72	missing permission or unreadable page	AGENT-AC72: removed words are struck, added highlighted, kept plain	pass
+AGENT-AC72	happy path	test_agent_ac72_marks_only_the_changed_number	pass
+AGENT-AC72	happy path	test_agent_ac72_ops_rebuild_old_and_new_text_exactly	pass
+AGENT-AC72	happy path	test_agent_ac72_adjacent_ops_of_one_kind_are_merged	pass
+AGENT-AC72	missing permission or unreadable page	test_agent_ac72_removed_text_comes_before_added_text	pass
+AGENT-AC72	happy path	test_agent_ac72_marks_the_fewest_words	pass
+AGENT-AC72	happy path	test_agent_ac72_finds_a_minimal_edit_where_greedy_matching_is_longer	pass
+AGENT-AC72	limit	test_agent_ac72_diffs_2000_characters_quickly	pass
+AGENT-AC73	happy path	AGENT-AC73: the heading is shown above the change	pass
+AGENT-AC73	empty data	AGENT-AC73: a change without a heading shows none	pass
+AGENT-AC74	happy path	AGENT-AC74: an applied proposal shows diff, badge and only Schließen	pass
+AGENT-AC74	happy path	AGENT-AC74: a discarded proposal shows the badge Verworfen	pass
+AGENT-AC74	empty data	AGENT-AC74: the wiki reads only fields the AI service contract lists and shows its statuses without applying	pass
+AGENT-AC74	happy path	AGENT-AC74: the view answers the contract status values for every stored status	pass
+AGENT-AC74	happy path	AGENT-AC74: an applied proposal shows its diff with the status applied and only the fields the client needs	pass
+AGENT-AC74	happy path	AGENT-AC74: a discarded proposal shows its diff with the status discarded	pass
+AGENT-AC74	happy path	AGENT-AC74: an open proposal whose page is unchanged shows its diff as open and editable	pass
+AGENT-AC74	happy path	AGENT-AC74: a proposal being applied is shown as open	pass
+AGENT-AC75	error path	AGENT-AC75: an unreachable service on opening shows the text and Schließen	pass
+AGENT-AC76	happy path	AGENT-AC76: claims the proposal, writes exactly its changes as the user and records it applied	pass
+AGENT-AC76	limit	AGENT-AC76: changes block 3 and leaves every other block and attribute as it was	pass
+AGENT-AC76	happy path	AGENT-AC76: applies several changes in one call	pass
+AGENT-AC76	happy path	AGENT-AC76: applies ops across several text nodes of one block	pass
+AGENT-AC76	happy path	AGENT-AC76: applyAgentChanges writes with the user as connection context and returns the result	pass
+AGENT-AC77	happy path	AGENT-AC77: Übernehmen closes, marks applied and notifies	pass
+AGENT-AC78	happy path	AGENT-AC78: keep and remove runs must spell the old text	pass
+AGENT-AC78	missing permission or unreadable page	AGENT-AC78: an unknown op kind does not match	pass
+AGENT-AC78	happy path	AGENT-AC78: added words that replace bold words are bold	pass
+AGENT-AC78	missing permission or unreadable page	AGENT-AC78: added words take the formatting of the first removed word they replace	pass
+AGENT-AC78	happy path	AGENT-AC78: added words that replace plain words next to bold ones stay plain	pass
+AGENT-AC79	empty data	AGENT-AC79: a word added after a link carries no link	pass
+AGENT-AC79	happy path	AGENT-AC79: a word added after bold linked text keeps the bold but not the link	pass
+AGENT-AC79	empty data	AGENT-AC79: a word added at the start of a block carries no formatting	pass
+AGENT-AC80	empty data	n/a: e2e only, "AGENT-AC80: an applied proposal shows in another open editor without reloading" in apps/server/test/ai-agent.e2e-spec.ts, 157 passed on 30.10.2026 (server e2e run)	n/a
+AGENT-AC81	happy path	n/a: e2e only, "AGENT-AC81: once the wiki has saved an applied page it names the applying user as last editor" in apps/server/test/ai-agent.e2e-spec.ts, 157 passed on 30.10.2026 (server e2e run)	n/a
+AGENT-AC82	happy path	AGENT-AC82: a view after the write of an apply in flight leaves the proposal to the apply, which records it applied	pass
+AGENT-AC82	happy path	n/a: integration only, test_agent_ac82_applied_proposal_records_user_run_page_and_time in ai-service/tests/test_agent_store.py, 72 passed on 30.10.2026 (ai-service integration run: agent store, migrations, worker)	n/a
+AGENT-AC82	happy path	n/a: integration only, test_agent_ac82_saved_proposal_is_open_and_holds_the_draft_and_the_run_space in ai-service/tests/test_agent_store.py, 72 passed on 30.10.2026 (ai-service integration run: agent store, migrations, worker)	n/a
+AGENT-AC83	happy path	AGENT-AC83: Verwerfen closes, marks discarded and never applies	pass
+AGENT-AC83	empty data	AGENT-AC83: an open proposal is discarded without touching the page	pass
+AGENT-AC84	error path	AGENT-AC84: an apply request for a proposal that is	pass
+AGENT-AC84	error path	AGENT-AC84: a discard request for a proposal that is	pass
+AGENT-AC84	error path	n/a: integration only, test_agent_ac84_proposal_status_outside_the_five_states_is_refused in ai-service/tests/test_migrations.py, 72 passed on 30.10.2026 (ai-service integration run: agent store, migrations, worker)	n/a
+AGENT-AC84	happy path	n/a: integration only, test_agent_ac84_applied_or_discarded_proposal_cannot_be_claimed_or_discarded in ai-service/tests/test_agent_store.py, 72 passed on 30.10.2026 (ai-service integration run: agent store, migrations, worker)	n/a
+AGENT-AC84	happy path	n/a: integration only, test_agent_ac84_transition_outside_the_allowed_set_leaves_the_proposal_unchanged in ai-service/tests/test_agent_store.py, 72 passed on 30.10.2026 (ai-service integration run: agent store, migrations, worker)	n/a
+AGENT-AC84	happy path	n/a: integration only, test_agent_ac84_every_allowed_transition_succeeds in ai-service/tests/test_agent_store.py, 72 passed on 30.10.2026 (ai-service integration run: agent store, migrations, worker)	n/a
+AGENT-AC85	double submit or concurrent	AGENT-AC85: two apply requests at the same time write the page once and one answers 409 proposal_not_open	pass
+AGENT-AC85	double submit or concurrent	AGENT-AC85: a write whose record fails still answers applied, so the user does not apply it twice	pass
+AGENT-AC85	happy path	n/a: integration only, test_agent_ac85_claim_sets_claimed_at in ai-service/tests/test_agent_store.py, 72 passed on 30.10.2026 (ai-service integration run: agent store, migrations, worker)	n/a
+AGENT-AC85	double submit or concurrent	n/a: integration only, test_agent_ac85_two_concurrent_claims_let_exactly_one_win in ai-service/tests/test_agent_store.py, 72 passed on 30.10.2026 (ai-service integration run: agent store, migrations, worker)	n/a
+AGENT-AC85	limit	n/a: integration only, test_agent_ac85_abandoned_claim_older_than_60_seconds_can_be_claimed_again in ai-service/tests/test_agent_store.py, 72 passed on 30.10.2026 (ai-service integration run: agent store, migrations, worker)	n/a
+AGENT-AC85	limit	n/a: integration only, test_agent_ac85_claim_younger_than_60_seconds_cannot_be_claimed_again in ai-service/tests/test_agent_store.py, 72 passed on 30.10.2026 (ai-service integration run: agent store, migrations, worker)	n/a
+AGENT-AC86	error path	AGENT-AC86: a failed write shows the text and keeps the proposal open	pass
+AGENT-AC86	error path	AGENT-AC86: a write that	pass
+AGENT-AC86	error path	AGENT-AC86: a failed write whose release fails still answers 503 write_failed	pass
+AGENT-AC87	error path	AGENT-AC87: a retry after a failed write applies	pass
+AGENT-AC87	error path	n/a: e2e only, "AGENT-AC87: after a write failure answered 503 write_failed and left the proposal open, applying again writes the new text" in apps/server/test/ai-agent.e2e-spec.ts, 157 passed on 30.10.2026 (server e2e run)	n/a
+AGENT-AC87	error path	n/a: integration only, test_agent_ac87_failed_write_reopens_the_proposal_and_clears_the_claim in ai-service/tests/test_agent_store.py, 72 passed on 30.10.2026 (ai-service integration run: agent store, migrations, worker)	n/a
+AGENT-AC88	error path	AGENT-AC88: an unreachable service on apply shows the unreachable text	pass
+AGENT-AC88	happy path	AGENT-AC88:	pass
+AGENT-AC88	error path	AGENT-AC88: an AI service that refuses connections answers 503 assistant_unavailable and nothing is written	pass
+AGENT-AC88	error path	AGENT-AC88: an AI service that fails the claim answers 503 assistant_unavailable and nothing is written	pass
+AGENT-AC88	error path	AGENT-AC88: a	pass
+AGENT-AC89	error path	AGENT-AC89: a stale error on apply shows G5 and marks the card stale	pass
+AGENT-AC89	error path	AGENT-AC89: a not_open error on apply reloads the view	pass
+AGENT-AC89	error path	AGENT-AC89: a stale view shows G5, marks the card and offers a new proposal	pass
+AGENT-AC89	error path	AGENT-AC89: a stale proposal turns its card to Veraltet	pass
+AGENT-AC89	missing permission or unreadable page	AGENT-AC89: an open proposal for a block that is no longer editable is shown stale, as apply would refuse it	pass
+AGENT-AC89	error path	AGENT-AC89: an open proposal whose ops do not spell the old text is shown stale, as apply would refuse it	pass
+AGENT-AC89	happy path	AGENT-AC89: the fingerprint is the same for the same content	pass
+AGENT-AC89	happy path	AGENT-AC89: the fingerprint does not depend on the order attributes were set in	pass
+AGENT-AC89	happy path	AGENT-AC89: a page with a stored ydoc reads with the fingerprint the collaboration server loads for apply	pass
+AGENT-AC89	happy path	AGENT-AC89: a page with only stored content reads with the fingerprint the collaboration server loads for apply	pass
+AGENT-AC89	error path	AGENT-AC89: a text edit in the changed block since the read makes apply stale	pass
+AGENT-AC89	error path	AGENT-AC89: a changed node attribute since the read makes apply stale	pass
+AGENT-AC89	happy path	n/a: e2e only, "AGENT-AC89: a read of a page nobody has open has the fingerprint apply finds, so the proposal applies" in apps/server/test/ai-agent.e2e-spec.ts, 157 passed on 30.10.2026 (server e2e run)	n/a
+AGENT-AC89	error path	n/a: Playwright, "AGENT-AC89: G5 shows the stale text with Schließen and Neuen Vorschlag erstellen" in apps/client/e2e/agent.screenshots.ts, run in verify step 4	n/a
+AGENT-AC90	error path	n/a: e2e only, "AGENT-AC90: a character typed in an open editor after the proposal was shown makes apply answer 409 proposal_stale and keeps only that character" in apps/server/test/ai-agent.e2e-spec.ts, 157 passed on 30.10.2026 (server e2e run)	n/a
+AGENT-AC91	error path	AGENT-AC91: an open proposal whose page fingerprint changed becomes stale and is shown stale	pass
+AGENT-AC91	missing permission or unreadable page	AGENT-AC91: an open proposal whose changed block no longer holds the old text is shown stale	pass
+AGENT-AC91	error path	AGENT-AC91: a proposal that changed state while it was marked stale is shown in its new state	pass
+AGENT-AC91	error path	AGENT-AC91: a live document that rejects answers 503 assistant_unavailable and the proposal stays open	pass
+AGENT-AC91	error path	AGENT-AC91: a page no collaboration node holds is compared with the stored page and shown stale when it changed	pass
+AGENT-AC91	error path	AGENT-AC91: a page that changed since the read answers 409 proposal_stale and the proposal becomes stale	pass
+AGENT-AC91	error path	AGENT-AC91: a text edit in another block since the read makes apply stale	pass
+AGENT-AC91	error path	AGENT-AC91: an old text that differs from the block makes apply stale	pass
+AGENT-AC91	error path	AGENT-AC91: ops that do not spell the old text make apply stale	pass
+AGENT-AC91	missing permission or unreadable page	AGENT-AC91: an unknown block number makes apply stale	pass
+AGENT-AC91	double submit or concurrent	AGENT-AC91: two changes for the same block make apply stale	pass
+AGENT-AC91	error path	AGENT-AC91: one invalid change writes none of the changes	pass
+AGENT-AC91	error path	AGENT-AC91: applyAgentChanges returns stale for an old fingerprint	pass
+AGENT-AC92	error path	AGENT-AC92: bold added to an untouched word since the read makes apply stale	pass
+AGENT-AC93	error path	AGENT-AC93: an edit in a block beyond the first 6,000 characters makes apply stale	pass
+AGENT-AC94	error path	n/a: e2e only, "AGENT-AC94: an edit typed after the read the proposal is based on makes apply answer 409 proposal_stale" in apps/server/test/ai-agent.e2e-spec.ts, 157 passed on 30.10.2026 (server e2e run)	n/a
+AGENT-AC95	happy path	AGENT-AC95: Neuen Vorschlag erstellen starts the fixed task in the same space	pass
+AGENT-AC95	error path	AGENT-AC95: startFromStale starts the fixed task in the run	pass
+AGENT-AC96	error path	AGENT-AC96: a stale proposal answers 409 proposal_not_open and is not written, even if the page is back to its old content	pass
+AGENT-AC96	error path	n/a: integration only, test_agent_ac96_stale_proposal_cannot_be_claimed in ai-service/tests/test_agent_store.py, 72 passed on 30.10.2026 (ai-service integration run: agent store, migrations, worker)	n/a
+AGENT-AC97	missing permission or unreadable page	AGENT-AC97: a reader sees the diff, the hint and a disabled Übernehmen	pass
+AGENT-AC97	missing permission or unreadable page	AGENT-AC97: a user who may only view the page gets the diff with canEdit false	pass
+AGENT-AC97	happy path	n/a: Playwright, "AGENT-AC97: G6 shows the diff, the read-only hint and Übernehmen disabled" in apps/client/e2e/agent.screenshots.ts, run in verify step 4	n/a
+AGENT-AC98	missing permission or unreadable page	AGENT-AC98: a user who may only view the page gets 403 page_not_editable, no claim and no write	pass
+AGENT-AC99	missing permission or unreadable page	AGENT-AC99: a gone page shows the text, Schließen and no proposal text	pass
+AGENT-AC99	happy path	AGENT-AC99: a page that vanishes on apply shows the same text	pass
+AGENT-AC100	missing permission or unreadable page	AGENT-AC100: a page that is	pass
+AGENT-AC101	missing permission or unreadable page	AGENT-AC101: a page that is	pass
+AGENT-AC102	happy path	AGENT-AC102:	pass
+AGENT-AC102	happy path	AGENT-AC102:	pass
+AGENT-AC102	missing permission or unreadable page	AGENT-AC102: a	pass
+AGENT-AC102	missing permission or unreadable page	AGENT-AC102: a	pass
+AGENT-AC102	missing permission or unreadable page	test_agent_ac102_an_unknown_or_foreign_proposal_is_404_proposal_not_found	pass
+AGENT-AC102	missing permission or unreadable page	n/a: integration only, test_agent_ac102_proposal_of_another_user_is_not_found in ai-service/tests/test_agent_store.py, 72 passed on 30.10.2026 (ai-service integration run: agent store, migrations, worker)	n/a
+AGENT-AC103	missing permission or unreadable page	AGENT-AC103:	pass
+AGENT-AC103	missing permission or unreadable page	AGENT-AC103: a space the user was removed from answers 404 space_not_found	pass
+AGENT-AC104	limit	AGENT-AC104: the task length limit of the DTO equals the contract	pass
+AGENT-AC104	limit	AGENT-AC104: accepts a space id and a task of 1 to 2,000 characters after trimming	pass
+AGENT-AC104	happy path	AGENT-AC104: trims the task and lowercases the space id	pass
+AGENT-AC104	error path	AGENT-AC104:	pass
+AGENT-AC104	happy path	AGENT-AC104: sends exactly the space id and the task with both tokens to POST /v1/agent/runs	pass
+AGENT-AC104	error path	AGENT-AC104: a run request with a field the contract does not list answers invalid_request	pass
+AGENT-AC104	happy path	AGENT-AC104: a run request with only the fields of the contract passes to validation	pass
+AGENT-AC104	happy path	AGENT-AC104: the allowed fields are the properties of the body DTO of the handler	pass
+AGENT-AC104	empty data	AGENT-AC104: a handler without a body DTO allows no field	pass
+AGENT-AC104	missing permission or unreadable page	AGENT-AC104: the refusal names the unknown field and answers 400 through the bridge filter	pass
+AGENT-AC104	error path	test_agent_ac104_an_invalid_run_body_is_400_invalid_request	pass
+AGENT-AC104	error path	test_agent_ac104_an_invalid_proposal_body_is_400_invalid_request	pass
+AGENT-AC104	limit	test_agent_ac104_a_task_of_2000_characters_is_accepted_and_trimmed	pass
+AGENT-AC105	error path	AGENT-AC105:	pass
+AGENT-AC105	error path	AGENT-AC105: an apply request with new texts besides the proposal id answers 400 invalid_request	pass
+AGENT-AC105	happy path	AGENT-AC105: the routes pass only the proposal id to the service	pass
+AGENT-AC106	error path	AGENT-AC106: the run route sits behind the session guard of the controller, then the body field guard and the bridge filter	pass
+AGENT-AC107	error path	AGENT-AC107: a switched-off assistant answers 503 assistant_disabled and calls nothing	pass
+AGENT-AC107	happy path	AGENT-AC107:	pass
+AGENT-AC107	error path	AGENT-AC107: a	pass
+AGENT-AC108	limit	test_agent_ac108_a_bad_token_is_401_with_the_exact_code	pass
+AGENT-AC108	happy path	test_agent_ac108_the_service_token_is_checked_before_the_body	pass
+AGENT-AC108	happy path	test_agent_ac108_the_owner_gets_the_stored_proposal	pass
+AGENT-AC108	happy path	test_agent_ac108_the_owner_transitions_the_proposal	pass
+AGENT-AC108	error path	test_agent_ac108_a_proposal_that_is_not_open_is_409_proposal_not_open	pass
+AGENT-AC109	missing permission or unreadable page	n/a: integration only, test_agent_ac109_proposals_of_a_deleted_run_go_with_it in ai-service/tests/test_migrations.py, 72 passed on 30.10.2026 (ai-service integration run: agent store, migrations, worker)	n/a
+AGENT-AC109	happy path	test_agent_ac109_retention_runs_when_the_worker_starts	pass
+AGENT-AC109	limit	test_agent_ac109_retention_does_not_run_again_before_24_h	pass
+AGENT-AC109	limit	test_agent_ac109_retention_runs_again_24_h_after_the_last_one	pass
+AGENT-AC109	limit	test_agent_ac109_retention_passes_now_minus_30_days_as_the_cutoff	pass
+AGENT-AC109	error path	test_agent_ac109_a_failing_retention_is_logged_and_the_worker_goes_on	pass
+AGENT-AC109	limit	n/a: integration only, test_agent_ac109_run_started_30_days_and_1_minute_ago_goes_with_its_proposals in ai-service/tests/test_agent_store.py, 72 passed on 30.10.2026 (ai-service integration run: agent store, migrations, worker)	n/a
+AGENT-AC109	happy path	n/a: integration only, test_agent_ac109_retention_keeps_a_run_started_exactly_at_the_cutoff in ai-service/tests/test_agent_store.py, 72 passed on 30.10.2026 (ai-service integration run: agent store, migrations, worker)	n/a
+AGENT-AC110	empty data	test_agent_ac110_the_store_gets_no_page_text_and_no_model_messages	pass
+AGENT-AC110	happy path	n/a: integration only, test_agent_ac110_upgrade_as_ai_role_creates_the_agent_tables_in_schema_ai in ai-service/tests/test_migrations.py, 72 passed on 30.10.2026 (ai-service integration run: agent store, migrations, worker)	n/a
+AGENT-AC110	happy path	n/a: integration only, test_agent_ac110_downgrade_to_the_index_revision_drops_the_agent_tables_and_keeps_the_index in ai-service/tests/test_migrations.py, 72 passed on 30.10.2026 (ai-service integration run: agent store, migrations, worker)	n/a
+AGENT-AC110	happy path	n/a: integration only, test_agent_ac110_run_records_task_space_steps_and_outcome_only in ai-service/tests/test_agent_store.py, 72 passed on 30.10.2026 (ai-service integration run: agent store, migrations, worker)	n/a
+AGENT-AC110	empty data	n/a: integration only, test_agent_ac110_running_run_has_no_outcome_and_no_end in ai-service/tests/test_agent_store.py, 72 passed on 30.10.2026 (ai-service integration run: agent store, migrations, worker)	n/a
+AGENT-AC110	empty data	n/a: integration only, test_agent_ac110_store_has_no_column_for_messages_or_other_page_text in ai-service/tests/test_agent_store.py, 72 passed on 30.10.2026 (ai-service integration run: agent store, migrations, worker)	n/a
+AGENT-AC111	happy path	test_agent_ac111_each_outcome_logs_one_line_with_the_run_facts	pass
+AGENT-AC111	happy path	test_agent_ac111_the_log_line_counts_steps_tokens_and_proposals	pass
+AGENT-AC111	error path	test_agent_ac111_a_failing_store_ends_the_run_as_model_failed_and_raises	pass
+AGENT-AC112	happy path	AGENT-AC112: the outcome	pass
+AGENT-AC112	missing permission or unreadable page	AGENT-AC112: a request for a proposal that is not found logs no outcome line, as it has no run id	pass
+AGENT-AC113	empty data	AGENT-AC113: the log lines of the outcome	pass
+AGENT-AC113	empty data	test_agent_ac113_the_log_line_holds_no_task_page_text_message_or_token	pass
+AGENT-AC114	happy path	test_agent_ac114_a_read_ends_with_the_hint_to_propose_changes_after_the_page_text	pass
+AGENT-AC114	happy path	test_agent_ac114_a_saved_proposal_tells_the_model_the_page_is_unchanged	pass
+AGENT-AC114	limit	n/a: local model check, test_agent_ac114_the_run_ends_with_a_card_for_the_travel_policy_within_10_minutes in ai-service/tests/test_stack_agent.py via scripts/run-agent-check.sh with qwen3:8b: 2 passed, elapsed 28.3 s, 4 steps, proposal for "Reisekosten Richtlinie 2022"	n/a
+AGENT-AC114	happy path	n/a: local model check, test_agent_ac114_the_proposal_is_open_editable_and_applies_to_the_page in ai-service/tests/test_stack_agent.py via scripts/run-agent-check.sh with qwen3:8b: 2 passed, elapsed 28.3 s, 4 steps, proposal for "Reisekosten Richtlinie 2022"	n/a
+AGENT-AC115	double submit or concurrent	AGENT-AC115: two starts in a row send one request	pass
+AGENT-AC115	double submit or concurrent	test_agent_ac115_two_simultaneous_starts_make_one_stream_and_one_409	pass
+AGENT-AC116	happy path	AGENT-AC116: a linked word the diff keeps still carries its link	pass
+AGENT-AC117	empty data	AGENT-AC117: a page with only a code block and an empty paragraph has no blocks	pass
+AGENT-AC117	empty data	AGENT-AC117: a page without content or ydoc reads as no blocks with the fingerprint of the loaded empty page	pass
+AGENT-AC117	empty data	test_agent_ac117_an_empty_read_gives_the_title_only_without_a_note	pass
