@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from ai_service.leak_suite import SEED_EMAILS, StartFailed
+from ai_service.wiki_session import SEED_EMAILS, StartFailed
 
 GOLDEN_QUESTIONS_FILE = "golden-questions.json"
 AGENT_SCENARIOS_FILE = "agent-scenarios.json"

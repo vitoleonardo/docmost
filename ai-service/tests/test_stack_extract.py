@@ -16,9 +16,9 @@ from redis import Redis
 from ai_service.bridge_client import BridgeClient
 from ai_service.extraction import Extracted, ExtractionPipeline
 from ai_service.inference import ChatModel
-from ai_service.leak_suite import SEED_EMAILS
-from ai_service.leak_suite import log_in as log_in_with_retry
 from ai_service.settings import AskSettings
+from ai_service.wiki_session import SEED_EMAILS
+from ai_service.wiki_session import log_in as log_in_with_retry
 from tests.conftest import USER_ID, WORKSPACE_ID, RecordingRequestLog
 from tests.test_stack import SEED_GENERATED, list_all_pages, pdf_file_names_by_text_layer
 

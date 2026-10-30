@@ -10,8 +10,8 @@ from typing import Any
 import httpx
 import pytest
 
-from ai_service.leak_suite import SEED_EMAILS
-from ai_service.leak_suite import log_in as log_in_with_retry
+from ai_service.wiki_session import SEED_EMAILS
+from ai_service.wiki_session import log_in as log_in_with_retry
 
 pytestmark = [pytest.mark.integration, pytest.mark.stack]
 

@@ -3,42 +3,38 @@ import sys
 import time
 import uuid
 from collections import Counter
-from collections.abc import Callable, Iterable, Iterator
+from collections.abc import Callable, Iterable
 from contextlib import ExitStack
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 import httpx
 
 from ai_service.settings import LeakSuiteSettings
+from ai_service.wiki_session import (
+    SEED_EMAILS,
+    Sleep,
+    StartFailed,
+    list_space_pages,
+    log_in,
+    parse_sse_events,
+    post_data,
+)
 
-SEED_EMAILS = {
-    "GF": "joerg.ostmoor@ostmooimooi.example.com",
-    "PL": "sabine.kettler@ostmooimooi.example.com",
-    "VT": "tobias.renner@ostmooimooi.example.com",
-    "WS": "lukas.brehm@ostmooimooi.example.com",
-}
 CONTROL_USER = "GF"
 INJECTION_ASKERS = ("PL", "VT", "WS")
 OPEN_SPACE_NAME = "Allgemein"
 INJECTION_TITLE_PREFIX = "Leak-Test Injektion"
 CONTROL_KIND = "verbatim"
-LOGIN_THROTTLE_SECONDS = 61
-LIST_PAGE_SIZE = 100
 ASK_TIMEOUT = httpx.Timeout(300, connect=10)
 OUTCOMES = ("answered", "no_source", "failed")
 EXIT_START_FAILED = 2
 EXIT_RUN_FAILED = 1
 
-Sleep = Callable[[float], None]
 Clock = Callable[[], float]
 ClientFactory = Callable[[], httpx.Client]
-
-
-class StartFailed(Exception):
-    pass
 
 
 @dataclass(frozen=True)
@@ -145,15 +141,6 @@ def default_client_factory(wiki_url: str) -> ClientFactory:
     return lambda: httpx.Client(base_url=wiki_url, timeout=ASK_TIMEOUT, follow_redirects=False)
 
 
-def log_in(client: httpx.Client, email: str, password: str, sleep: Sleep) -> httpx.Response:
-    credentials = {"email": email, "password": password}
-    response = client.post("/api/auth/login", json=credentials)
-    if response.status_code == 429:
-        sleep(LOGIN_THROTTLE_SECONDS)
-        response = client.post("/api/auth/login", json=credentials)
-    return response
-
-
 def log_in_all(
     stack: ExitStack,
     client_factory: ClientFactory,
@@ -171,26 +158,6 @@ def log_in_all(
             raise StartFailed(f"Login failed for {key} ({SEED_EMAILS[key]})")
         clients[key] = client
     return clients
-
-
-def post_data(client: httpx.Client, path: str, body: dict[str, Any]) -> dict[str, Any]:
-    response = client.post(path, json=body)
-    response.raise_for_status()
-    return cast(dict[str, Any], response.json()["data"])
-
-
-def list_space_pages(client: httpx.Client, space_id: str) -> list[dict[str, Any]]:
-    pages: list[dict[str, Any]] = []
-    cursor: str | None = None
-    while True:
-        body: dict[str, Any] = {"spaceId": space_id, "limit": LIST_PAGE_SIZE}
-        if cursor:
-            body["cursor"] = cursor
-        data = post_data(client, "/api/pages/recent", body)
-        pages.extend(data["items"])
-        if not data["meta"]["hasNextPage"]:
-            return pages
-        cursor = data["meta"]["nextCursor"]
 
 
 @dataclass(frozen=True)
@@ -263,12 +230,6 @@ def create_injection_pages(
             },
         )
         created.page_ids[page.title] = data["id"]
-
-
-def parse_sse_events(lines: Iterable[str]) -> Iterator[dict[str, Any]]:
-    for line in lines:
-        if line.startswith("data:"):
-            yield json.loads(line.removeprefix("data:").strip())
 
 
 def ask_wiki(client: httpx.Client, question: str) -> Answer:

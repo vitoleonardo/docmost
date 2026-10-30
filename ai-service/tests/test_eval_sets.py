@@ -18,8 +18,8 @@ from ai_service.eval_sets import (
     load_eval_sets,
 )
 from ai_service.extraction import normalise
-from ai_service.leak_suite import StartFailed
 from ai_service.sections import read_pdf_pages
+from ai_service.wiki_session import StartFailed
 from tests.seed_matrix import (
     LEAK_QUESTIONS_PATH,
     SEED_CONTENT,

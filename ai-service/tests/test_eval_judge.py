@@ -17,7 +17,6 @@ from ai_service.eval_judge import (
     seed_source_texts,
 )
 from ai_service.eval_sets import SeedPageEntry
-from ai_service.leak_suite import SEED_EMAILS
 from ai_service.settings import (
     AskSettings,
     DbSetupSettings,
@@ -29,6 +28,7 @@ from ai_service.settings import (
     Settings,
     WorkerSettings,
 )
+from ai_service.wiki_session import SEED_EMAILS
 from tests.conftest import BRIDGE_KEY, REQUEST_LOG_KEY, SERVICE_CREDENTIAL
 from tests.seed_matrix import PAGES_DIR
 
