@@ -52,7 +52,9 @@ headless_rules() {
 You run headless and unattended: nobody answers questions or permission prompts.
 The user chose KIT_APPROVAL=autonomous on 28.10.2026: decide at every auto gate and log it under Decisions to review.
 You are on branch $2, created off $1. Stay on it for the spec, the plan and the build; do not create another branch.
+The base branch for review, verify and every gate is $1 (KIT_BASE=$1 is set), not main: earlier milestones are not part of this diff.
 Open exactly one PR for this milestone with gh pr create --draft --base $1 --head $2. Never split the milestone into several PRs, even past 400 changed lines; the user decided one PR per milestone. Log the oversize under Decisions to review.
+After two failed verify rounds, run one more verify round without asking when every failure is in tests or test setup, or needs a hotfix: a small product fix that keeps the spec as written (layout, responsive behaviour, a missing state). Route the hotfix through the implementer with a red test, then review and verify; log it under Decisions to review. The user allowed this on 29.10.2026. A failure that needs a spec change still stops.
 When a step says stop and ask, or a failure stop is reached, write the question with its context under "## Questions for the user" in .work/$2.md, commit nothing half-done, and end the session.
 Do not change earlier milestones' branches, specs or open decisions. Never merge a PR.
 Every PR, commit and CI run you mention in the PR body gets its full URL.
@@ -177,7 +179,7 @@ watch_session() {
 run_session() {
   milestone=$1 slug=$2 base=$3 branch=$4 attempt=$5
   file=$run_dir/$milestone.$attempt.jsonl
-  KIT_APPROVAL=autonomous claude -p "/ship-feature $slug ($milestone in docs/spec.md sections 8 and 9)" \
+  KIT_APPROVAL=autonomous KIT_BASE=$base claude -p "/ship-feature $slug ($milestone in docs/spec.md sections 8 and 9)" \
     --dangerously-skip-permissions \
     --append-system-prompt "$(headless_rules "$base" "$branch")" \
     --output-format stream-json --verbose \

@@ -59,6 +59,12 @@ merge_base() {
   git merge-base "$(base_ref)" HEAD 2>/dev/null || git rev-parse "$(base_ref)" 2>/dev/null || git rev-parse HEAD
 }
 
+# test_patterns <package>: the package's KIT_TEST_PATTERNS, or the kit's default test file patterns.
+test_patterns() {
+  _patterns=$(conf_value "$1" KIT_TEST_PATTERNS)
+  printf '%s' "${_patterns:-*.test.* *.spec.* *_test.* test_*.* __tests__/* test/* tests/* e2e/* spec/*}"
+}
+
 # matches_any <file> <space-separated shell patterns>: true if the file matches one of them.
 matches_any() {
   set -f

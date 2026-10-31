@@ -238,8 +238,7 @@ compare_test() {
   : >"$tmp/vanished"
   if [ -s "$tmp/gone" ]; then
     # Only removed lines of test files count, so a renamed fixture or a comment elsewhere explains nothing.
-    patterns=$(configured "$pkg" KIT_TEST_PATTERNS)
-    patterns=${patterns:-"*.test.* *.spec.* *_test.* test_*.* __tests__/* test/* tests/* e2e/* spec/*"}
+    patterns=$(test_patterns "$pkg")
     : >"$tmp/removed-lines"
     git diff --name-only "$(merge_base)" -- 2>/dev/null | while IFS= read -r f; do
       [ "$(package_of "$f")" = "$pkg" ] && matches_any "$f" "$patterns" || continue
