@@ -117,3 +117,13 @@ To switch the assistant off, unset `AI_BRIDGE_SECRET` and restart the wiki serve
 - ai-service integration, local only: `cd ai-service && uv run pytest -m integration`. It uses Redis db 15 and creates and drops the database `docmost_ai_role_test` and the role `docmost_ai_test`.
 - Contract: `docs/contracts/ai-bridge.json`. Both sides test against it: `apps/server/src/integrations/ai-bridge/ai-bridge.contract.spec.ts` and `ai-service/tests/test_contract.py`.
 - CI does not run the e2e and integration suites.
+
+## Verify data runs and screenshots
+
+`/verify-feature` runs these through `.claude/bin/evidence data` and `.claude/bin/evidence screenshots` (commands in `.claude/kit.conf`).
+
+- Data runs: build `packages/*`, `pnpm seed` (prints `seed: <tree hash of the seed folder>`), then the server e2e suite.
+- Screenshots: `pnpm build`, `pnpm seed`, then Playwright starts `pnpm start` on `KIT_APP_URL` and runs `apps/client/e2e/*.screenshots.ts` on desktop and mobile. Images are named `<criterion>-<step>-<desktop|mobile>.png`.
+- Stop `pnpm dev` and `pnpm start` first: Playwright needs the port free and the seed needs the app stopped.
+- Without the evidence pack: `pnpm exec playwright test`; the images land in `test-results/`.
+- The base-branch run uses a fresh worktree without `.env`, so the app does not start there and base images are missing; the evidence pack records that as a warning.

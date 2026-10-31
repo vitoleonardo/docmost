@@ -166,10 +166,21 @@ gates() {
     git diff "$mb" -- . $(excludes) | gitleaks stdin --no-banner >"$tmp/log-secrets" 2>&1
     if [ $? -eq 0 ]; then gate secrets pass 0 "gitleaks: no leaks in the diff"; else gate secrets fail 0 "gitleaks found secrets in the diff"; fi
   else
-    secret='(-----BEGIN [A-Z ]*PRIVATE KEY-----|AKIA[0-9A-Z]{16}|gh[pousr]_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{40,}|xox[baprs]-[A-Za-z0-9-]{10,}|sk-[A-Za-z0-9_-]{20,}|(api[_-]?key|secret|token|password)["'"'"']?[[:space:]]*[:=][[:space:]]*["'"'"'][^"'"'"'[:space:]]{12,})'
-    grep -Ei "$secret" "$tmp/added" | cut -f1 | sort -u >"$tmp/log-secrets"
+    key_format='(-----BEGIN [A-Z ]*PRIVATE KEY-----|AKIA[0-9A-Z]{16}|gh[pousr]_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{40,}|xox[baprs]-[A-Za-z0-9-]{10,}|sk-[A-Za-z0-9_-]{20,})'
+    assignment='(api[_-]?key|secret|token|password)["'"'"']?[[:space:]]*[:=][[:space:]]*["'"'"'][^"'"'"'[:space:]]{12,}'
+    {
+      grep -Ei "$key_format" "$tmp/added" | cut -f1
+      allowed=.claude/secrets-allow.tsv
+      [ -f "$allowed" ] || allowed=/dev/null
+      grep -Ei "$assignment" "$tmp/added" | awk -F '\t' '
+        NR == FNR { if ($0 !~ /^#/ && NF >= 2) { n++; path[n] = $1; value[n] = $2 } next }
+        { for (i = 1; i <= n; i++) if (path[i] == $1 && index($2, value[i])) next; print }' "$allowed" - |
+        cut -f1 | sort -u | while IFS= read -r f; do
+        matches_any "$f" "$(test_patterns "$(package_of "$f")")" || printf '%s\n' "$f"
+      done
+    } | sort -u >"$tmp/log-secrets"
     git diff --name-only --diff-filter=A "$mb" -- 2>/dev/null | grep -E '(^|/)\.env(\.[^/]*)?$' | grep -vE '\.env\.(example|sample|template)$' >>"$tmp/log-secrets"
-    if [ -s "$tmp/log-secrets" ]; then gate secrets fail 0 "possible secrets (pattern scan, gitleaks not installed): $(tr '\n' ' ' <"$tmp/log-secrets")"; else gate secrets pass 0 "pattern scan, gitleaks not installed: nothing found"; fi
+    if [ -s "$tmp/log-secrets" ]; then gate secrets fail 0 "possible secrets (pattern scan, gitleaks not installed): $(tr '\n' ' ' <"$tmp/log-secrets")"; else gate secrets pass 0 "pattern scan, gitleaks not installed: nothing found (fake values assigned in test files or listed in .claude/secrets-allow.tsv are not flagged; key formats are)"; fi
   fi
 
   max=$(conf_value . KIT_MAX_CHANGED_LINES)
