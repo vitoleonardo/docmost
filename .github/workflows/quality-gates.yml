@@ -23,7 +23,30 @@ jobs:
   gates:
     name: Quality gates
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: pgvector/pgvector:pg18
+        env:
+          POSTGRES_DB: docmost
+          POSTGRES_USER: docmost
+          POSTGRES_PASSWORD: docmost
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U docmost"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:8
+        ports:
+          - 6380:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v7
         with:
@@ -112,3 +135,7 @@ jobs:
       - name: Build
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: .claude/bin/check build || [ $? -eq 4 ]
+
+      - name: Leak check
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: scripts/run-leak-check.sh

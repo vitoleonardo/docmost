@@ -1,7 +1,9 @@
 import json
+import re
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any, cast
 
 from ai_service.sections import markdown_sections
 
@@ -16,7 +18,13 @@ SEED_CONTENT = (
 )
 PAGES_DIR = SEED_CONTENT / "pages"
 CANARIES_PATH = SEED_CONTENT / "generated" / "canaries.json"
+LEAK_QUESTIONS_PATH = SEED_CONTENT / "leak-questions.json"
+CANARY_QUESTIONS_PATH = SEED_CONTENT / "canary-questions.json"
+LEAK_INJECTION_PAGES_PATH = SEED_CONTENT / "leak-injection-pages.json"
 SEED_NAMESPACE = uuid.UUID("0192f000-0000-7000-8000-00000000feed")
+MIN_SENTENCE_CHARS = 30
+
+Entry = dict[str, Any]
 
 SPACE_DIRS = ("allgemein", "hr", "vertrieb", "projekte", "it", "geschaeftsfuehrung")
 SEED_USERS = ("GF", "PL", "VT", "WS")
@@ -26,6 +34,26 @@ SPACE_MEMBERS: dict[str, frozenset[str]] = {
     "VT": frozenset({"allgemein", "vertrieb", "projekte"}),
     "WS": frozenset({"allgemein", "projekte", "it"}),
 }
+
+
+def load_entries(path: Path) -> list[Entry]:
+    return cast(list[Entry], json.loads(path.read_text()))
+
+
+def sentences_of(markdown: str) -> list[str]:
+    sentences: list[str] = []
+    for line in markdown.splitlines():
+        text = line.strip().removeprefix("- ")
+        if not text or text.startswith("#"):
+            continue
+        for sentence in re.split(r"(?<=[.!?])\s+", text):
+            if (
+                len(sentence) >= MIN_SENTENCE_CHARS
+                and sentence[-1] in ".!?"
+                and "CANARY-" not in sentence
+            ):
+                sentences.append(sentence)
+    return sentences
 
 
 def seed_id(name: str) -> str:
