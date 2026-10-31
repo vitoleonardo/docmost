@@ -347,6 +347,14 @@ Against a stack that already runs (wiki, ai-service, worker, Ollama, indexed see
 - Set `EVAL_ANTHROPIC_API_KEY` in your shell before `scripts/run-evals.sh`. The script keeps it in a shell variable, unsets it before it starts any process and passes it only to `eval_suite`. The wiki and the AI service never see it.
 - Without the key, run with `--no-judge`.
 
+## Demo
+
+`scripts/run-demo.sh` from the repo root starts a throwaway stack for trying the assistant: database `docmost_demo` and role `docmost_ai_demo` (recreated, dropped on exit), Redis db 8 (flushed at start and end), wiki on http://127.0.0.1:3104, ai-service on port 8105, seed storage in a temporary folder, secrets generated per run. It seeds, indexes every page and PDF (no worker runs, so later edits are not indexed), prints the seed logins and runs until Ctrl-C.
+
+- Needs the dev Postgres and Redis, a `pnpm build`, `uv sync` in `ai-service/` and Ollama serving `qwen3:8b`.
+- `scripts/run-demo.sh --record` runs `apps/client/e2e/ai-assistant.demo.ts` (`playwright.demo.config.ts`) against the stack with the real model, then writes `docs/media/ai-ask.gif`, `ai-permissions.gif`, `ai-extraction.gif` and `ai-agent.gif` with ffmpeg and exits. Needs `ffmpeg`. Commit the GIFs when the README should show the new recording.
+- Variables: `DEMO_DATABASE` (must start with `docmost_demo`), `DEMO_PG_ADMIN_URL`, `DEMO_REDIS_URL` (a database number from 1 to 15), `DEMO_WIKI_PORT`, `DEMO_AI_PORT`, `DEMO_LLM_BASE_URL`, `DEMO_LLM_MODEL`, `DEMO_HEALTH_TIMEOUT`, `DEMO_INDEX_TIMEOUT`. A second stack at the same time needs different values for the database, Redis and both ports.
+
 ## Verify data runs and screenshots
 
 `/verify-feature` runs these through `.claude/bin/evidence data` and `.claude/bin/evidence screenshots` (commands in `.claude/kit.conf`).
