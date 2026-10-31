@@ -8,6 +8,7 @@ import { useAtomValue } from "jotai";
 import { pageEditorAtom } from "@/features/editor/atoms/editor-atoms.ts";
 import { ASIDE_PANEL_ID } from "@/hooks/use-toggle-aside.tsx";
 import { lazyWithPrefetch } from "@/lib/lazy-prefetch.ts";
+import NewConversationButton from "@/features/ai-assistant/components/new-conversation-button.tsx";
 
 const CommentListWithTabs = lazy(
   () => import("@/features/comment/components/comment-list-with-tabs.tsx"),
@@ -77,16 +78,19 @@ export default function Aside() {
           {tab !== "chat" && (
             <Group justify="space-between" wrap="nowrap" mb="md">
               <Title order={2} size="h6" fw={500}>{t(title)}</Title>
-              <Tooltip label={t("Close")} withArrow>
-                <ActionIcon
-                  variant="subtle"
-                  color="gray"
-                  onClick={closeAside}
-                  aria-label={t("Close")}
-                >
-                  <IconX size={18} />
-                </ActionIcon>
-              </Tooltip>
+              <Group gap="xs" wrap="nowrap">
+                {tab === "ai-assistant" && <NewConversationButton />}
+                <Tooltip label={t("Close")} withArrow>
+                  <ActionIcon
+                    variant="subtle"
+                    color="gray"
+                    onClick={closeAside}
+                    aria-label={t("Close")}
+                  >
+                    <IconX size={18} />
+                  </ActionIcon>
+                </Tooltip>
+              </Group>
             </Group>
           )}
 

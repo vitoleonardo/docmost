@@ -232,8 +232,8 @@
           <span class="sm dim" style="max-width:260px">Antworten stützen sich nur auf Seiten, die du sehen darfst, und nennen ihre Quellen.</span>
         </div>
         <div style="display:flex;flex-direction:column;gap:6px;margin-top:12px">
-          <div class="suggest">Wie viele Urlaubstage habe ich?</div>
-          <div class="suggest">Wer ist Ansprechpartner für Reisekosten?</div>
+          <div class="suggest">Wer beantwortet Rückfragen zur Reisekostenabrechnung?</div>
+          <div class="suggest">Wann ist die Kernarbeitszeit?</div>
         </div>
         <div class="composer"><div class="input">Frage stellen …</div><span class="btn primary icon-only"><svg class="icon"><use href="#i-send"/></svg></span></div>
       </div>
@@ -258,13 +258,13 @@
 
     <figure>
       <div class="screen panel">
-        <div class="row between"><span class="h6">Assistent</span><svg class="icon dim"><use href="#i-x"/></svg></div>
+        <div class="row between"><span class="h6">Assistent</span><span class="row"><svg class="icon dim" title="Neue Unterhaltung"><use href="#i-msg"/></svg><svg class="icon dim"><use href="#i-x"/></svg></span></div>
         <div class="seg"><span class="on">Fragen</span><span>Aufgabe</span></div>
         <div class="bubble">Welche Gehaltsbänder gelten für die Geschäftsführung?</div>
         <div class="alert gray"><svg class="icon dim"><use href="#i-sparkles"/></svg><span>Dazu habe ich in den Seiten, auf die du Zugriff hast, keine passende Quelle gefunden. Formuliere die Frage anders oder wende dich an die zuständige Abteilung.</span></div>
         <div class="composer"><div class="input">Frage stellen …</div><span class="btn primary icon-only"><svg class="icon"><use href="#i-send"/></svg></span></div>
       </div>
-      <figcaption><b>A3 Keine Quelle.</b> Wortgleich, ob es den Inhalt nicht gibt oder ob er gesperrt ist. Die Antwort verrät nicht, dass ein gesperrter Bereich existiert. Das ist die Szene für den Rollenwechsel im Video.</figcaption>
+      <figcaption><b>A3 Keine Quelle.</b> Der Icon-Button „Neue Unterhaltung“ sitzt in der Titelzeile des Panels, links neben dem Schließen-Kreuz, und ist aktiv, sobald die Unterhaltung eine Frage enthält. Wortgleich, ob es den Inhalt nicht gibt oder ob er gesperrt ist. Die Antwort verrät nicht, dass ein gesperrter Bereich existiert. Das ist die Szene für den Rollenwechsel im Video.</figcaption>
     </figure>
 
     <figure>
@@ -275,7 +275,7 @@
         <div><span class="btn default">Erneut versuchen</span></div>
         <div class="composer"><div class="input" style="background:var(--m-gray1)">Frage stellen …</div><span class="btn disabled icon-only"><svg class="icon"><use href="#i-send"/></svg></span></div>
       </div>
-      <figcaption><b>A4 Nicht erreichbar.</b> ai-service oder das Modell antwortet nicht (M3). Eingabe gesperrt, Rest von Docmost unberührt.</figcaption>
+      <figcaption><b>A4 Nicht erreichbar.</b> Nur wenn der ai-service nicht erreichbar ist. Eingabe gesperrt, Rest von Docmost unberührt. Antwortet nur das Modell nicht oder scheitert der Filter, erscheint stattdessen eine Meldung in der Antwort.</figcaption>
     </figure>
 
   </div>

@@ -7,15 +7,21 @@ import pytest
 
 from ai_service import auth
 from ai_service.app import create_app
+from ai_service.inference import ModelUnavailable
 from ai_service.jobs import JOB_STREAM, enqueue_job
-from tests.conftest import make_settings
+from tests.conftest import idle_ask_pipeline, make_settings
+from tests.index_db import SPACE_A, page_id
+from tests.test_ask import Harness, hit
 
 CONTRACT_PATH = Path(__file__).resolve().parents[2] / "docs" / "contracts" / "ai-bridge.json"
 CONTRACT: dict[str, Any] = json.loads(CONTRACT_PATH.read_text())
 AI_SERVICE_ENDPOINTS: list[dict[str, Any]] = [
     endpoint for endpoint in CONTRACT["endpoints"] if endpoint["side"] == "ai-service"
 ]
-OPENAPI: dict[str, Any] = create_app(make_settings(), fakeredis.FakeRedis()).openapi()
+IDLE_REDIS = fakeredis.FakeRedis()
+OPENAPI: dict[str, Any] = create_app(
+    make_settings(), IDLE_REDIS, idle_ask_pipeline(IDLE_REDIS)
+).openapi()
 
 
 def resolve(schema: dict[str, Any]) -> dict[str, Any]:
@@ -77,7 +83,15 @@ def test_bridge_ac35_success_status_and_response_fields_equal_the_contract(
     success = [status for status in operation(endpoint)["responses"] if status.startswith("2")]
 
     assert success == [str(endpoint["status"])]
+    if endpoint["status"] == 204:
+        assert "content" not in operation(endpoint)["responses"][success[0]]
+        assert endpoint["response"] == []
+        return
     content = operation(endpoint)["responses"][success[0]]["content"]
+    if endpoint.get("responseType") == "ndjson":
+        assert list(content) == [endpoint["responseContentType"]]
+        assert endpoint["response"] == []
+        return
     assert body_fields(content) == set(endpoint["response"])
 
 
@@ -94,8 +108,48 @@ def test_bridge_ac36_user_token_claims_ai_service_requires_are_in_the_contract()
     contract_claims = set(CONTRACT["tokens"]["user"]["claims"])
     required = set(auth.USER_TOKEN_REGISTERED_CLAIMS) | set(auth.USER_TOKEN_CUSTOM_CLAIMS)
 
-    assert required == contract_claims - {"spaceIds"}
+    assert required == contract_claims
     assert {"sub", "workspaceId", "aud", "type", "iat", "exp"} <= required
+
+
+def event_fields(event: Any, prefix: str = "") -> set[str]:
+    if isinstance(event, list) and event and isinstance(event[0], dict):
+        return event_fields(event[0], f"{prefix}[]")
+    if isinstance(event, dict):
+        return {
+            field
+            for key, value in event.items()
+            for field in event_fields(value, f"{prefix}.{key}" if prefix else key)
+        }
+    return {prefix}
+
+
+def test_ask_ac9_every_ask_event_has_exactly_the_fields_of_the_contract(
+    redis_client: fakeredis.FakeRedis,
+) -> None:
+    ask = next(endpoint for endpoint in AI_SERVICE_ENDPOINTS if endpoint["path"] == "/v1/ask")
+    answered = Harness(redis=redis_client)
+    answered.search.hits = [hit(1)]
+    answered.bridge.viewable = {page_id(1)}
+    failing = Harness(redis=redis_client)
+    failing.search.hits = [hit(1)]
+    failing.bridge.viewable = {page_id(1)}
+    failing.model.deltas = []
+    failing.model.failure = ModelUnavailable("HTTP 503")
+    empty = Harness(redis=redis_client)
+
+    events = [
+        event
+        for harness in (answered, failing, empty)
+        for event in harness.run(space_ids=[SPACE_A])
+    ]
+
+    by_type: dict[str, set[str]] = {}
+    for event in events:
+        by_type.setdefault(event["type"], set()).update(event_fields(event))
+    assert by_type == {name: set(fields) for name, fields in ask["events"].items()}
+    errors = [event["code"] for event in events if event["type"] == "error"]
+    assert set(errors) == set(ask["values"]["errorCode"])
 
 
 def test_bridge_ac36_user_token_algorithm_audience_and_type_equal_the_contract() -> None:

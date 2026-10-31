@@ -1,3 +1,7 @@
+import json
+from pathlib import Path
+from typing import Any, cast
+
 import pytest
 
 from ai_service.sections import (
@@ -10,6 +14,10 @@ from ai_service.sections import (
     pdf_sections,
 )
 from tests.pdf_fixtures import build_blank_pdf, build_pdf
+
+HEADING_ANCHOR_FIXTURE = (
+    Path(__file__).resolve().parents[2] / "docs" / "contracts" / "heading-anchor-fixture.json"
+)
 
 
 def test_index_ac5_paragraph_below_two_headings_has_both_in_its_path():
@@ -170,3 +178,11 @@ def test_index_ac64_limits_are_the_specified_numbers():
     assert MAX_PDF_BYTES == 20_971_520
     assert MAX_PDF_PAGES == 300
     assert MAX_SECTION_CHARS == 1500
+
+
+def test_ask_ac21_the_index_paths_of_the_bridge_markdown_are_exactly_the_anchored_paths():
+    fixture = cast(dict[str, Any], json.loads(HEADING_ANCHOR_FIXTURE.read_text(encoding="utf-8")))
+    indexed = {section.heading_path for section in markdown_sections(fixture["markdown"])}
+    indexed.discard(())
+    anchored = {tuple(heading["path"]) for heading in fixture["headings"]}
+    assert indexed == anchored

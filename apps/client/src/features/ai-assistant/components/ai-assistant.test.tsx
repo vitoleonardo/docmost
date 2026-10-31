@@ -1,5 +1,11 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createStore, Provider } from "jotai";
@@ -7,7 +13,10 @@ import { MemoryRouter } from "react-router-dom";
 import deDE from "../../../../public/locales/de-DE/translation.json";
 import Aside from "@/components/layouts/global/aside.tsx";
 import { asideStateAtom } from "@/components/layouts/global/hooks/atoms/sidebar-atom.ts";
+import AiAssistantPanel from "./ai-assistant-panel.tsx";
 import AiAssistantTrigger from "./ai-assistant-trigger.tsx";
+import { currentUserAtom } from "@/features/user/atoms/current-user-atom.ts";
+import type { ICurrentUser } from "@/features/user/types/user.types.ts";
 import api from "@/lib/api-client";
 import PageHeaderMenu from "@/features/page/components/header/page-header-menu.tsx";
 import type { AiAssistantStatus } from "@/features/ai-assistant/types/ai-assistant.types.ts";
@@ -89,6 +98,7 @@ beforeAll(() => {
     removeEventListener() {},
     dispatchEvent: () => false,
   }));
+  Element.prototype.scrollIntoView = () => {};
   vi.stubGlobal(
     "ResizeObserver",
     class {
@@ -126,9 +136,9 @@ describe("ai assistant", () => {
       tab: "ai-assistant",
       isAsideOpen: true,
     });
-    expect(
-      (await screen.findByRole("heading", { level: 2 })).textContent,
-    ).toBe("Assistent");
+    expect((await screen.findByRole("heading", { level: 2 })).textContent).toBe(
+      "Assistent",
+    );
     expect(await screen.findByText("Frag das Wiki")).toBeTruthy();
     expect(
       screen.getByText(
@@ -201,8 +211,9 @@ describe("ai assistant", () => {
     const retry = await screen.findByRole("button", {
       name: "Erneut versuchen",
     });
-    let finish: (value: { data: { status: AiAssistantStatus } }) => void =
-      () => {};
+    let finish: (value: {
+      data: { status: AiAssistantStatus };
+    }) => void = () => {};
     statusMock.mockReturnValueOnce(
       new Promise((resolve) => (finish = resolve)),
     );
@@ -231,5 +242,444 @@ describe("ai assistant", () => {
     const trigger = await screen.findByRole("button", { name: "Assistent" });
     const comments = screen.getByRole("button", { name: "Kommentare" });
     expect(trigger.nextElementSibling).toBe(comments);
+  });
+});
+
+const SPACES = [
+  { id: "space-it", name: "IT" },
+  { id: "space-allg", name: "Allgemein" },
+  { id: "space-proj", name: "Projekte" },
+];
+
+function mockWiki(status: AiAssistantStatus, spaces = SPACES) {
+  statusMock.mockImplementation(async (url: string) =>
+    url === "/spaces" ? { data: { items: spaces } } : { data: { status } },
+  );
+}
+
+function controlledStream() {
+  const encoder = new TextEncoder();
+  let controller!: ReadableStreamDefaultController<Uint8Array>;
+  const body = new ReadableStream<Uint8Array>({
+    start(c) {
+      controller = c;
+    },
+  });
+  return {
+    response: new Response(body, { status: 200 }),
+    push: (event: object) =>
+      controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`)),
+    close: () => controller.close(),
+  };
+}
+
+function renderPanel() {
+  const client = new QueryClient();
+  render(
+    <MantineProvider>
+      <QueryClientProvider client={client}>
+        <Provider store={createStore()}>
+          <MemoryRouter>
+            <AiAssistantPanel />
+          </MemoryRouter>
+        </Provider>
+      </QueryClientProvider>
+    </MantineProvider>,
+  );
+}
+
+function renderAside() {
+  const store = createStore();
+  store.set(asideStateAtom, { tab: "ai-assistant", isAsideOpen: true });
+  render(
+    <MantineProvider>
+      <QueryClientProvider client={new QueryClient()}>
+        <Provider store={store}>
+          <MemoryRouter>
+            <Aside />
+          </MemoryRouter>
+        </Provider>
+      </QueryClientProvider>
+    </MantineProvider>,
+  );
+  return store;
+}
+
+const fetchMock = vi.fn();
+
+function questionInput() {
+  return screen.findByPlaceholderText(
+    "Frage stellen …",
+  ) as Promise<HTMLTextAreaElement>;
+}
+
+function type(input: HTMLTextAreaElement, value: string) {
+  fireEvent.change(input, { target: { value } });
+}
+
+const FIRST_EXAMPLE = "Wer beantwortet Rückfragen zur Reisekostenabrechnung?";
+
+describe("ai assistant panel: ask", () => {
+  beforeEach(() => {
+    fetchMock.mockReset();
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  it("ASK-AC1: available panel shows heading, hint and the input placeholder", async () => {
+    mockWiki("available");
+    renderPanel();
+    expect(await screen.findByText("Frag das Wiki")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "Antworten stützen sich nur auf Seiten, die du sehen darfst, und nennen ihre Quellen.",
+      ),
+    ).toBeTruthy();
+    expect(await questionInput()).toBeTruthy();
+  });
+
+  it("ASK-AC2: shows both example questions", async () => {
+    mockWiki("available");
+    renderPanel();
+    expect(await screen.findByText(FIRST_EXAMPLE)).toBeTruthy();
+    expect(screen.getByText("Wann ist die Kernarbeitszeit?")).toBeTruthy();
+  });
+
+  it("ASK-AC3: scope options are sorted with Alle Bereiche selected", async () => {
+    mockWiki("available");
+    renderPanel();
+    const select = (await screen.findByRole("combobox", {
+      name: "Bereich",
+    })) as HTMLInputElement;
+    await waitFor(() =>
+      expect(statusMock).toHaveBeenCalledWith("/spaces", expect.anything()),
+    );
+    expect(select.value).toBe("Alle Bereiche");
+    fireEvent.click(select);
+    await waitFor(() =>
+      expect(
+        screen
+          .getAllByRole("option", { hidden: true })
+          .map((option) => option.textContent),
+      ).toEqual([
+        "Alle Bereiche",
+        "Diese Seite",
+        "Allgemein",
+        "IT",
+        "Projekte",
+      ]),
+    );
+  });
+
+  it("ASK-AC4: clicking an example sends it and shows it as the question", async () => {
+    mockWiki("available");
+    const stream = controlledStream();
+    fetchMock.mockResolvedValue(stream.response);
+    renderPanel();
+    fireEvent.click(await screen.findByText(FIRST_EXAMPLE));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).question).toBe(
+      FIRST_EXAMPLE,
+    );
+    stream.push({ type: "delta", text: "Frau Meier" });
+    expect(await screen.findByText("Frau Meier")).toBeTruthy();
+    expect(screen.getByText(FIRST_EXAMPLE)).toBeTruthy();
+  });
+
+  it("ASK-AC7: unavailable status disables input and send", async () => {
+    mockWiki("unavailable");
+    renderPanel();
+    expect(await screen.findByText(UNAVAILABLE_TEXT)).toBeTruthy();
+    expect((await questionInput()).disabled).toBe(true);
+    expect(
+      (screen.getByRole("button", { name: "Senden" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+  });
+
+  it("ASK-AC77: the button is named Stoppen from send until the answer ends and stops it", async () => {
+    mockWiki("available");
+    const stream = controlledStream();
+    fetchMock.mockResolvedValue(stream.response);
+    renderPanel();
+    const input = await questionInput();
+    type(input, "Frage eins");
+    fireEvent.click(screen.getByRole("button", { name: "Senden" }));
+    const stop = await screen.findByRole("button", { name: "Stoppen" });
+    expect(screen.queryByRole("button", { name: "Senden" })).toBeNull();
+    stream.push({ type: "delta", text: "Teil" });
+    await screen.findByText("Teil");
+    fireEvent.click(stop);
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: "Stoppen" })).toBeNull(),
+    );
+    expect(screen.getByRole("button", { name: "Senden" })).toBeTruthy();
+  });
+
+  it("ASK-AC77: the button returns to Senden when the answer ends", async () => {
+    mockWiki("available");
+    const stream = controlledStream();
+    fetchMock.mockResolvedValue(stream.response);
+    renderPanel();
+    type(await questionInput(), "Frage eins");
+    fireEvent.click(screen.getByRole("button", { name: "Senden" }));
+    await screen.findByRole("button", { name: "Stoppen" });
+    stream.push({ type: "no_source" });
+    stream.close();
+    expect(await screen.findByRole("button", { name: "Senden" })).toBeTruthy();
+  });
+
+  it("ASK-AC14: shows no Quellen while the answer streams", async () => {
+    mockWiki("available");
+    const stream = controlledStream();
+    fetchMock.mockResolvedValue(stream.response);
+    renderPanel();
+    type(await questionInput(), "Frage eins");
+    fireEvent.click(screen.getByRole("button", { name: "Senden" }));
+    stream.push({ type: "delta", text: "Antwort [1]" });
+    await screen.findByText(/Antwort/);
+    expect(screen.queryByText(/Quellen/i)).toBeNull();
+  });
+
+  it("ASK-AC49: the Neue Unterhaltung icon button in the title row returns to the empty state", async () => {
+    mockWiki("available");
+    const stream = controlledStream();
+    fetchMock.mockResolvedValue(stream.response);
+    renderAside();
+    const newConversation = (await screen.findByRole("button", {
+      name: "Neue Unterhaltung",
+    })) as HTMLButtonElement;
+    expect(newConversation.disabled).toBe(true);
+    type(await questionInput(), "Frage eins");
+    fireEvent.click(screen.getByRole("button", { name: "Senden" }));
+    stream.push({ type: "delta", text: "Antwort" });
+    await screen.findByText("Antwort");
+    expect(newConversation.disabled).toBe(false);
+    expect(newConversation.textContent).toBe("");
+    fireEvent.click(newConversation);
+    expect(await screen.findByText("Frag das Wiki")).toBeTruthy();
+    expect(screen.queryByText("Frage eins")).toBeNull();
+    await waitFor(() => expect(newConversation.disabled).toBe(true));
+  });
+
+  it("ASK-AC49: the Neue Unterhaltung button is enabled while an answer streams", async () => {
+    mockWiki("available");
+    fetchMock.mockResolvedValue(controlledStream().response);
+    renderAside();
+    type(await questionInput(), "Frage eins");
+    fireEvent.click(screen.getByRole("button", { name: "Senden" }));
+    await screen.findByRole("button", { name: "Stoppen" });
+    const newConversation = screen.getByRole("button", {
+      name: "Neue Unterhaltung",
+    }) as HTMLButtonElement;
+    expect(newConversation.disabled).toBe(false);
+  });
+
+  it("ASK-AC49: shows no Neue Unterhaltung button while the assistant is unavailable", async () => {
+    mockWiki("unavailable");
+    renderAside();
+    await screen.findByText(UNAVAILABLE_TEXT);
+    expect(
+      screen.queryByRole("button", { name: "Neue Unterhaltung" }),
+    ).toBeNull();
+  });
+
+  it("ASK-AC49: shows no Neue Unterhaltung button on another aside tab", async () => {
+    mockWiki("available");
+    const store = createStore();
+    store.set(asideStateAtom, { tab: "details", isAsideOpen: true });
+    render(
+      <MantineProvider>
+        <QueryClientProvider client={new QueryClient()}>
+          <Provider store={store}>
+            <MemoryRouter>
+              <Aside />
+            </MemoryRouter>
+          </Provider>
+        </QueryClientProvider>
+      </MantineProvider>,
+    );
+    await screen.findByRole("button", { name: "Schließen" });
+    expect(
+      screen.queryByRole("button", { name: "Neue Unterhaltung" }),
+    ).toBeNull();
+  });
+
+  it("ASK-AC58: empty and whitespace-only input keep send disabled", async () => {
+    mockWiki("available");
+    renderPanel();
+    const input = await questionInput();
+    const send = screen.getByRole("button", {
+      name: "Senden",
+    }) as HTMLButtonElement;
+    expect(send.disabled).toBe(true);
+    type(input, "   \n ");
+    expect(send.disabled).toBe(true);
+    type(input, "Hallo");
+    expect(send.disabled).toBe(false);
+  });
+
+  it("ASK-AC59: 2,001 characters disable send and show the limit text", async () => {
+    mockWiki("available");
+    renderPanel();
+    const input = await questionInput();
+    type(input, "a".repeat(2001));
+    expect(screen.getByText("Höchstens 2.000 Zeichen")).toBeTruthy();
+    expect(
+      (screen.getByRole("button", { name: "Senden" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("ASK-AC59: 2,001 characters with surrounding whitespace trimmed to 2,000 are allowed", async () => {
+    mockWiki("available");
+    renderPanel();
+    type(await questionInput(), ` ${"a".repeat(2000)} `);
+    expect(screen.queryByText("Höchstens 2.000 Zeichen")).toBeNull();
+    expect(
+      (screen.getByRole("button", { name: "Senden" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(false);
+  });
+
+  it("ASK-AC60: exactly 2,000 characters are sent", async () => {
+    mockWiki("available");
+    const stream = controlledStream();
+    fetchMock.mockResolvedValue(stream.response);
+    renderPanel();
+    type(await questionInput(), "a".repeat(2000));
+    fireEvent.click(screen.getByRole("button", { name: "Senden" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).question).toHaveLength(
+      2000,
+    );
+    stream.push({ type: "delta", text: "Erster Teil" });
+    expect(await screen.findByText("Erster Teil")).toBeTruthy();
+  });
+
+  it("ASK-AC58: Enter sends, Shift+Enter does not, and the input is cleared", async () => {
+    mockWiki("available");
+    fetchMock.mockResolvedValue(controlledStream().response);
+    renderPanel();
+    const input = await questionInput();
+    type(input, "Hallo");
+    fireEvent.keyDown(input, { key: "Enter", shiftKey: true });
+    expect(fetchMock).not.toHaveBeenCalled();
+    fireEvent.keyDown(input, { key: "Enter" });
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(input.value).toBe("");
+  });
+
+  it("ASK-AC66: assistant_unavailable shows state A4 with input and send disabled until retry succeeds", async () => {
+    mockWiki("available");
+    fetchMock.mockRejectedValue(new TypeError("fetch failed"));
+    renderPanel();
+    type(await questionInput(), "Frage eins");
+    fireEvent.click(screen.getByRole("button", { name: "Senden" }));
+    expect(await screen.findByText(UNAVAILABLE_TEXT)).toBeTruthy();
+    expect(screen.queryByText("Frage eins")).toBeNull();
+    expect((await questionInput()).disabled).toBe(true);
+    expect(
+      (screen.getByRole("button", { name: "Senden" }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Erneut versuchen" }));
+    await waitFor(() => expect(screen.queryByText(UNAVAILABLE_TEXT)).toBeNull());
+    expect((await questionInput()).disabled).toBe(false);
+    expect(await screen.findByText("Frag das Wiki")).toBeTruthy();
+  });
+});
+
+function renderPageMenuWithAside() {
+  const store = createStore();
+  store.set(currentUserAtom, {
+    user: { settings: { preferences: {} } },
+  } as ICurrentUser);
+  render(
+    <MantineProvider>
+      <QueryClientProvider client={new QueryClient()}>
+        <Provider store={store}>
+          <MemoryRouter>
+            <PageHeaderMenu />
+            <Aside />
+          </MemoryRouter>
+        </Provider>
+      </QueryClientProvider>
+    </MantineProvider>,
+  );
+  return store;
+}
+
+async function openPageMenu() {
+  fireEvent.click(await screen.findByRole("button", { name: "Seitenaktionen" }));
+}
+
+describe("ai assistant: ask about this page", () => {
+  beforeEach(() => {
+    fetchMock.mockReset();
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  it("ASK-AC5: the menu item opens the panel scoped to this page and keeps the conversation", async () => {
+    mockWiki("available");
+    const stream = controlledStream();
+    fetchMock.mockResolvedValue(stream.response);
+    const store = renderPageMenuWithAside();
+    fireEvent.click(await screen.findByRole("button", { name: "Assistent" }));
+    type(await questionInput(), "Frage eins");
+    fireEvent.click(screen.getByRole("button", { name: "Senden" }));
+    stream.push({ type: "delta", text: "Antwort eins" });
+    await screen.findByText("Antwort eins");
+    fireEvent.click(screen.getByRole("button", { name: "Assistent" }));
+    expect(store.get(asideStateAtom).isAsideOpen).toBe(false);
+
+    await openPageMenu();
+    fireEvent.click(
+      await screen.findByRole("menuitem", { name: "Zu dieser Seite fragen" }),
+    );
+
+    expect(store.get(asideStateAtom)).toEqual({
+      tab: "ai-assistant",
+      isAsideOpen: true,
+    });
+    expect(
+      ((await screen.findByRole("combobox", { name: "Bereich" })) as HTMLInputElement)
+        .value,
+    ).toBe("Diese Seite");
+    expect(screen.getByText("Frage eins")).toBeTruthy();
+    expect(screen.getByText("Antwort eins")).toBeTruthy();
+  });
+
+  it("ASK-AC5: the menu item does not close a panel that is already open", async () => {
+    mockWiki("available");
+    const store = renderPageMenuWithAside();
+    fireEvent.click(await screen.findByRole("button", { name: "Assistent" }));
+    await openPageMenu();
+    fireEvent.click(
+      await screen.findByRole("menuitem", { name: "Zu dieser Seite fragen" }),
+    );
+    expect(store.get(asideStateAtom).isAsideOpen).toBe(true);
+    expect(store.get(asideStateAtom).tab).toBe("ai-assistant");
+  });
+
+  it("ASK-AC6: the page menu has no ask item while the assistant is disabled", async () => {
+    mockWiki("disabled");
+    renderPageMenuWithAside();
+    await waitFor(() => expect(statusMock).toHaveBeenCalled());
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    await openPageMenu();
+    await screen.findByRole("menuitem", { name: "Link kopieren" });
+    expect(
+      screen.queryByRole("menuitem", { name: "Zu dieser Seite fragen" }),
+    ).toBeNull();
+  });
+
+  it("ASK-AC6: the page menu shows the ask item while the assistant is unavailable", async () => {
+    mockWiki("unavailable");
+    renderPageMenuWithAside();
+    await openPageMenu();
+    expect(
+      await screen.findByRole("menuitem", { name: "Zu dieser Seite fragen" }),
+    ).toBeTruthy();
   });
 });

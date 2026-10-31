@@ -1,9 +1,15 @@
 import { randomUUID } from 'node:crypto';
-import { createServer, IncomingMessage, Server } from 'node:http';
+import {
+  createServer,
+  IncomingMessage,
+  Server,
+  ServerResponse,
+} from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { Redis } from 'ioredis';
 import { Kysely } from 'kysely';
 import { DB } from '@docmost/db/types/db';
 import type { User } from '@docmost/db/types/entity.types';
@@ -46,6 +52,17 @@ import {
 const TEST_DATABASE = 'docmost_ai_bridge_test';
 const TEST_DATABASE_URL = `${TEST_POSTGRES_SERVER}/${TEST_DATABASE}`;
 
+const TEST_REDIS_URL = 'redis://127.0.0.1:6380/14';
+
+async function flushTestRedis() {
+  const redis = new Redis(TEST_REDIS_URL);
+  try {
+    await redis.flushdb();
+  } finally {
+    redis.disconnect();
+  }
+}
+
 const TEST_AI_BRIDGE_KEY = 'test-ai-bridge-secret-0123456789abcdef';
 const TEST_AI_SERVICE_CREDENTIAL = 'test-ai-service-token-0123456789abcdef';
 const TEST_AI_SERVICE_URL = 'http://127.0.0.1:9';
@@ -65,6 +82,7 @@ interface BridgeApp {
 }
 
 function bootSeededBridge(storageRoot: string): Promise<BridgeApp> {
+  process.env.REDIS_URL = TEST_REDIS_URL;
   process.env.AI_BRIDGE_SECRET = TEST_AI_BRIDGE_KEY;
   process.env.AI_SERVICE_TOKEN = TEST_AI_SERVICE_CREDENTIAL;
   process.env.AI_SERVICE_URL = TEST_AI_SERVICE_URL;
@@ -105,6 +123,17 @@ function bootSeededBridge(storageRoot: string): Promise<BridgeApp> {
       spaceMemberRepo: provider(SpaceMemberRepo),
       userRepo: provider(UserRepo),
     };
+  });
+}
+
+function expectError(
+  response: { statusCode: number; json: () => unknown },
+  status: number,
+  code: string,
+) {
+  expect({ status: response.statusCode, body: response.json() }).toEqual({
+    status,
+    body: { code, message: expect.any(String) },
   });
 }
 
@@ -169,6 +198,7 @@ describe('AI bridge page access (e2e)', () => {
   };
 
   beforeAll(async () => {
+    await flushTestRedis();
     ({ admin, db } = await createMigratedTestDatabase(TEST_DATABASE));
 
     storageRoot = await mkdtemp(join(tmpdir(), 'ai-bridge-storage-'));
@@ -324,15 +354,19 @@ describe('AI bridge page access (e2e)', () => {
     const filterAs = async (token: string, pageIds: unknown[]) =>
       post('filter-pages', { pageIds }, asUser(token));
 
-    const expectError = (
-      response: { statusCode: number; json: () => unknown },
-      status: number,
-      code: string,
+    const whileMovedToGeschaeftsfuehrung = async (
+      id: string,
+      check: () => Promise<void>,
     ) => {
-      expect({ status: response.statusCode, body: response.json() }).toEqual({
-        status,
-        body: { code, message: expect.any(String) },
-      });
+      await bridge.pageRepo.updatePage(
+        { spaceId: spaceId('Geschäftsführung') },
+        id,
+      );
+      try {
+        await check();
+      } finally {
+        await bridge.pageRepo.updatePage({ spaceId: spaceId('Allgemein') }, id);
+      }
     };
 
     it('BRIDGE-AC14: a page moved into Geschäftsführung is dropped for WS and kept for GF', async () => {
@@ -341,18 +375,45 @@ describe('AI bridge page access (e2e)', () => {
       const gfToken = await userToken('GF');
       expect((await filterAs(wsToken, [id])).json()).toEqual({ pageIds: [id] });
 
-      await bridge.pageRepo.updatePage(
-        { spaceId: spaceId('Geschäftsführung') },
-        id,
-      );
-      try {
+      await whileMovedToGeschaeftsfuehrung(id, async () => {
         expect((await filterAs(wsToken, [id])).json()).toEqual({ pageIds: [] });
         expect((await filterAs(gfToken, [id])).json()).toEqual({
           pageIds: [id],
         });
-      } finally {
-        await bridge.pageRepo.updatePage({ spaceId: spaceId('Allgemein') }, id);
-      }
+      });
+    });
+
+    it('ASK-AC30: with a spaceId, filter-pages keeps a viewable page only while it is in that space', async () => {
+      const id = await pageId('Willkommen bei Ostmooimooi');
+      const gfToken = await userToken('GF');
+      const filterIn = async (space: string) =>
+        (
+          await post(
+            'filter-pages',
+            { pageIds: [id], spaceId: spaceId(space) },
+            asUser(gfToken),
+          )
+        ).json();
+      expect(await filterIn('Allgemein')).toEqual({ pageIds: [id] });
+
+      await whileMovedToGeschaeftsfuehrung(id, async () => {
+        expect(await filterIn('Allgemein')).toEqual({ pageIds: [] });
+        expect(await filterIn('Geschäftsführung')).toEqual({ pageIds: [id] });
+        expect((await filterAs(gfToken, [id])).json()).toEqual({
+          pageIds: [id],
+        });
+      });
+    });
+
+    it('ASK-AC30: a malformed spaceId answers 400 invalid_request', async () => {
+      const response = await post(
+        'filter-pages',
+        { pageIds: [], spaceId: 'space-1' },
+        asUser(await userToken('GF')),
+      );
+
+      expect(response.statusCode).toBe(400);
+      expect(response.json().code).toBe('invalid_request');
     });
 
     it('BRIDGE-AC14: a forged spaceIds claim grants nothing', async () => {
@@ -394,9 +455,9 @@ describe('AI bridge page access (e2e)', () => {
       );
       try {
         expect((await filterAs(vtToken, [id])).json()).toEqual({ pageIds: [] });
-        expect(
-          (await filterAs(await userToken('GF'), [id])).json(),
-        ).toEqual({ pageIds: [id] });
+        expect((await filterAs(await userToken('GF'), [id])).json()).toEqual({
+          pageIds: [id],
+        });
       } finally {
         await bridge.spaceMemberRepo.insertSpaceMember(member);
       }
@@ -1278,9 +1339,7 @@ describe('AI bridge page access (e2e)', () => {
         );
 
         it('INDEX-AC48: a null cursor answers the first part like an absent one', async () => {
-          expect(await readPart({ cursor: null })).toEqual(
-            await readPart({}),
-          );
+          expect(await readPart({ cursor: null })).toEqual(await readPart({}));
         });
 
         it('INDEX-AC48: a bare page id as cursor answers 400 invalid_request', async () => {
@@ -1376,6 +1435,7 @@ describe('AI bridge page access (e2e)', () => {
     let fakeUrl: string;
     let fakeMode: FakeMode;
     let fakeRequests: FakeRequest[];
+    let fakeAsk: (response: ServerResponse) => Promise<void>;
     let urlSpy: jest.SpyInstance;
 
     const pointAiServiceAt = (url: string) => urlSpy.mockReturnValue(url);
@@ -1390,11 +1450,11 @@ describe('AI bridge page access (e2e)', () => {
       return `http://127.0.0.1:${port}`;
     };
 
-    const login = async (key: SeedUserKey) => {
+    const login = async (key: SeedUserKey, remoteAddress = clientAddress) => {
       const response = await bridge.app.inject({
         method: 'POST',
         url: '/api/auth/login',
-        remoteAddress: clientAddress,
+        remoteAddress,
         payload: { email: users[key].email, password: SEED_DEMO_PASSWORD },
       });
       const authToken = /authToken=([^;]+)/.exec(
@@ -1458,6 +1518,19 @@ describe('AI bridge page access (e2e)', () => {
           const sessionOk =
             req.url !== '/v1/session' || JWT_PATTERN.test(userToken);
           const accepted = serviceTokenOk && sessionOk;
+          if (req.url === '/v1/ask' && fakeMode === 'ok' && accepted) {
+            void fakeAsk(res);
+            return;
+          }
+          if (
+            req.url === '/v1/conversations/confirm' &&
+            fakeMode === 'ok' &&
+            accepted
+          ) {
+            res.writeHead(204);
+            res.end();
+            return;
+          }
           const status =
             fakeMode === 'error'
               ? 500
@@ -1484,6 +1557,10 @@ describe('AI bridge page access (e2e)', () => {
     beforeEach(() => {
       fakeMode = 'ok';
       fakeRequests = [];
+      fakeAsk = async (response) => {
+        response.writeHead(200, { 'content-type': 'application/x-ndjson' });
+        response.end('{"type":"no_source"}\n');
+      };
       urlSpy = jest.spyOn(bridge.environmentService, 'getAiServiceUrl');
       pointAiServiceAt(fakeUrl);
     });
@@ -1584,20 +1661,443 @@ describe('AI bridge page access (e2e)', () => {
         ),
       );
       expect(forwarded.method).toBe('POST');
-      expect(forwarded.headers['x-service-token']).toBe(TEST_AI_SERVICE_CREDENTIAL);
+      expect(forwarded.headers['x-service-token']).toBe(
+        TEST_AI_SERVICE_CREDENTIAL,
+      );
       expect(JSON.parse(forwarded.body)).toEqual({
         name: 'page-created',
         data: { pageIds: [id], workspaceId: bridge.seed.workspaceId },
       });
     });
 
+    describe('ask endpoint', () => {
+      const CONVERSATION_ID = '0f8fad5b-d9cb-469f-a165-70867728950e';
+      const TURN_ID = '7c9e6679-7425-40de-944b-e07fc1f90ae7';
+      const sessions: Partial<Record<SeedUserKey, Record<string, string>>> = {};
+
+      const loginAddress = `203.0.113.${Math.floor(Math.random() * 254) + 1}`;
+
+      const session = async (key: SeedUserKey) =>
+        (sessions[key] ??= await login(key, loginAddress));
+
+      const ask = (body: object, headers: Record<string, string> = {}) =>
+        api('ai/ask', { conversationId: CONVERSATION_ID, ...body }, headers);
+
+      const sseEvents = (body: string) =>
+        body
+          .split('\n\n')
+          .filter(Boolean)
+          .map((frame) => {
+            expect(frame.startsWith('data: ')).toBe(true);
+            return JSON.parse(frame.slice('data: '.length));
+          });
+
+      const expectWithdrawn = async (headers: Record<string, string>) => {
+        const response = await ask({ question: 'Frage' }, headers);
+
+        expect(sseEvents(response.body)).toEqual([
+          { type: 'delta', text: 'Antwort [1]' },
+          { type: 'no_source' },
+        ]);
+        expect(confirmRequests()).toEqual([]);
+      };
+
+      const expectModelUnavailableAfterText = async (
+        headers: Record<string, string>,
+      ) => {
+        const response = await ask({ question: 'Frage' }, headers);
+
+        expect(response.statusCode).toBe(200);
+        expect(sseEvents(response.body)).toEqual([
+          { type: 'delta', text: 'Teil' },
+          { type: 'error', code: 'model_unavailable' },
+        ]);
+        expect(confirmRequests()).toEqual([]);
+      };
+
+      const ndjson = (...events: object[]) =>
+        events.map((event) => `${JSON.stringify(event)}\n`).join('');
+
+      const citation = (pageIdValue: string, headingPath: string[]) => ({
+        number: 1,
+        pageId: pageIdValue,
+        headingPath,
+        attachmentId: null,
+        fileName: null,
+        pdfPage: null,
+      });
+
+      const answerCiting = (
+        citations: object[],
+        beforeCitations: () => Promise<void> = async () => undefined,
+      ) => {
+        fakeAsk = async (response) => {
+          response.writeHead(200, { 'content-type': 'application/x-ndjson' });
+          response.write(ndjson({ type: 'delta', text: 'Antwort [1]' }));
+          await beforeCitations();
+          response.end(
+            ndjson({ type: 'citations', turnId: TURN_ID, citations }),
+          );
+        };
+      };
+
+      const askRequests = () =>
+        fakeRequests.filter((request) => request.url === '/v1/ask');
+
+      const confirmRequests = () =>
+        fakeRequests.filter(
+          (request) => request.url === '/v1/conversations/confirm',
+        );
+
+      it('ASK-AC64: a question without a session answers 401 and calls nothing', async () => {
+        const response = await ask({ question: 'Frage' });
+
+        expect(response.statusCode).toBe(401);
+        expect(fakeRequests).toHaveLength(0);
+      });
+
+      it('ASK-AC61: every malformed question request answers 400 invalid_request', async () => {
+        const headers = await session('WS');
+        const allgemein = spaceId('Allgemein');
+        const welcome = await pageId('Willkommen bei Ostmooimooi');
+        const bodies = [
+          { question: '' },
+          { question: '   ' },
+          { question: 'x'.repeat(2001) },
+          { question: 'Frage', conversationId: undefined },
+          { question: 'Frage', conversationId: 'not-a-uuid' },
+          { question: 'Frage', spaceId: 'space-1' },
+          { question: 'Frage', pageId: 'page-1' },
+          { question: 'Frage', spaceId: allgemein, pageId: welcome },
+        ];
+
+        for (const body of bodies) {
+          expectError(await ask(body, headers), 400, 'invalid_request');
+        }
+        expect(askRequests()).toHaveLength(0);
+      });
+
+      it('ASK-AC62: a foreign, deleted or unknown space answers the same 404 space_not_found', async () => {
+        const headers = await session('WS');
+        const itId = spaceId('IT');
+
+        expectError(
+          await ask(
+            { question: 'Frage', spaceId: spaceId('Geschäftsführung') },
+            headers,
+          ),
+          404,
+          'space_not_found',
+        );
+        expectError(
+          await ask({ question: 'Frage', spaceId: randomUUID() }, headers),
+          404,
+          'space_not_found',
+        );
+        await db
+          .updateTable('spaces')
+          .set({ deletedAt: new Date() })
+          .where('id', '=', itId)
+          .execute();
+        try {
+          expectError(
+            await ask({ question: 'Frage', spaceId: itId }, headers),
+            404,
+            'space_not_found',
+          );
+        } finally {
+          await db
+            .updateTable('spaces')
+            .set({ deletedAt: null })
+            .where('id', '=', itId)
+            .execute();
+        }
+        expect(askRequests()).toHaveLength(0);
+      });
+
+      it('ASK-AC63: a restricted, trashed or unknown page answers the same 404 page_not_found', async () => {
+        const headers = await session('WS');
+        const restricted = await pageId('Umstrukturierung 2027');
+        const trashed = await pageId('Bürozeiten und Erreichbarkeit');
+
+        expectError(
+          await ask({ question: 'Frage', pageId: restricted }, headers),
+          404,
+          'page_not_found',
+        );
+        expectError(
+          await ask({ question: 'Frage', pageId: randomUUID() }, headers),
+          404,
+          'page_not_found',
+        );
+        await bridge.pageRepo.removePage(
+          trashed,
+          users.GF.id,
+          bridge.seed.workspaceId,
+        );
+        try {
+          expectError(
+            await ask({ question: 'Frage', pageId: trashed }, headers),
+            404,
+            'page_not_found',
+          );
+        } finally {
+          await bridge.pageRepo.restorePage(trashed, bridge.seed.workspaceId);
+        }
+        expect(askRequests()).toHaveLength(0);
+      });
+
+      it('ASK-AC65: a switched-off assistant answers 503 assistant_disabled and calls nothing', async () => {
+        const headers = await session('WS');
+        jest
+          .spyOn(bridge.environmentService, 'isAiBridgeConfigured')
+          .mockReturnValue(false);
+
+        expectError(
+          await ask({ question: 'Frage' }, headers),
+          503,
+          'assistant_disabled',
+        );
+        expect(askRequests()).toHaveLength(0);
+      });
+
+      it('ASK-AC66: a refused connection answers 503 assistant_unavailable', async () => {
+        const headers = await session('WS');
+        pointAiServiceAt(await closedUrl());
+
+        expectError(
+          await ask({ question: 'Frage' }, headers),
+          503,
+          'assistant_unavailable',
+        );
+      });
+
+      it('ASK-AC66: HTTP 401 and 500 from the AI service answer 503 assistant_unavailable', async () => {
+        const headers = await session('WS');
+
+        for (const mode of ['unauthorized', 'error'] as const) {
+          fakeMode = mode;
+          expectError(
+            await ask({ question: 'Frage' }, headers),
+            503,
+            'assistant_unavailable',
+          );
+        }
+      });
+
+      it('ASK-AC17: GF gets the streamed text and a source for "Bänder" in Geschäftsführung linking the heading', async () => {
+        const headers = await session('GF');
+        const bands = await pageId('Gehaltsbänder Führungsebene');
+        const page = await db
+          .selectFrom('pages')
+          .select(['slugId', 'content'])
+          .where('id', '=', bands)
+          .executeTakeFirstOrThrow();
+        const headingId = (
+          page.content as {
+            content: {
+              type: string;
+              attrs: { id: string };
+              content: { text: string }[];
+            }[];
+          }
+        ).content.find(
+          (node) =>
+            node.type === 'heading' && node.content[0].text === 'Bänder',
+        )!.attrs.id;
+        answerCiting([citation(bands, ['Bänder'])]);
+
+        const response = await ask(
+          { question: '  Welche Gehaltsbänder gelten?  ' },
+          headers,
+        );
+
+        expect(response.statusCode).toBe(200);
+        expect(response.headers['content-type']).toContain('text/event-stream');
+        expect(sseEvents(response.body)).toEqual([
+          { type: 'delta', text: 'Antwort [1]' },
+          {
+            type: 'sources',
+            sources: [
+              {
+                number: 1,
+                pageId: bands,
+                title: 'Gehaltsbänder Führungsebene',
+                spaceName: 'Geschäftsführung',
+                headingPath: ['Bänder'],
+                fileName: null,
+                pdfPage: null,
+                url: `/s/${spaceSlug('Geschäftsführung')}/p/${page.slugId}#${headingId}`,
+              },
+            ],
+          },
+        ]);
+        expect(headingId).toBeTruthy();
+        const [sent] = askRequests();
+        expect(JSON.parse(sent.body)).toEqual({
+          question: 'Welche Gehaltsbänder gelten?',
+          conversationId: CONVERSATION_ID,
+        });
+        expect(sent.headers['x-service-token']).toBe(
+          TEST_AI_SERVICE_CREDENTIAL,
+        );
+        expect(String(sent.headers['x-user-token'])).toMatch(JWT_PATTERN);
+        expect(
+          `${response.body}${JSON.stringify(response.headers)}`,
+        ).not.toMatch(JWT_PATTERN);
+        const [confirmed] = confirmRequests();
+        expect(JSON.parse(confirmed.body)).toEqual({
+          conversationId: CONVERSATION_ID,
+          turnId: TURN_ID,
+        });
+        expect(confirmed.headers['x-service-token']).toBe(
+          TEST_AI_SERVICE_CREDENTIAL,
+        );
+        expect(String(confirmed.headers['x-user-token'])).toMatch(JWT_PATTERN);
+      });
+
+      it('ASK-AC20: a PDF source gets the file name and page and links the page top', async () => {
+        const headers = await session('GF');
+        const pdf = SEED_PDFS[0];
+        const owner = await pageId(pdf.pageTitle);
+        const slugId = (
+          await db
+            .selectFrom('pages')
+            .select('slugId')
+            .where('id', '=', owner)
+            .executeTakeFirstOrThrow()
+        ).slugId;
+        answerCiting([
+          {
+            ...citation(owner, []),
+            attachmentId: randomUUID(),
+            fileName: pdf.fileName,
+            pdfPage: 2,
+          },
+        ]);
+
+        const events = sseEvents(
+          (await ask({ question: 'Frage' }, headers)).body,
+        );
+
+        expect(events[events.length - 1]).toEqual({
+          type: 'sources',
+          sources: [
+            expect.objectContaining({
+              spaceName: pdf.space,
+              headingPath: [],
+              fileName: pdf.fileName,
+              pdfPage: 2,
+              url: `/s/${spaceSlug(pdf.space)}/p/${slugId}`,
+            }),
+          ],
+        });
+      });
+
+      it('ASK-AC26: a cited page moved to the trash during the answer is withdrawn with no_source', async () => {
+        const headers = await session('WS');
+        const travel = await pageId('Reisekosten Richtlinie 2026');
+        answerCiting([citation(travel, [])], () =>
+          bridge.pageRepo.removePage(
+            travel,
+            users.GF.id,
+            bridge.seed.workspaceId,
+          ),
+        );
+
+        try {
+          await expectWithdrawn(headers);
+        } finally {
+          await bridge.pageRepo.restorePage(travel, bridge.seed.workspaceId);
+        }
+      });
+
+      it('ASK-AC27: a cited page of a space the user was removed from during the answer is withdrawn with no_source', async () => {
+        const headers = await session('VT');
+        const process = await pageId('Vertriebsprozess Anlagenbau');
+        const vertriebId = spaceId('Vertrieb');
+        const member = await bridge.spaceMemberRepo.getSpaceMemberByTypeId(
+          vertriebId,
+          { userId: users.VT.id },
+        );
+        answerCiting([citation(process, [])], () =>
+          bridge.spaceMemberRepo.removeSpaceMemberById(
+            member.id,
+            vertriebId,
+            {},
+          ),
+        );
+
+        try {
+          await expectWithdrawn(headers);
+        } finally {
+          await bridge.spaceMemberRepo.insertSpaceMember(member);
+        }
+      });
+
+      it('ASK-AC28: a cited page restricted against the user during the answer is withdrawn with no_source', async () => {
+        const headers = await session('WS');
+        const hours = await pageId('Bürozeiten und Erreichbarkeit');
+        answerCiting([citation(hours, [])], async () => {
+          await db
+            .insertInto('pageAccess')
+            .values({
+              pageId: hours,
+              workspaceId: bridge.seed.workspaceId,
+              spaceId: spaceId('Allgemein'),
+              accessLevel: 'restricted',
+              creatorId: users.GF.id,
+            })
+            .execute();
+        });
+
+        try {
+          await expectWithdrawn(headers);
+        } finally {
+          await db
+            .deleteFrom('pageAccess')
+            .where('pageId', '=', hours)
+            .execute();
+        }
+      });
+
+      it('ASK-AC67: an error event after text ends the stream with model_unavailable', async () => {
+        const headers = await session('WS');
+        fakeAsk = async (response) => {
+          response.writeHead(200, { 'content-type': 'application/x-ndjson' });
+          response.end(
+            ndjson(
+              { type: 'delta', text: 'Teil' },
+              { type: 'error', code: 'model_unavailable' },
+            ),
+          );
+        };
+
+        await expectModelUnavailableAfterText(headers);
+      });
+
+      it('ASK-AC69: a stream that breaks off after text ends with model_unavailable, not a 500', async () => {
+        const headers = await session('WS');
+        fakeAsk = async (response) => {
+          response.writeHead(200, { 'content-type': 'application/x-ndjson' });
+          response.write(ndjson({ type: 'delta', text: 'Teil' }));
+          await new Promise((resolve) => setTimeout(resolve, 20));
+          response.destroy();
+        };
+
+        await expectModelUnavailableAfterText(headers);
+      });
+    });
+
     describe('with the AI service down', () => {
+      const offlineAddress = `192.0.2.${Math.floor(Math.random() * 254) + 1}`;
+
       beforeEach(async () => {
         pointAiServiceAt(await closedUrl());
       });
 
       it('BRIDGE-AC8: login, page create, content update and reload still work', async () => {
-        const headers = await login('GF');
+        const headers = await login('GF', offlineAddress);
         const id = await createPage(headers, 'Offline AC8');
 
         const update = await api(
@@ -1635,13 +2135,15 @@ describe('AI bridge page access (e2e)', () => {
           Reflect.get(bridge.aiQueueProcessor, 'logger') as Logger,
           'warn',
         );
-        const headers = await login('GF');
+        const headers = await login('GF', offlineAddress);
 
         const id = await createPage(headers, 'Offline AC68');
 
         const call = await waitFor(() =>
-          warn.mock.calls.find((args) =>
-            String(args[0]).startsWith('Forwarding page-created'),
+          warn.mock.calls.find(
+            (args) =>
+              String(args[0]).startsWith('Forwarding page-created') &&
+              String(args[0]).includes(`(pageIds: ${id})`),
           ),
         );
         const message = String(call[0]);

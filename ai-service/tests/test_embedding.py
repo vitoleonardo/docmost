@@ -5,7 +5,12 @@ from typing import Any
 import pytest
 
 from ai_service import embedding
-from ai_service.embedding import MODEL_CACHE_DIR, EmbeddingModelError, FastEmbedEmbedder
+from ai_service.embedding import (
+    MODEL_CACHE_DIR,
+    EmbeddingFailed,
+    EmbeddingModelError,
+    FastEmbedEmbedder,
+)
 from ai_service.index_store import IndexStore
 from ai_service.indexer import Indexer
 from ai_service.settings import WorkerSettings
@@ -47,6 +52,27 @@ def test_fastembed_loads_from_the_service_cache_by_default(monkeypatch: pytest.M
     assert embedder.model_name == "some/model"
     assert received == {"model_name": "some/model", "cache_dir": str(MODEL_CACHE_DIR)}
     assert MODEL_CACHE_DIR == SERVICE_ROOT / ".cache" / "fastembed"
+
+
+def test_ask_ac74_an_embedding_that_fails_raises_naming_the_model(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    class Failing:
+        def __init__(self, **kwargs: Any) -> None:
+            pass
+
+        def embed(self, texts: list[str]) -> Any:
+            yield [0.1]
+            raise RuntimeError("onnx session failed")
+
+    monkeypatch.setattr(embedding, "TextEmbedding", Failing)
+    embedder = FastEmbedEmbedder("some/model")
+
+    with pytest.raises(EmbeddingFailed) as error:
+        embedder.embed(["Frage", "zweite Frage"])
+
+    assert "some/model" in str(error.value)
+    assert isinstance(error.value.__cause__, RuntimeError)
 
 
 def test_hashing_embedder_is_deterministic_and_normalised():

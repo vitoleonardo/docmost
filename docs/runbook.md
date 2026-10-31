@@ -162,6 +162,50 @@ Stack on a separate database, so `docmost` stays untouched (fake values; ports 3
 4. Start the wiki from the same directory with `node <repo>/apps/server/dist/main` and `PORT=3100`, `APP_URL`, `AI_BRIDGE_SECRET`, `AI_SERVICE_TOKEN`, `AI_SERVICE_URL=http://127.0.0.1:8101` plus the variables of step 3. Start `python -m ai_service` (`AI_SERVICE_PORT=8101`) and `python -m ai_service.worker` (`AI_WIKI_URL=http://127.0.0.1:3100`) with the same secrets, `REDIS_URL` and the AI role's `AI_DATABASE_URL`. Wait for `Reconcile finished`, then run the stack tests.
 5. Stop the three processes, drop the database and the AI role, flush Redis db 5. Do not run another wiki server on the same Redis: it takes the `{ai-queue}` jobs.
 
+## Ask
+
+The panel answers questions from the pages the user may view (spec `specs/ask.md`). The wiki checks the scope and the cited pages; ai-service searches, filters through the bridge and calls the model.
+
+### Variables
+
+ai-service API process, in addition to the variables above:
+- `AI_WIKI_URL`: required now by the API process too (it was only the worker's). Without it the API exits with `AI_WIKI_URL is not set`.
+- `AI_EMBEDDING_MODEL`: default `jinaai/jina-embeddings-v2-base-de`. The API process loads it at start and exits 1 naming the model when it cannot. The first start downloads 0.64 GB (needs network); the cache is shared with the worker.
+- `AI_LLM_BASE_URL`: default `http://127.0.0.1:11434/v1` (Ollama, OpenAI-compatible).
+- `AI_LLM_MODEL`: default `qwen3:8b`.
+- `AI_INFERENCE_MODE`: default `local`; it only goes into the log line.
+- `AI_RELEVANCE_THRESHOLD`: default `0.45`. Sections that score lower never reach the model.
+
+The wiki server needs no new variable.
+
+### Model
+
+Install Ollama, run `ollama pull qwen3:8b` once and keep `ollama serve` running. The first question after a model load takes about 13 s longer. The model must answer within 60 s, otherwise the answer shows "Das Sprachmodell antwortet gerade nicht. Versuche es später noch einmal."
+
+### Check it works
+
+1. Start Postgres, Redis, the wiki, the worker (index complete: `Reconcile finished`) and ai-service; sign in.
+2. Open a page and click the sparkles icon. A1 shows "Frag das Wiki", the scope selector, two example questions and the input.
+3. Click "Wann ist die Kernarbeitszeit?". The answer streams in German with numbers like `[1]`; when it ends, "Quellen" lists "Bürozeiten und Erreichbarkeit" with "Allgemein › Kernarbeitszeit". Click the entry: the page opens at that heading.
+4. Ask a question during generation and click "Stoppen": the text stays, followed by "Abgebrochen", no "Quellen".
+5. Ask "Wie pflege ich eine Orchidee?": A3, "Dazu habe ich in den Seiten, auf die du Zugriff hast, keine passende Quelle gefunden. …".
+6. Stop ai-service and ask again: A4, input disabled. Stop Ollama only: the answer shows the model message, the panel stays usable.
+7. "Neue Unterhaltung" or a reload ends the conversation.
+
+### Conversations and log
+
+- The conversation lives in Redis: key `ai-service:conversation:<user id>:<conversation id>`, the last 5 turns, dropped 24 h after the last question. It is keyed by user, so another user's conversation id finds nothing.
+- ai-service logs one line per question: `ask conversation=<id> mode=<mode> model=<model> candidates=<n> passing=<m> first_text_ms=<ms|none> outcome=<answered|no_source|stopped|model_failed|filter_failed>`. It never holds the question, the answer, page text or tokens.
+
+### Ask tests
+
+- Fast, CI: `uv run pytest -m "not integration"` (includes the seed-matrix prompt check with a fake bridge).
+- Stack, local: `uv run pytest -m stack tests/test_stack_ask.py` from `ai-service/`, on the stack of "Index tests" with ai-service running (and the wiki's `AI_SERVICE_URL` pointing at it) and Ollama serving `qwen3:8b`. It fails (does not skip) when a variable is missing. Variables of the index stack tests plus:
+  - `STACK_BRIDGE_SECRET`: the stack's `AI_BRIDGE_SECRET`; signs the user tokens for the in-process checks.
+
+  Covers ASK-AC32 to ASK-AC35 (prompt content with the real bridge, index and embedder and a recording model), ASK-AC39 to ASK-AC41 and ASK-AC57 (through `POST /api/ai/ask` of the wiki, real model). It logs in as the four seed users once (the login throttle may add 61 s), creates two throwaway pages in "Allgemein" (one moved to "Geschäftsführung", one trashed, both put back into the index as stale entries) and removes them again. It prints `ASK-AC57 first text: <seconds> s` (limit 10 s). Run it on a freshly seeded stack: Ollama caches prompts, so a repeated run measures less than a first run.
+- Screenshots of A1 to A4 and the source click: `apps/client/e2e/ask.screenshots.ts`, run as in "Verify data runs and screenshots". It mocks `POST /api/ai/ask` and `POST /api/ai/status` (answers must be the same on every run), switches the seed user WS to German for each test and back afterwards. The source click uses the real heading id of "Bürozeiten und Erreichbarkeit". ai-service must run so the real status is `available` (A4 mocks the status); the model need not run.
+
 ## Verify data runs and screenshots
 
 `/verify-feature` runs these through `.claude/bin/evidence data` and `.claude/bin/evidence screenshots` (commands in `.claude/kit.conf`).

@@ -12,7 +12,13 @@ from psycopg import sql
 
 import ai_service.__main__ as entry
 from ai_service.db_check import ROLE_NOT_ISOLATED_MESSAGE, RoleNotIsolatedError
-from tests.conftest import BRIDGE_KEY, SERVICE_CREDENTIAL, TEST_REDIS_URL, make_settings
+from tests.conftest import (
+    BRIDGE_KEY,
+    SERVICE_CREDENTIAL,
+    TEST_REDIS_URL,
+    make_ask_settings,
+    make_settings,
+)
 
 POSTGRES_SERVER = "postgresql://docmost:docmost@127.0.0.1:5433"
 TEST_DATABASE = "docmost_ai_role_test"
@@ -220,6 +226,7 @@ def test_bridge_ac76_startup_refuses_a_role_that_reads_wiki_tables(
         AI_SERVICE_TOKEN=SERVICE_CREDENTIAL,
         REDIS_URL=TEST_REDIS_URL,
         AI_DATABASE_URL=wiki_database,
+        AI_WIKI_URL="http://wiki.test",
         AI_SERVICE_PORT="0",
     )
     assert run.returncode == 1
@@ -227,11 +234,12 @@ def test_bridge_ac76_startup_refuses_a_role_that_reads_wiki_tables(
 
 
 @pytest.mark.integration
+@pytest.mark.usefixtures("hashing_embedder_loaded")
 def test_bridge_ac76_startup_accepts_the_isolated_ai_role(
     set_up: SetupRun, monkeypatch: pytest.MonkeyPatch
 ):
     calls: list[dict[str, Any]] = []
-    monkeypatch.setattr(entry, "load_settings", lambda: make_settings(ai_database_url=AI_URL))
+    monkeypatch.setattr(entry, "load_settings", lambda: make_ask_settings(ai_database_url=AI_URL))
     monkeypatch.setattr(entry.uvicorn, "run", lambda *args, **kwargs: calls.append(kwargs))
     entry.main()
     assert len(calls) == 1
@@ -255,11 +263,12 @@ def test_bridge_ac76_failed_role_check_exits_1_with_the_message(
     assert calls == []
 
 
+@pytest.mark.usefixtures("hashing_embedder_loaded")
 def test_bridge_ac76_role_check_uses_the_configured_database_url(
     monkeypatch: pytest.MonkeyPatch,
 ):
     checked: list[str] = []
-    monkeypatch.setattr(entry, "load_settings", lambda: make_settings(ai_database_url=AI_URL))
+    monkeypatch.setattr(entry, "load_settings", lambda: make_ask_settings(ai_database_url=AI_URL))
     monkeypatch.setattr(entry, "check_database_role", checked.append)
     monkeypatch.setattr(entry.uvicorn, "run", lambda *args, **kwargs: None)
     entry.main()

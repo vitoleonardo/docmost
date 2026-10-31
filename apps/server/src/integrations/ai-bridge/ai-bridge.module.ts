@@ -5,6 +5,7 @@ import { AiBridgeInternalController } from './ai-bridge-internal.controller';
 import { AiPageListRepo } from '@docmost/db/repos/page/ai-page-list.repo';
 import { SearchModule } from '../../core/search/search.module';
 import { AiQueueProcessor } from './ai-queue.processor';
+import { AiAskService } from './services/ai-ask.service';
 import { AiInternalAuthGuard } from './guards/ai-internal-auth.guard';
 import { AiContentService } from './services/ai-content.service';
 import { AiPageAccessService } from './services/ai-page-access.service';
@@ -17,6 +18,7 @@ import { AiTokenService } from './services/ai-token.service';
   imports: [JwtModule.register({}), SearchModule],
   controllers: [AiBridgeController, AiBridgeInternalController],
   providers: [
+    AiAskService,
     AiPageAccessService,
     AiTokenService,
     AiContentService,

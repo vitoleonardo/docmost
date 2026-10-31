@@ -10,7 +10,9 @@ from tests.conftest import (
     SERVICE_CREDENTIAL,
     TEST_DATABASE_URL,
     TEST_REDIS_URL,
+    IsolatedAskSettings,
     IsolatedSettings,
+    make_ask_settings,
     make_settings,
 )
 
@@ -26,10 +28,10 @@ def test_bridge_ac75_default_host_is_loopback():
     assert settings.ai_service_port == 8100
 
 
-@pytest.mark.usefixtures("skip_database_check")
+@pytest.mark.usefixtures("skip_database_check", "hashing_embedder_loaded")
 def test_bridge_ac75_main_passes_settings_host_to_uvicorn(monkeypatch: pytest.MonkeyPatch):
     calls: list[tuple[tuple[Any, ...], dict[str, Any]]] = []
-    monkeypatch.setattr(entry, "load_settings", lambda: make_settings(ai_service_port=9100))
+    monkeypatch.setattr(entry, "load_settings", lambda: make_ask_settings(ai_service_port=9100))
     monkeypatch.setattr(entry.uvicorn, "run", lambda *args, **kwargs: calls.append((args, kwargs)))
     entry.main()
     assert len(calls) == 1
@@ -37,10 +39,12 @@ def test_bridge_ac75_main_passes_settings_host_to_uvicorn(monkeypatch: pytest.Mo
     assert calls[0][1]["port"] == 9100
 
 
-@pytest.mark.usefixtures("skip_database_check")
+@pytest.mark.usefixtures("skip_database_check", "hashing_embedder_loaded")
 def test_bridge_ac75_configured_host_is_used(monkeypatch: pytest.MonkeyPatch):
     calls: list[dict[str, Any]] = []
-    monkeypatch.setattr(entry, "load_settings", lambda: make_settings(ai_service_host="10.0.0.5"))
+    monkeypatch.setattr(
+        entry, "load_settings", lambda: make_ask_settings(ai_service_host="10.0.0.5")
+    )
     monkeypatch.setattr(entry.uvicorn, "run", lambda *args, **kwargs: calls.append(kwargs))
     entry.main()
     assert calls[0]["host"] == "10.0.0.5"
@@ -91,4 +95,22 @@ def test_index_ac76_worker_settings_read_wiki_url_and_default_model(
     monkeypatch.setenv("AI_WIKI_URL", "http://127.0.0.1:3000")
     settings = IsolatedWorkerSettings()  # pyright: ignore[reportCallIssue]
     assert settings.ai_wiki_url == "http://127.0.0.1:3000"
+    assert settings.ai_embedding_model == "jinaai/jina-embeddings-v2-base-de"
+
+
+@pytest.mark.usefixtures("api_environment")
+def test_ask_ac67_ask_settings_require_ai_wiki_url():
+    with pytest.raises(ValidationError) as error:
+        IsolatedAskSettings()  # pyright: ignore[reportCallIssue]
+    assert "ai_wiki_url" in str(error.value)
+
+
+@pytest.mark.usefixtures("api_environment")
+def test_ask_ac67_ask_settings_defaults(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("AI_WIKI_URL", "http://127.0.0.1:3000")
+    settings = IsolatedAskSettings()  # pyright: ignore[reportCallIssue]
+    assert settings.ai_relevance_threshold == 0.45
+    assert settings.ai_inference_mode == "local"
+    assert settings.ai_llm_model == "qwen3:8b"
+    assert settings.ai_llm_base_url == "http://127.0.0.1:11434/v1"
     assert settings.ai_embedding_model == "jinaai/jina-embeddings-v2-base-de"
