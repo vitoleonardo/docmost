@@ -1,0 +1,17 @@
+#!/bin/sh
+# PostToolUse (Edit|Write): queue the edited file for check-edits and the turn summary.
+# Kept tiny because it runs once per edit, possibly in parallel.
+. "$(dirname -- "$0")/lib.sh"
+# As a plugin the hooks can run in projects without the kit's project files; only the guard applies there.
+[ -x .claude/bin/check ] || exit 0
+
+rel=$(relative_path "$(json_string file_path)")
+[ -n "$rel" ] || exit 0
+
+printf '%s\n' "$rel" >>"$(state_file turn-files)"
+case $rel in
+  specs/README.md) ;;
+  specs/*.md) printf '%s\n' "$rel" >>"$(state_file pending)" ;;
+  *) matches_any "$rel" "$(file_value "$rel" KIT_SOURCE_PATTERNS)" && printf '%s\n' "$rel" >>"$(state_file pending)" ;;
+esac
+exit 0

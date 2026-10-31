@@ -1,0 +1,97 @@
+#!/bin/sh
+# Token usage of the current branch's work, recorded by the usage hook in .work/<branch>/.
+# Usage:
+#   .claude/bin/usage total     tokens counted against KIT_BUDGET_TOKENS
+#   .claude/bin/usage report    per tier and per agent, escalations and review rounds
+#   .claude/bin/usage line      the one line for the PR description
+#   .claude/bin/usage tsv       one line for .claude/bin/runs: total, fast, standard, deep, main, other tokens,
+#                               review rounds, escalations, tasks (TAB separated)
+#   .claude/bin/usage adopt <branch>   move another branch's record here (spec and plan run before the branch exists)
+# usage.tsv:  <agent id or main:<session id>> TAB <model> TAB <input> TAB <output> TAB <cache read> TAB <cache write>
+# agents.tsv: <agent id> TAB <description> TAB <agent type> TAB <requested model> TAB <resolved model>
+# The budget counts input, output and cache writes. Cache reads are left out: they are cheap and grow with
+# every turn of a long session, so counting them would make any budget meaningless.
+set -u
+
+root=$(CDPATH='' cd -- "$(dirname -- "$0")/../.." && pwd) || exit 2
+cd "$root" || exit 2
+if [ -f .claude/kit.conf ]; then
+  # shellcheck source=/dev/null
+  . ./.claude/kit.conf
+fi
+branch=$(git branch --show-current 2>/dev/null)
+dir=${USAGE_DIR:-.work/${branch:-detached}}
+usage=$dir/usage.tsv
+agents=$dir/agents.tsv
+
+# The tier a model ID belongs to, from the aliases in kit.conf ("main" for the session itself).
+tiers="fast=${KIT_MODEL_FAST:-haiku} standard=${KIT_MODEL_STANDARD:-sonnet} deep=${KIT_MODEL_DEEP:-opus}"
+
+case ${1:-} in
+  total)
+    [ -f "$usage" ] || { echo 0; exit 0; }
+    awk -F '\t' '{ s += $3 + $4 + $6 } END { print s + 0 }' "$usage"
+    ;;
+  report | line | tsv)
+    if [ ! -f "$usage" ]; then
+      [ "$1" = tsv ] && printf '0\t0\t0\t0\t0\t0\t0\t0\t0\n' || echo "No usage recorded for ${branch:-this branch} yet."
+      exit 0
+    fi
+    awk -F '\t' -v tiers="$tiers" -v mode="$1" -v agents="$agents" '
+      BEGIN {
+        n = split(tiers, t, " ")
+        for (i = 1; i <= n; i++) { split(t[i], kv, "="); alias[kv[1]] = kv[2]; order[i] = kv[1] }
+        while ((getline line < agents) > 0) {
+          split(line, a, "\t"); desc[a[1]] = a[2]
+          if (tolower(a[2]) ~ /(retry|escalat)/) esc++
+          if (tolower(a[3]) ~ /reviewer$/ && tolower(a[2]) !~ /screenshot/) rounds++
+          if (match(tolower(a[2]), /^task [0-9]+/) && !((k = substr(tolower(a[2]), 1, RLENGTH)) in task)) { task[k] = 1; tasks++ }
+        }
+      }
+      function tier(model, agent,    i) {
+        if (agent ~ /^main(:|$)/) return "main"
+        for (i = 1; i <= n; i++) if (index(model, alias[order[i]]) > 0) return order[i]
+        return "other"
+      }
+      {
+        tk = $3 + $4 + $6; tr = tier($2, $1)
+        by[tr] += tk; total += tk
+        if ($1 !~ /^main(:|$)/) rows = rows sprintf("| %s | %s | %s | %d | %d | %d | %d |\n", $1, (desc[$1] == "" ? "–" : desc[$1]), $2, $3, $4, $5, $6)
+      }
+      END {
+        if (mode == "tsv") {
+          printf "%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\n", total, by["fast"], by["standard"], by["deep"], by["main"], by["other"], rounds, esc, tasks
+          exit
+        }
+        line = "Tokens (input + output + cache writes): " total + 0
+        for (i = 1; i <= n; i++) if (by[order[i]] > 0) line = line ", " order[i] " " by[order[i]]
+        if (by["main"] > 0) line = line ", main session " by["main"]
+        if (by["other"] > 0) line = line ", other " by["other"]
+        line = line ". Review rounds: " rounds + 0 ". Escalations: " esc + 0 "."
+        if (mode == "line") { print line; exit }
+        print line
+        print ""
+        print "| Agent | Task | Model | Input | Output | Cache read | Cache write |"
+        print "|-------|------|-------|-------|--------|------------|-------------|"
+        printf "%s", rows
+      }
+    ' "$usage"
+    ;;
+  adopt)
+    from=.work/${2:?usage: usage adopt <branch>}
+    [ "$from" != "$dir" ] || exit 0
+    mkdir -p "$dir"
+    for f in usage.tsv agents.tsv; do
+      [ -f "$from/$f" ] || continue
+      # Lines for the same agent or session are recomputed totals; the newer record wins.
+      if [ -f "$dir/$f" ]; then
+        awk -F '\t' 'NR == FNR { seen[$1] = 1; print; next } !($1 in seen)' "$dir/$f" "$from/$f" >"$dir/$f.new" && mv "$dir/$f.new" "$dir/$f"
+      else
+        cp "$from/$f" "$dir/$f"
+      fi
+      rm -f "$from/$f"
+    done
+    echo "Moved the usage record of ${2} to ${branch}."
+    ;;
+  *) sed -n '3,9p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2 ;;
+esac

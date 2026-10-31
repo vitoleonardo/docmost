@@ -1,0 +1,73 @@
+#!/bin/sh
+# Stop: after a turn that changed files, show the user what changed and which
+# checks ran. If a check is still red when re-run, keep Claude working once.
+. "$(dirname -- "$0")/lib.sh"
+
+turn_files=$(state_file turn-files)
+log=$(state_file checks)
+[ -s "$turn_files" ] || [ -s "$log" ] || exit 0
+
+# The last result of each check this turn decides whether it is still red.
+red=""
+if [ -s "$log" ]; then
+  red=$(awk '{ last[$1] = $2 } END { for (c in last) if (last[c] == "fail") print c }' "$log")
+fi
+
+# The log only holds the hooks' own runs, and Claude may have fixed the cause since
+# (for example after a test written to fail first). Re-run each red check once on
+# this turn's files and trust the new result.
+if [ -n "$red" ] && ! json_bool stop_hook_active; then
+  sources=$(sort -u "$turn_files" 2>/dev/null | while IFS= read -r f; do
+    [ -f "$f" ] && matches_any "$f" "$(file_value "$f" KIT_SOURCE_PATTERNS)" && printf '%s\n' "$f"
+  done)
+  specs=$(sort -u "$turn_files" 2>/dev/null | while IFS= read -r f; do
+    case $f in (specs/README.md) ;; (specs/*.md) [ -f "$f" ] && printf '%s\n' "$f" ;; esac
+  done)
+  export NO_COLOR=1 FORCE_COLOR=0 CI=1
+  still=""
+  set -f
+  old_ifs=$IFS
+  for check in $red; do
+    IFS='
+'
+    # shellcheck disable=SC2086
+    case $check in
+      spec-lint) set -- $specs ;;
+      format | test-related | duplicates-related) set -- $sources ;;
+      *) set -- ;;
+    esac
+    IFS=$old_ifs
+    started=$(date +%s)
+    if [ "$check" = spec-lint ]; then
+      .claude/bin/spec-lint "$@" >/dev/null 2>&1
+    else
+      kit_check "$check" "$@" >/dev/null 2>&1
+    fi
+    case $? in
+      0 | 3) result=pass ;;
+      *) result=fail; still="$still${still:+, }$check" ;;
+    esac
+    printf '%s %s %ss\n' "$check" "$result" "$(($(date +%s) - started))" >>"$log"
+  done
+  set +f
+  if [ -n "$still" ]; then
+    printf '{"decision":"block","reason":"%s"}\n' \
+      "$(printf 'These checks are still failing: %s. Fix them, or tell the user plainly why they stay red (for example a test written to fail first).' "$still" | json_escape)"
+    exit 0
+  fi
+fi
+
+changed=$(sort -u "$turn_files" 2>/dev/null)
+count=$(printf '%s\n' "$changed" | grep -c .)
+listed=$(printf '%s\n' "$changed" | head -n 10 | tr '\n' ' ')
+[ "$count" -gt 10 ] && listed="$listed(+$((count - 10)) more)"
+
+checks="none"
+if [ -s "$log" ]; then
+  checks=$(awk '{ runs[$1]++; last[$1] = $2 } END { for (c in runs) printf "%s %s (%d runs), ", c, last[c], runs[c] }' "$log" | sed 's/, $//')
+fi
+
+rm -f "$turn_files" "$log"
+printf '{"systemMessage":"%s"}\n' \
+  "$(printf 'Changed %s file(s): %s\nChecks: %s' "$count" "$listed" "$checks" | json_escape)"
+exit 0

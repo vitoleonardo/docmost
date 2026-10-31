@@ -1,0 +1,112 @@
+#!/bin/sh
+# Run one project check as defined by the stack adapter in .claude/kit.conf.
+# Usage: .claude/bin/check [--against-baseline] <typecheck|lint|test|test-related|coverage|format|build|duplicates|duplicates-related|similar> [files...]
+# In a monorepo each file is checked with the nearest <package>/.claude/kit.conf, from that package's folder;
+# without files the check runs in every package that configures it.
+# --against-baseline compares test, lint, typecheck or coverage with .claude/baseline.tsv (see .claude/bin/baseline).
+# Exit codes: the check's own code, 2 for usage or setup errors, 3 when the check is not configured,
+# 4 when kit.conf marks it "n/a: <reason>".
+set -u
+
+root=$(CDPATH='' cd -- "$(dirname -- "$0")/../.." && pwd) || exit 2
+cd "$root" || exit 2
+KIT_ROOT=$root
+export KIT_ROOT
+
+if [ "${1:-}" = --against-baseline ]; then
+  shift
+  exec "$root/.claude/bin/baseline" compare "$@"
+fi
+
+usage="usage: .claude/bin/check [--against-baseline] <typecheck|lint|test|test-related|coverage|format|build|duplicates|duplicates-related|similar> [files...]"
+name=${1:-}
+[ $# -gt 0 ] && shift
+case $name in
+  typecheck | lint | test | test-related | coverage | format | build | duplicates | duplicates-related | similar) ;;
+  *) echo "$usage" >&2; exit 2 ;;
+esac
+
+if [ ! -f .claude/kit.conf ]; then
+  echo "check: .claude/kit.conf is missing. Copy a stack adapter into the project (see the kit README)." >&2
+  exit 2
+fi
+# shellcheck source=conf.sh
+. "$root/.claude/bin/conf.sh"
+# Commands that compare with the base branch (the duplicates checks) read it from KIT_BASE.
+KIT_BASE=$(base_ref)
+export KIT_BASE
+var=KIT_$(printf '%s' "$name" | tr 'a-z-' 'A-Z_')
+
+# run_in <package> [files relative to the package]
+run_in() {
+  pkg=$1
+  shift
+  (
+    cd "$pkg" || exit 2
+    where=.claude/kit.conf
+    [ "$pkg" = . ] || where="$pkg/.claude/kit.conf"
+    # shellcheck source=/dev/null
+    . ./.claude/kit.conf
+    cmd=""
+    eval "cmd=\${$var:-}"
+    case $cmd in
+      '') echo "check: '$name' is not configured in $where." >&2; exit 3 ;;
+      n/a:*) echo "check: '$name' is $cmd ($where)." >&2; exit 4 ;;
+    esac
+    # Files are passed as separate arguments, so names with spaces stay intact.
+    exec sh -c "$cmd"' "$@"' check "$@"
+  )
+}
+
+# run_in_files <package>: run_in with the package's newline-separated files as arguments.
+run_in_files() {
+  files=$(printf '%s' "$groups" | awk -F '\t' -v p="$1" '$1 == p { print $2 }')
+  old_ifs=$IFS
+  IFS='
+'
+  set -f
+  # shellcheck disable=SC2086
+  set -- "$1" $files
+  set +f
+  IFS=$old_ifs
+  run_in "$@" </dev/null
+}
+
+# Each file goes to its package, with its path relative to that package.
+groups=""
+for file in "$@"; do
+  case $file in "$root"/*) file=${file#"$root"/} ;; esac
+  pkg=$(package_of "$file")
+  rel=$file
+  [ "$pkg" = . ] || rel=${file#"$pkg"/}
+  groups="$groups$pkg	$rel
+"
+done
+if [ $# -gt 0 ]; then
+  pkgs=$(printf '%s' "$groups" | cut -f1 | sort -u)
+else
+  pkgs=$(packages)
+fi
+
+if [ "$(printf '%s\n' "$pkgs" | grep -c .)" -eq 1 ]; then
+  run_in_files "$pkgs"
+  exit
+fi
+
+# Several packages: stop at the first failure. Otherwise pass if any package ran the check,
+# then "n/a" if any package marks it so, else "not configured".
+printf '%s\n' "$pkgs" | {
+  result=3
+  while IFS= read -r pkg; do
+    echo "== $name in $pkg =="
+    run_in_files "$pkg"
+    code=$?
+    case $code in
+      0) result=0 ;;
+      4) [ "$result" -ne 0 ] && result=4 ;;
+      3) ;;
+      *) exit "$code" ;;
+    esac
+  done
+  exit "$result"
+}

@@ -1,0 +1,443 @@
+#!/bin/sh
+# Baseline of the default branch's checks, so legacy failures never block a pull request while new ones always do.
+# Usage:
+#   .claude/bin/baseline record [--out FILE]      measure every package; KIT_CONF_ROOT may point at staged configs
+#   .claude/bin/baseline compare <test|lint|typecheck|coverage>   gate the working tree (used by check --against-baseline)
+#   .claude/bin/baseline loosened OLD NEW         list records in NEW that are looser than OLD; exit 1 if there are any
+#   .claude/bin/baseline junit FILE               print "<test id> TAB <pass|fail|skip>" from a JUnit XML report
+#   .claude/bin/baseline errors                   print "<file> TAB <count>" for the diagnostics in a tool's output on stdin
+# The baseline is .claude/baseline.tsv, one tab-separated record per line (see docs/SPEC-v1.1.md, section 3.3).
+# KIT_BASE names the base branch (default: origin's default branch, else main).
+# Exit codes for compare: 0 pass, 1 fail, 2 setup error, 3 not configured, 4 n/a.
+set -u
+
+root=$(CDPATH='' cd -- "$(dirname -- "$0")/../.." && pwd) || exit 2
+cd "$root" || exit 2
+KIT_ROOT=$root
+export KIT_ROOT NO_COLOR=1 FORCE_COLOR=0 CI=${CI:-1}
+# shellcheck source=conf.sh
+. "$root/.claude/bin/conf.sh"
+
+baseline_file=.claude/baseline.tsv
+tab=$(printf '\t')
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+
+# --- parsers -------------------------------------------------------------------
+
+junit() {
+  tr -d '\000' <"$1" | awk '
+    function attr(s, key,    m) {
+      if (!match(s, "[ \t\r\n]" key "=\"[^\"]*\"")) return ""
+      m = substr(s, RSTART + length(key) + 3, RLENGTH - length(key) - 4)
+      gsub(/&lt;/, "<", m); gsub(/&gt;/, ">", m); gsub(/&quot;/, "\"", m); gsub(/&apos;/, "\047", m); gsub(/&amp;/, "\\&", m)
+      gsub(/[\t\r\n]+/, " ", m)
+      return m
+    }
+    function emit() {
+      if (!open) return
+      key = (cls == "" ? nm : cls "::" nm)
+      if (!(key in st) || st[key] == "skip" || status == "fail") st[key] = status
+      open = 0
+    }
+    BEGIN { RS = "<" }
+    {
+      bare = $0; gsub(/"[^"]*"/, "", bare)
+      head = substr(bare, 1, index(bare, ">"))
+      if ($0 ~ /^testcase[ \t\r\n\/>]/) {
+        emit()
+        cls = attr($0, "classname"); nm = attr($0, "name"); status = "pass"; open = 1
+        if (head ~ /\/>$/) emit()
+      } else if ($0 ~ /^(failure|error)[ \t\r\n\/>]/) {
+        status = "fail"
+      } else if ($0 ~ /^skipped[ \t\r\n\/>]/) {
+        if (status != "fail") status = "skip"
+      } else if ($0 ~ /^\/testcase[ \t\r\n>]/) {
+        emit()
+      }
+    }
+    END { emit(); for (k in st) print k "\t" st[k] }
+  ' | sort
+}
+
+# Diagnostics per file. Understands "file:line[:col]" (ruff, mypy, biome, eslint unix, pyright, also indented),
+# "file(line,col): error" (tsc) and ESLint's default "stylish" blocks. Notes and warnings are not counted.
+errors() {
+  awk -v pre="$PWD/" '
+    function add(f) {
+      if (index(f, pre) == 1) f = substr(f, length(pre) + 1)
+      sub(/^\.\//, "", f)
+      if (f ~ /[.\/]/) n[f]++
+    }
+    { gsub(/\033\[[0-9;]*[A-Za-z]/, "") }
+    /^[ \t]+[0-9]+:[0-9]+[ \t]+error[ \t]/ { if (cur != "") add(cur); next }
+    /^[^ \t(:]+\([0-9]+,[0-9]+\): error/ { add(substr($0, 1, index($0, "(") - 1)); next }
+    /^[ \t]*[^ \t:]+:[0-9]+(:[0-9]+)?(:|[ \t]|$)/ {
+      if ($0 ~ /(:[ \t]*|[ \t]-[ \t])(warning|note|info|information)[: \t]/) next
+      line = $0; sub(/^[ \t]+/, "", line)
+      add(substr(line, 1, index(line, ":") - 1)); next
+    }
+    /^[^ \t]+$/ && $0 !~ /:[0-9]/ { cur = $0; next }
+    END { for (f in n) print f "\t" n[f] }
+  ' | sort
+}
+
+# --- helpers -------------------------------------------------------------------
+
+# configured <package> <variable>: the command, or empty; "n/a: ..." stays as it is.
+configured() { conf_value "$1" "$2"; }
+
+# run_cmd <package> <command> <output file>: run a command in a package's folder; prints its exit code.
+run_cmd() {
+  (cd "$1" && sh -c "$2" >"$3" 2>&1 </dev/null)
+  printf '%s' "$?"
+}
+
+# changed_in <package>: files changed since the merge base (committed, staged, unstaged, untracked), relative to the package.
+changed_in() {
+  { git diff --name-only "$(merge_base)" -- 2>/dev/null; git ls-files --others --exclude-standard 2>/dev/null; } |
+    sort -u | while IFS= read -r f; do
+      [ "$(package_of "$f")" = "$1" ] || continue
+      if [ "$1" = . ]; then printf '%s\n' "$f"; else printf '%s\n' "${f#"$1"/}"; fi
+    done
+}
+
+# in_protected_path <path>: true if the path lies in a protected path, whose contents the kit never reads.
+in_protected_path() {
+  for p in $(conf_value . KIT_PROTECTED_PATHS); do
+    p=${p%/}
+    case $1 in "$p" | "$p"/*) return 0 ;; esac
+  done
+  return 1
+}
+
+# base_records <type> <package>: the baseline's records of one type and package, without the first two fields.
+base_records() {
+  [ -f "$baseline_file" ] || return 0
+  awk -F '\t' -v t="$1" -v p="$2" '$1 == t && $2 == p { sub(/^[^\t]*\t[^\t]*\t/, ""); print }' "$baseline_file"
+}
+
+# --- record --------------------------------------------------------------------
+
+record() {
+  out=""
+  while [ $# -gt 0 ]; do
+    case $1 in
+      --out) out=${2:?--out needs a file}; shift 2 ;;
+      *) echo "baseline: unknown option $1" >&2; exit 2 ;;
+    esac
+  done
+  [ -f "$(conf_file .)" ] || { echo "baseline: $(conf_file .) is missing." >&2; exit 2; }
+  file=$tmp/baseline.tsv
+  printf 'meta\tsha\t%s\tcreated\t%s\n' "$(git rev-parse HEAD 2>/dev/null)" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >"$file"
+  status=0
+  for pkg in $(packages); do
+    test_cmd=$(configured "$pkg" KIT_TEST)
+    case $test_cmd in '' | n/a:*) ;; *)
+      report=$(configured "$pkg" KIT_TEST_REPORT)
+      [ -n "$report" ] && rm -f "$pkg/$report"
+      code=$(run_cmd "$pkg" "$test_cmd" "$tmp/out")
+      if [ -n "$report" ] && [ -f "$pkg/$report" ]; then
+        junit "$pkg/$report" >"$tmp/tests"
+        awk -F '\t' -v p="$pkg" '{ print "test\t" p "\t" $1 "\t" $2 }' "$tmp/tests" >>"$file"
+        printf 'count\t%s\ttests\t%s\n' "$pkg" "$(grep -c . "$tmp/tests")" >>"$file"
+        echo "baseline: $pkg tests: $(grep -c . "$tmp/tests") run, $(grep -c "${tab}fail\$" "$tmp/tests") failing" >&2
+      else
+        [ -n "$report" ] && { echo "baseline: $pkg: KIT_TEST did not write $report" >&2; status=1; }
+        result=pass
+        [ "$code" -eq 0 ] || result=fail
+        printf 'suite\t%s\ttest\t%s\n' "$pkg" "$result" >>"$file"
+        echo "baseline: $pkg tests: exit $code (no KIT_TEST_REPORT, so failing tests cannot be told apart)" >&2
+      fi
+      ;;
+    esac
+    for check in lint typecheck; do
+      cmd=$(configured "$pkg" "KIT_$(printf '%s' "$check" | tr a-z A-Z)")
+      case $cmd in '' | n/a:*) continue ;; esac
+      code=$(run_cmd "$pkg" "$cmd" "$tmp/out")
+      [ "$code" -eq 0 ] && { echo "baseline: $pkg $check: clean" >&2; continue; }
+      (cd "$pkg" && errors <"$tmp/out") >"$tmp/errors"
+      if [ -s "$tmp/errors" ]; then
+        awk -F '\t' -v c="$check" -v p="$pkg" '{ print c "\t" p "\t" $1 "\t" $2 }' "$tmp/errors" >>"$file"
+        echo "baseline: $pkg $check: $(awk -F '\t' '{ s += $2 } END { print s + 0 }' "$tmp/errors") errors in $(grep -c . "$tmp/errors") files" >&2
+      else
+        echo "baseline: $pkg $check exited $code, but no file:line errors could be read from its output; recorded as clean, so every error will block" >&2
+        status=1
+      fi
+    done
+    cov=$(configured "$pkg" KIT_COVERAGE)
+    pct_cmd=$(configured "$pkg" KIT_COVERAGE_PCT)
+    case $cov in '' | n/a:*) ;; *)
+      if [ -n "$pct_cmd" ]; then
+        run_cmd "$pkg" "$cov" "$tmp/out" >/dev/null
+        pct=$(cd "$pkg" && sh -c "$pct_cmd" 2>/dev/null </dev/null | tail -n 1)
+        case $pct in
+          '' | *[!0-9.]*) echo "baseline: $pkg coverage: KIT_COVERAGE_PCT printed '$pct', not a number" >&2; status=1 ;;
+          *) printf 'coverage\t%s\t%s\n' "$pkg" "$pct" >>"$file"; echo "baseline: $pkg coverage: $pct%" >&2 ;;
+        esac
+      fi
+      ;;
+    esac
+  done
+  if [ -n "$out" ]; then
+    mkdir -p "$(dirname -- "$out")"
+    cp "$file" "$out"
+    echo "baseline: wrote $out" >&2
+  else
+    cat "$file"
+  fi
+  return "$status"
+}
+
+# --- compare -------------------------------------------------------------------
+
+# compare_test <package>: tests that passed in the baseline must pass; new tests must pass;
+# a test may only disappear when the diff removes it.
+compare_test() {
+  pkg=$1
+  cmd=$(configured "$pkg" KIT_TEST)
+  report=$(configured "$pkg" KIT_TEST_REPORT)
+  if [ -z "$report" ]; then
+    echo "tests in $pkg: no KIT_TEST_REPORT, so this is the plain exit code; legacy failures cannot be told apart."
+    (cd "$pkg" && sh -c "$cmd" </dev/null)
+    return
+  fi
+  rm -f "$pkg/$report"
+  run_cmd "$pkg" "$cmd" "$tmp/out1" >/dev/null
+  if [ ! -f "$pkg/$report" ]; then
+    tail -n 40 "$tmp/out1"
+    echo "tests in $pkg: KIT_TEST did not write $report."
+    return 1
+  fi
+  junit "$pkg/$report" >"$tmp/run1"
+  total=$(grep -c . "$tmp/run1")
+  if [ "$total" -eq 0 ]; then
+    tail -n 40 "$tmp/out1"
+    echo "tests in $pkg: zero tests ran. A run that collects no tests is a failure."
+    return 1
+  fi
+  base_records test "$pkg" >"$tmp/base"
+  # Failing now, but not a known (legacy) failure.
+  awk -F '\t' 'NR == FNR { if ($2 == "fail") legacy[$1] = 1; next } $2 == "fail" && !($1 in legacy) { print $1 }' \
+    "$tmp/base" "$tmp/run1" >"$tmp/new"
+  legacy=$(awk -F '\t' 'NR == FNR { if ($2 == "fail") legacy[$1] = 1; next } $2 == "fail" && ($1 in legacy) { print $1 }' \
+    "$tmp/base" "$tmp/run1")
+  : >"$tmp/still"
+  : >"$tmp/flaky"
+  if [ -s "$tmp/new" ]; then
+    # One rerun of the suite: a test that passes on it is flaky, not a failure.
+    rm -f "$pkg/$report"
+    run_cmd "$pkg" "$cmd" "$tmp/out2" >/dev/null
+    if [ -f "$pkg/$report" ]; then junit "$pkg/$report" >"$tmp/run2"; else : >"$tmp/run2"; fi
+    awk -F '\t' 'NR == FNR { s[$1] = $2; next } { if (s[$1] == "pass" || s[$1] == "skip") print >"/dev/stderr"; else print }' \
+      "$tmp/run2" "$tmp/new" >"$tmp/still" 2>"$tmp/flaky"
+  fi
+  # Tests in the baseline that no longer exist must have been removed by the diff.
+  awk -F '\t' 'NR == FNR { now[$1] = 1; next } !($1 in now) { print $1 }' "$tmp/run1" "$tmp/base" >"$tmp/gone"
+  : >"$tmp/removed"
+  : >"$tmp/vanished"
+  if [ -s "$tmp/gone" ]; then
+    # Only removed lines of test files count, so a renamed fixture or a comment elsewhere explains nothing.
+    patterns=$(test_patterns "$pkg")
+    : >"$tmp/removed-lines"
+    git diff --name-only "$(merge_base)" -- 2>/dev/null | while IFS= read -r f; do
+      [ "$(package_of "$f")" = "$pkg" ] && matches_any "$f" "$patterns" || continue
+      in_protected_path "$f" && continue
+      git diff "$(merge_base)" -- "$f" | grep '^-' | grep -v '^---'
+    done >"$tmp/removed-lines"
+    while IFS= read -r id; do
+      name=${id##*::}
+      name=${name##* > }
+      name=${name%%\[*}
+      if grep -qF -- "$name" "$tmp/removed-lines"; then
+        printf '%s\n' "$id" >>"$tmp/removed"
+      else
+        printf '%s\n' "$id" >>"$tmp/vanished"
+      fi
+    done <"$tmp/gone"
+  fi
+  fails=$(grep -c "${tab}fail\$" "$tmp/run1")
+  echo "tests in $pkg: $total run, $fails failing ($(printf '%s' "$legacy" | grep -c .) legacy, not blocking), $(grep -c . "$tmp/flaky") flaky, $(grep -c . "$tmp/removed") removed by the diff"
+  [ -n "$legacy" ] && printf '%s\n' "$legacy" | sed 's/^/  legacy, not blocking: /'
+  sed 's/^/  flaky (passed on the rerun): /' "$tmp/flaky"
+  sed 's/^/  removed by the diff: /' "$tmp/removed"
+  if [ -s "$tmp/still" ] || [ -s "$tmp/vanished" ]; then
+    sed 's/^/  new failure: /' "$tmp/still"
+    sed 's/^/  disappeared, but the diff does not remove it: /' "$tmp/vanished"
+    [ -s "$tmp/still" ] && tail -n 40 "$tmp/out1"
+    return 1
+  fi
+  return 0
+}
+
+# compare_errors <package> <lint|typecheck>: no error in a changed file, and no more errors elsewhere than in the baseline.
+compare_errors() {
+  pkg=$1 check=$2
+  cmd=$(configured "$pkg" "KIT_$(printf '%s' "$check" | tr a-z A-Z)")
+  code=$(run_cmd "$pkg" "$cmd" "$tmp/out")
+  if [ "$code" -eq 0 ]; then
+    echo "$check in $pkg: clean"
+    return 0
+  fi
+  if [ ! -f "$baseline_file" ]; then
+    tail -n 40 "$tmp/out"
+    echo "$check in $pkg: failed (exit $code); there is no baseline, so every error blocks."
+    return 1
+  fi
+  (cd "$pkg" && errors <"$tmp/out") >"$tmp/now"
+  if [ ! -s "$tmp/now" ]; then
+    tail -n 40 "$tmp/out"
+    echo "$check in $pkg: exited $code, but no file:line errors could be read from its output."
+    return 1
+  fi
+  changed_in "$pkg" >"$tmp/changed"
+  base_records "$check" "$pkg" >"$tmp/base"
+  awk -F '\t' -v c="$check" -v p="$pkg" '
+    FILENAME == ARGV[1] { changed[$0] = 1; next }
+    FILENAME == ARGV[2] { if (!($1 in changed)) base += $2; next }
+    { if ($1 in changed) { print "  error in a changed file: " $1 " (" $2 ")"; bad = 1 } else now += $2 }
+    END {
+      printf "%s in %s: %d errors outside the changed files (baseline %d)\n", c, p, now, base
+      if (now > base) { print "  more errors outside the changed files than in the baseline"; bad = 1 }
+      exit bad
+    }
+  ' "$tmp/changed" "$tmp/base" "$tmp/now"
+  result=$?
+  [ "$result" -eq 0 ] || tail -n 40 "$tmp/out"
+  return "$result"
+}
+
+# compare_coverage <package>: coverage of the changed source files, and overall coverage within the tolerance.
+compare_coverage() {
+  pkg=$1
+  cov=$(configured "$pkg" KIT_COVERAGE)
+  files_cmd=$(configured "$pkg" KIT_COVERAGE_FILES)
+  pct_cmd=$(configured "$pkg" KIT_COVERAGE_PCT)
+  threshold=$(configured "$pkg" KIT_COVERAGE_THRESHOLD)
+  tolerance=$(configured "$pkg" KIT_COVERAGE_TOLERANCE)
+  sources=$(configured "$pkg" KIT_SOURCE_PATTERNS)
+  tests=$(configured "$pkg" KIT_TEST_PATTERNS)
+  exclude=$(configured "$pkg" KIT_COVERAGE_EXCLUDE)
+  if [ -z "$files_cmd" ]; then
+    echo "coverage in $pkg: KIT_COVERAGE_FILES is not configured, so coverage of the changed files cannot be measured."
+    return 3
+  fi
+  # The test gate decides about failing tests; coverage only needs the report.
+  code=$(run_cmd "$pkg" "$cov" "$tmp/out")
+  if ! (cd "$pkg" && sh -c "$files_cmd" </dev/null) >"$tmp/files" 2>"$tmp/files-err"; then
+    tail -n 20 "$tmp/out" "$tmp/files-err"
+    echo "coverage in $pkg: no coverage report (KIT_COVERAGE exited $code)."
+    return 1
+  fi
+  : >"$tmp/changed-src"
+  changed_in "$pkg" | while IFS= read -r f; do
+    [ -f "$pkg/$f" ] || continue
+    # The kit's own tooling is not application code.
+    case $f in .claude/*) continue ;; esac
+    matches_any "$f" "$sources" || continue
+    matches_any "$f" "${tests:-*.test.* *.spec.* __tests__/* tests/*}" && continue
+    [ -n "$exclude" ] && matches_any "$f" "$exclude" && continue
+    # The line count stands in for a file the report leaves out: it counts as untested.
+    printf '%s\t%s\n' "$f" "$(wc -l <"$pkg/$f" | tr -d ' ')"
+  done >"$tmp/changed-src"
+  abs=$(cd "$pkg" && pwd)
+  awk -F '\t' -v pre="$abs/" -v th="${threshold:-70}" -v p="$pkg" '
+    FILENAME == ARGV[1] { f = $1; if (index(f, pre) == 1) f = substr(f, length(pre) + 1); sub(/^\.\//, "", f); cov[f] = $2; tot[f] = $3; next }
+    {
+      if ($1 in tot) { c += cov[$1]; t += tot[$1]; rows = rows sprintf("| %s | %d/%d |\n", $1, cov[$1], tot[$1]) }
+      else { t += $2; rows = rows sprintf("| %s | 0/%d (not in the coverage report) |\n", $1, $2); missing = missing "  " $1 " is not in the coverage report and counts as 0%\n" }
+      n++
+    }
+    END {
+      if (n == 0) { printf "coverage in %s: no changed source files, nothing to check.\n", p; exit 0 }
+      pct = (t == 0 ? 100 : int(c * 1000 / t) / 10)
+      printf "### Coverage of the changed files in %s: %s%% (threshold %s%%)\n\n| File | Lines covered |\n|------|---------------|\n%s\n%s", p, pct, th, rows, missing
+      if (pct < th) { printf "coverage in %s: %s%% of the lines in the changed files are covered; at least %s%% is required.\n", p, pct, th; exit 1 }
+    }
+  ' "$tmp/files" "$tmp/changed-src" | tee "$tmp/report"
+  result=$?
+  # tee hides awk's status in POSIX sh, so read the verdict from the report.
+  grep -q 'is required\.$' "$tmp/report" && result=1
+  [ -n "${GITHUB_STEP_SUMMARY:-}" ] && cat "$tmp/report" >>"$GITHUB_STEP_SUMMARY"
+  base_pct=$(base_records coverage "$pkg" | head -n 1)
+  if [ -n "$pct_cmd" ] && [ -n "$base_pct" ]; then
+    now_pct=$(cd "$pkg" && sh -c "$pct_cmd" 2>/dev/null </dev/null | tail -n 1)
+    if ! awk -v n="$now_pct" -v b="$base_pct" -v tol="${tolerance:-0.5}" -v p="$pkg" 'BEGIN {
+      printf "coverage in %s: %s%% overall (baseline %s%%, tolerance %s points)\n", p, n, b, tol
+      exit !(n + 0 >= b - tol)
+    }'; then
+      echo "  overall coverage dropped by more than the tolerance"
+      result=1
+    fi
+  fi
+  return "$result"
+}
+
+compare() {
+  check=${1:-}
+  case $check in
+    test) var=KIT_TEST ;;
+    lint) var=KIT_LINT ;;
+    typecheck) var=KIT_TYPECHECK ;;
+    coverage) var=KIT_COVERAGE ;;
+    *) echo "usage: .claude/bin/check --against-baseline <test|lint|typecheck|coverage>" >&2; exit 2 ;;
+  esac
+  [ -f .claude/kit.conf ] || { echo "check: .claude/kit.conf is missing." >&2; exit 2; }
+  [ -f "$baseline_file" ] || echo "No $baseline_file yet: every failure blocks. /onboard records one."
+  result=3
+  for pkg in $(packages); do
+    cmd=$(configured "$pkg" "$var")
+    case $cmd in
+      '') continue ;;
+      n/a:*) [ "$result" -eq 3 ] && result=4; echo "$check in $pkg: $cmd"; continue ;;
+    esac
+    case $check in
+      test) compare_test "$pkg" ;;
+      coverage) compare_coverage "$pkg" ;;
+      *) compare_errors "$pkg" "$check" ;;
+    esac
+    code=$?
+    case $code in
+      0) [ "$result" -ne 1 ] && result=0 ;;
+      3) ;;
+      *) result=1 ;;
+    esac
+  done
+  [ "$result" -eq 3 ] && echo "check: '$check' is not configured in any .claude/kit.conf." >&2
+  return "$result"
+}
+
+# --- loosened ------------------------------------------------------------------
+
+loosened() {
+  old=${1:?usage: baseline loosened OLD NEW} new=${2:?usage: baseline loosened OLD NEW}
+  awk -F '\t' '
+    FILENAME == ARGV[1] {
+      if ($1 == "test") t[$2 "\t" $3] = $4
+      else if ($1 == "count" || $1 == "suite") c[$1 "\t" $2 "\t" $3] = $4
+      else if ($1 == "lint" || $1 == "typecheck") e[$1 "\t" $2 "\t" $3] = $4
+      else if ($1 == "coverage") v[$2] = $3
+      next
+    }
+    $1 == "test" { seen[$2 "\t" $3] = 1; if (t[$2 "\t" $3] == "pass" && $4 != "pass") { print "test now " $4 " (was pass): " $2 " " $3; bad = 1 } }
+    $1 == "count" && ($1 "\t" $2 "\t" $3) in c && $4 < c[$1 "\t" $2 "\t" $3] { print "fewer tests in " $2 ": " $4 " (was " c[$1 "\t" $2 "\t" $3] ")"; bad = 1 }
+    $1 == "suite" && c[$1 "\t" $2 "\t" $3] == "pass" && $4 != "pass" { print "test suite in " $2 " now fails (was pass)"; bad = 1 }
+    ($1 == "lint" || $1 == "typecheck") && $4 > e[$1 "\t" $2 "\t" $3] + 0 { print $1 " errors in " $2 "/" $3 ": " $4 " (was " e[$1 "\t" $2 "\t" $3] + 0 ")"; bad = 1 }
+    $1 == "coverage" && ($2 in v) && $3 < v[$2] { print "coverage in " $2 ": " $3 "% (was " v[$2] "%)"; bad = 1 }
+    END {
+      for (k in t) if (t[k] == "pass" && !(k in seen)) { split(k, a, "\t"); print "test missing (was pass): " a[1] " " a[2]; bad = 1 }
+      exit bad
+    }
+  ' "$old" "$new"
+}
+
+command=${1:-}
+[ $# -gt 0 ] && shift
+case $command in
+  record) record "$@" ;;
+  compare) compare "$@" ;;
+  loosened) loosened "$@" ;;
+  junit) junit "${1:?usage: baseline junit FILE}" ;;
+  errors) errors ;;
+  *) sed -n '3,9p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2 ;;
+esac

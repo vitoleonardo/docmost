@@ -1,0 +1,105 @@
+# Quality gates for every pull request, whoever wrote the code.
+# Every check goes through .claude/bin/check, so .claude/kit.conf decides what runs. With a .claude/baseline.tsv
+# (written by /onboard), legacy failures are reported but do not block; new failures always do.
+# A check that kit.conf marks "n/a: <reason>" exits 4 and passes with the reason in the log.
+# Make "Quality gates" a required status check in the branch protection rules, so a red run blocks the merge.
+name: Quality gates
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NO_COLOR: "1"
+  KIT_BASE: origin/${{ github.base_ref }}
+
+jobs:
+  gates:
+    name: Quality gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      - name: Install dependencies
+        id: install
+        run: |
+          if [ -f pnpm-lock.yaml ]; then
+            version=$(node -p "(require('./package.json').packageManager || 'pnpm@10').split('@')[1].split('+')[0]")
+            npm install --global "pnpm@$version"
+            pnpm install --frozen-lockfile
+          else
+            npm ci
+          fi
+
+      - name: Build workspace packages
+        if: ${{ steps.install.outcome == 'success' }}
+        run: pnpm --filter @docmost/editor-ext --filter @docmost/base-formula run build
+
+      - name: Diff size
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        env:
+          BASE_REF: origin/${{ github.base_ref }}
+        run: |
+          changed=$(git diff --numstat "$BASE_REF...HEAD" -- . \
+            ':(exclude,glob)**/package-lock.json' ':(exclude,glob)**/pnpm-lock.yaml' \
+            ':(exclude,glob)**/yarn.lock' ':(exclude,glob)**/*.snap' |
+            awk '{ total += ($1 == "-" ? 0 : $1) + ($2 == "-" ? 0 : $2) } END { print total + 0 }')
+          # KIT_MAX_CHANGED_LINES in .claude/kit.conf; above it the PR gets a warning to split it.
+          MAX_CHANGED_LINES=$(sh -c '. ./.claude/kit.conf; echo "${KIT_MAX_CHANGED_LINES:-400}"')
+          echo "Changed lines (without lockfiles and snapshots): $changed" >>"$GITHUB_STEP_SUMMARY"
+          if [ "$changed" -gt "$MAX_CHANGED_LINES" ]; then
+            echo "::warning title=Large pull request::$changed changed lines (limit $MAX_CHANGED_LINES). Consider splitting it into smaller pull requests; small diffs get better reviews."
+          fi
+
+      - name: Spec lint
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: .claude/bin/spec-lint
+
+      - name: Typecheck
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: .claude/bin/check --against-baseline typecheck || [ $? -eq 4 ]
+
+      - name: Lint
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: .claude/bin/check --against-baseline lint || [ $? -eq 4 ]
+
+      - name: Tests
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: .claude/bin/check --against-baseline test || [ $? -eq 4 ]
+
+      # Coverage of the changed source files (KIT_COVERAGE_THRESHOLD) and overall coverage against the baseline.
+      - name: Coverage
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: .claude/bin/check --against-baseline coverage || [ $? -eq 4 ]
+
+      - name: Duplicates
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: .claude/bin/check duplicates || [ $? -eq 4 ]
+
+      - name: Structure
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: .claude/bin/structure
+
+      - name: ee imports
+        if: ${{ !cancelled() }}
+        run: |
+          scripts/check-ee-imports.test.sh
+          scripts/check-ee-imports.sh "$KIT_BASE"
+
+      - name: Build
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: .claude/bin/check build || [ $? -eq 4 ]
