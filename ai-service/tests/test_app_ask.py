@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 import fakeredis
-import httpx
+import httpx2
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -66,11 +66,11 @@ def make_client(harness: Harness, request_log: RequestLog | None = None) -> Test
 
 def ask(
     client: TestClient, headers: dict[str, str], body: dict[str, Any] | None = None
-) -> httpx.Response:
+) -> httpx2.Response:
     return client.post(PATH, headers=headers, json=BODY if body is None else body)
 
 
-def lines(response: httpx.Response) -> list[dict[str, Any]]:
+def lines(response: httpx2.Response) -> list[dict[str, Any]]:
     return [json.loads(line) for line in response.text.splitlines()]
 
 
@@ -451,7 +451,7 @@ def answered_turn_id(client: TestClient, headers: dict[str, str]) -> str:
     return lines(ask(client, headers))[-1]["turnId"]
 
 
-def confirm(client: TestClient, headers: dict[str, str], body: dict[str, Any]) -> httpx.Response:
+def confirm(client: TestClient, headers: dict[str, str], body: dict[str, Any]) -> httpx2.Response:
     return client.post(CONFIRM_PATH, headers=headers, json=body)
 
 

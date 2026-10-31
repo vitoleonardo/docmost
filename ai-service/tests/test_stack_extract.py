@@ -14,11 +14,12 @@ from pypdf import PdfReader, PdfWriter
 from redis import Redis
 
 from ai_service.bridge_client import BridgeClient
+from ai_service.eval_cases import unwrap_data
 from ai_service.extraction import Extracted, ExtractionPipeline
 from ai_service.inference import ChatModel
-from ai_service.leak_suite import SEED_EMAILS
-from ai_service.leak_suite import log_in as log_in_with_retry
 from ai_service.settings import AskSettings
+from ai_service.wiki_session import SEED_EMAILS
+from ai_service.wiki_session import log_in as log_in_with_retry
 from tests.conftest import USER_ID, WORKSPACE_ID, RecordingRequestLog
 from tests.test_stack import SEED_GENERATED, list_all_pages, pdf_file_names_by_text_layer
 
@@ -87,11 +88,6 @@ def require_stack_variables() -> dict[str, str]:
     return {name: os.environ[name] for name in STACK_VARIABLES}
 
 
-def unwrap(body: dict[str, Any]) -> dict[str, Any]:
-    data = body.get("data")
-    return data if isinstance(data, dict) else body
-
-
 def find_contracts(wiki_url: str, service_token: str) -> list[Contract]:
     bridge = BridgeClient(wiki_url, service_token)
     contents = [bridge.page_content(page.id) for page in list_all_pages(bridge)]
@@ -116,7 +112,7 @@ def extract_through_wiki(session: httpx.Client, contract: Contract) -> Extractio
     )
     seconds = time.monotonic() - started
     assert response.status_code == 200, response.text
-    body = unwrap(response.json())
+    body = unwrap_data(response.json())
     assert body["outcome"] == "extracted", body
     return Extraction(contract, body, seconds)
 

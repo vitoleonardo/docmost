@@ -14,10 +14,10 @@ from redis import Redis
 from ai_service.ask import AskPipeline, AskRequest, FilterPages
 from ai_service.conversations import ConversationStore
 from ai_service.index_store import SearchHit
-from ai_service.leak_suite import SEED_EMAILS, parse_sse_events
-from ai_service.leak_suite import log_in as log_in_with_retry
 from ai_service.search import search_index
 from ai_service.settings import AskSettings
+from ai_service.wiki_session import SEED_EMAILS, parse_sse_events
+from ai_service.wiki_session import log_in as log_in_with_retry
 from tests.conftest import WORKSPACE_ID, RecordingRequestLog
 from tests.test_ask import StubModel
 from tests.test_stack import (
