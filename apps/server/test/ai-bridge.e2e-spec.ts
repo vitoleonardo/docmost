@@ -1124,6 +1124,238 @@ describe('AI bridge page access (e2e)', () => {
             .execute();
         }
       });
+
+      describe('page list', () => {
+        interface PageListBody {
+          pages: { id: string; spaceId: string; updatedAt: string }[];
+          nextCursor: string | null;
+        }
+
+        const pageList = (
+          payload: object,
+          headers: Record<string, string> = serviceOnly,
+        ) => post('pages', payload, headers);
+
+        const readPart = async (payload: object) => {
+          const response = await pageList(payload);
+          expect(response.statusCode).toBe(200);
+          return response.json() as PageListBody;
+        };
+
+        const readAllParts = async () => {
+          const parts: PageListBody[] = [];
+          let cursor: string | null = null;
+          do {
+            const part = await readPart(cursor ? { cursor } : {});
+            parts.push(part);
+            cursor = part.nextCursor;
+          } while (cursor);
+          return parts;
+        };
+
+        const listedPages = async () =>
+          (await readAllParts()).flatMap((part) => part.pages);
+
+        const byId = (a: { id: string }, b: { id: string }) =>
+          a.id.localeCompare(b.id);
+
+        const indexablePages = async () =>
+          (
+            await db
+              .selectFrom('pages')
+              .innerJoin('spaces', 'spaces.id', 'pages.spaceId')
+              .select(['pages.id', 'pages.spaceId', 'pages.updatedAt'])
+              .where('pages.deletedAt', 'is', null)
+              .where('spaces.deletedAt', 'is', null)
+              .execute()
+          )
+            .map((page) => ({
+              id: page.id,
+              spaceId: page.spaceId,
+              updatedAt: new Date(page.updatedAt).toISOString(),
+            }))
+            .sort(byId);
+
+        const withExtraPages = async (
+          count: number,
+          run: () => Promise<void>,
+        ) => {
+          const ids = Array.from({ length: count }, () => randomUUID());
+          await db
+            .insertInto('pages')
+            .values(
+              ids.map((id, index) => ({
+                id,
+                slugId: `list${id.slice(0, 8)}`,
+                title: `Seitenliste ${index}`,
+                spaceId: spaceId('IT'),
+                workspaceId: bridge.seed.workspaceId,
+              })),
+            )
+            .execute();
+          try {
+            await run();
+          } finally {
+            await db.deleteFrom('pages').where('id', 'in', ids).execute();
+          }
+        };
+
+        it('INDEX-AC43: the parts together hold every page outside the trash and deleted spaces exactly once', async () => {
+          const listed = await listedPages();
+
+          expect(new Set(listed.map((page) => page.id)).size).toBe(
+            listed.length,
+          );
+          expect([...listed].sort(byId)).toEqual(await indexablePages());
+          expect(listed.length).toBeGreaterThan(0);
+        });
+
+        it('INDEX-AC44: with 501 pages the first part holds 500 entries and a cursor, the next part the rest', async () => {
+          const seeded = (await indexablePages()).length;
+
+          await withExtraPages(501 - seeded, async () => {
+            const first = await readPart({});
+            expect(first.pages).toHaveLength(500);
+            expect(
+              first.nextCursor?.startsWith(`${first.pages[499].id}.`),
+            ).toBe(true);
+
+            const second = await readPart({ cursor: first.nextCursor });
+            expect(second).toEqual({
+              pages: [expect.any(Object)],
+              nextCursor: null,
+            });
+            expect([...first.pages, ...second.pages].sort(byId)).toEqual(
+              await indexablePages(),
+            );
+          });
+        });
+
+        it('INDEX-AC45: each update time equals the one page-content returns', async () => {
+          for (const page of await listedPages()) {
+            const content = await pageContent(page.id);
+            expect({ id: page.id, updatedAt: page.updatedAt }).toEqual({
+              id: page.id,
+              updatedAt: (content.json() as { updatedAt: string }).updatedAt,
+            });
+          }
+        });
+
+        it('INDEX-AC46: a page in the trash and the pages of a space marked as deleted are not listed', async () => {
+          const trashedId = await pageId('Preisliste Standardkomponenten');
+          await withTrashedPage('Preisliste Standardkomponenten', async () => {
+            const listed = await listedPages();
+            expect(listed.length).toBeGreaterThan(0);
+            expect(listed.map((page) => page.id)).not.toContain(trashedId);
+          });
+
+          await withDeletedSpace('IT', async () => {
+            const listed = await listedPages();
+            expect(listed.length).toBeGreaterThan(0);
+            expect(listed.map((page) => page.spaceId)).not.toContain(
+              spaceId('IT'),
+            );
+            expect(listed.map((page) => page.id)).not.toContain(
+              await pageId('Wartung Serverraum'),
+            );
+          });
+        });
+
+        it('INDEX-AC47: page-content answers a page of a space marked as deleted with 404 page_not_found', async () => {
+          const id = await pageId('Wartung Serverraum');
+
+          await withDeletedSpace('IT', async () => {
+            expectError(await pageContent(id), 404, 'page_not_found');
+          });
+          expect((await pageContent(id)).statusCode).toBe(200);
+        });
+
+        it.each([['not-a-cursor'], [''], [42], [['a']]])(
+          'INDEX-AC48: the cursor %j answers 400 invalid_request',
+          async (cursor) => {
+            expectError(await pageList({ cursor }), 400, 'invalid_request');
+          },
+        );
+
+        it('INDEX-AC48: a null cursor answers the first part like an absent one', async () => {
+          expect(await readPart({ cursor: null })).toEqual(
+            await readPart({}),
+          );
+        });
+
+        it('INDEX-AC48: a bare page id as cursor answers 400 invalid_request', async () => {
+          const [listed] = await listedPages();
+
+          expectError(
+            await pageList({ cursor: listed.id }),
+            400,
+            'invalid_request',
+          );
+        });
+
+        it('INDEX-AC48: a returned cursor with a tampered signature answers 400 invalid_request', async () => {
+          const seeded = (await indexablePages()).length;
+
+          await withExtraPages(501 - seeded, async () => {
+            const { nextCursor, pages } = await readPart({});
+            const cursor = nextCursor ?? '';
+            const tampered =
+              cursor.slice(0, -1) + (cursor.endsWith('A') ? 'B' : 'A');
+            const signature = cursor.split('.')[1];
+
+            expectError(
+              await pageList({ cursor: tampered }),
+              400,
+              'invalid_request',
+            );
+            expectError(
+              await pageList({ cursor: `${pages[0].id}.${signature}` }),
+              400,
+              'invalid_request',
+            );
+            expect((await pageList({ cursor })).statusCode).toBe(200);
+          });
+        });
+
+        it('INDEX-AC49: the page list answers 503 assistant_disabled while the assistant is switched off', async () => {
+          const configured = jest
+            .spyOn(bridge.environmentService, 'isAiBridgeConfigured')
+            .mockReturnValue(false);
+          try {
+            expectError(await pageList({}), 503, 'assistant_disabled');
+          } finally {
+            configured.mockRestore();
+          }
+        });
+
+        it('INDEX-AC50: the page list without a service token answers 401 service_token_missing', async () => {
+          expectError(await pageList({}, {}), 401, 'service_token_missing');
+        });
+
+        it('INDEX-AC51: the page list with a wrong service token answers 401 service_token_invalid', async () => {
+          expectError(
+            await pageList(
+              {},
+              {
+                'x-service-token': TEST_AI_SERVICE_CREDENTIAL.replace(
+                  /.$/,
+                  'X',
+                ),
+              },
+            ),
+            401,
+            'service_token_invalid',
+          );
+        });
+
+        it('INDEX-AC52: the page list with a user id in its body answers 400 user_id_not_allowed', async () => {
+          expectError(
+            await pageList({ userId: users.GF.id }),
+            400,
+            'user_id_not_allowed',
+          );
+        });
+      });
     });
   });
 

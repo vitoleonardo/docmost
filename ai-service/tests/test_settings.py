@@ -4,6 +4,7 @@ import pytest
 from pydantic import ValidationError
 
 import ai_service.__main__ as entry
+from ai_service.settings import WorkerSettings
 from tests.conftest import (
     BRIDGE_KEY,
     SERVICE_CREDENTIAL,
@@ -61,3 +62,33 @@ def test_bridge_ac75_values_come_from_environment(monkeypatch: pytest.MonkeyPatc
     assert settings.redis_url == TEST_REDIS_URL
     assert settings.ai_service_port == 9200
     assert settings.ai_database_url == TEST_DATABASE_URL
+
+
+class IsolatedWorkerSettings(WorkerSettings):
+    model_config = IsolatedSettings.model_config
+
+
+@pytest.fixture
+def api_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("AI_BRIDGE_SECRET", BRIDGE_KEY)
+    monkeypatch.setenv("AI_SERVICE_TOKEN", SERVICE_CREDENTIAL)
+    monkeypatch.setenv("REDIS_URL", TEST_REDIS_URL)
+    monkeypatch.setenv("AI_DATABASE_URL", TEST_DATABASE_URL)
+    monkeypatch.delenv("AI_WIKI_URL", raising=False)
+
+
+@pytest.mark.usefixtures("api_environment")
+def test_index_ac76_worker_settings_require_ai_wiki_url():
+    with pytest.raises(ValidationError) as error:
+        IsolatedWorkerSettings()  # pyright: ignore[reportCallIssue]
+    assert "ai_wiki_url" in str(error.value)
+
+
+@pytest.mark.usefixtures("api_environment")
+def test_index_ac76_worker_settings_read_wiki_url_and_default_model(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setenv("AI_WIKI_URL", "http://127.0.0.1:3000")
+    settings = IsolatedWorkerSettings()  # pyright: ignore[reportCallIssue]
+    assert settings.ai_wiki_url == "http://127.0.0.1:3000"
+    assert settings.ai_embedding_model == "jinaai/jina-embeddings-v2-base-de"

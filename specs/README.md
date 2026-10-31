@@ -8,3 +8,4 @@ Status values: `draft` (spec being written) · `approved` (spec approved) · `pl
 |---|---|---|---|---|
 | Seed data | `seed-data.md` | in-review | m2-seed-data | 0 |
 | AI bridge | `ai-bridge.md` | in-review | m3-ai-bridge | 0 |
+| Indexing | `indexing.md` | in-review | m4-indexing | 0 |
