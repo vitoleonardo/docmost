@@ -1,0 +1,60 @@
+{
+  "contradictions": [
+    {
+      "fact": "Kilometerpauschale für den privaten Pkw",
+      "outdated": {
+        "space": "Allgemein",
+        "title": "Reisekosten Richtlinie 2022",
+        "value": "0,30 € pro Kilometer"
+      },
+      "current": {
+        "space": "Allgemein",
+        "title": "Reisekosten Richtlinie 2026",
+        "value": "0,38 € pro Kilometer"
+      }
+    },
+    {
+      "fact": "VPN-Client für den Fernzugang",
+      "outdated": {
+        "space": "IT",
+        "title": "VPN Einrichtung Classic",
+        "value": "Der Zugang erfolgt über den Client OstVPN Classic"
+      },
+      "current": {
+        "space": "IT",
+        "title": "VPN Einrichtung Connect",
+        "value": "Der Zugang erfolgt über den Client OstVPN Connect"
+      }
+    },
+    {
+      "fact": "Ablauf des Urlaubsantrags",
+      "outdated": {
+        "space": "HR",
+        "title": "Urlaubsantrag per Formular",
+        "value": "Der Urlaubsantrag wird auf Papier eingereicht"
+      },
+      "current": {
+        "space": "HR",
+        "title": "Urlaubsantrag im Personalportal",
+        "value": "Der Urlaubsantrag wird im Personalportal gestellt"
+      }
+    }
+  ],
+  "outdated": [
+    {
+      "space": "Allgemein",
+      "title": "Reisekosten Richtlinie 2022",
+      "statement": "Stand: März 2022."
+    },
+    {
+      "space": "IT",
+      "title": "VPN Einrichtung Classic",
+      "statement": "Stand: Oktober 2021."
+    },
+    {
+      "space": "HR",
+      "title": "Urlaubsantrag per Formular",
+      "statement": "Stand: Januar 2021."
+    }
+  ]
+}
