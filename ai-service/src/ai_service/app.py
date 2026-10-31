@@ -1,4 +1,5 @@
 import json
+import logging
 from collections.abc import AsyncIterator, Callable, Coroutine, Generator
 from typing import Annotated, Any, Self
 from uuid import UUID
@@ -9,7 +10,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.routing import APIRoute
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 from redis import Redis
-from starlette.concurrency import iterate_in_threadpool
+from starlette.concurrency import iterate_in_threadpool, run_in_threadpool
 
 from ai_service.ask import AskPipeline, AskRequest, Event
 from ai_service.auth import (
@@ -19,10 +20,13 @@ from ai_service.auth import (
     require_service_token,
     require_user_session,
 )
+from ai_service.bridge_client import AttachmentNotFound, BridgeError
 from ai_service.conversations import ConversationStore
+from ai_service.extraction import ExtractionPipeline
 from ai_service.jobs import enqueue_job
 from ai_service.settings import Settings
 
+LOGGER = logging.getLogger("ai_service.app")
 MAX_QUESTION_LENGTH = 2000
 
 
@@ -64,6 +68,13 @@ class ConfirmBody(BaseModel):
     turnId: UUID
 
 
+class ExtractBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    attachmentId: UUID
+    fileSize: Annotated[int, Field(strict=True, ge=0)]
+
+
 class NdjsonResponse(StreamingResponse):
     media_type = "application/x-ndjson"
 
@@ -103,7 +114,12 @@ async def stream_until_closed(events: Generator[Event]) -> AsyncIterator[str]:
         events.close()
 
 
-def create_app(settings: Settings, redis: Redis, ask_pipeline: AskPipeline) -> FastAPI:
+def create_app(
+    settings: Settings,
+    redis: Redis,
+    ask_pipeline: AskPipeline,
+    extraction_pipeline: ExtractionPipeline,
+) -> FastAPI:
     app = FastAPI(docs_url=None, redoc_url=None)
     app.state.settings = settings
     conversations = ConversationStore(redis)
@@ -133,6 +149,25 @@ def create_app(settings: Settings, redis: Redis, ask_pipeline: AskPipeline) -> F
     ) -> NdjsonResponse:
         events = ask_pipeline.ask(body.to_request(), user.user_id, user.space_ids, user.token)
         return NdjsonResponse(stream_until_closed(events))
+
+    @app.post("/v1/extract")
+    async def extract(
+        body: ExtractBody, _: Annotated[UserSession, Depends(require_user_session)]
+    ) -> dict[str, Any]:
+        try:
+            result = await run_in_threadpool(
+                extraction_pipeline.extract, str(body.attachmentId), body.fileSize
+            )
+        except BridgeError as error:
+            LOGGER.warning(
+                "extract attachment=%s bridge_error=%s", body.attachmentId, type(error).__name__
+            )
+            if isinstance(error, AttachmentNotFound):
+                raise ApiError("attachment_not_found", "The attachment does not exist.") from error
+            raise ApiError(
+                "assistant_unavailable", "The wiki could not deliver the file."
+            ) from error
+        return result.to_wire()
 
     @app.post("/v1/conversations/confirm", status_code=204)
     def confirm(

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { Editor } from "@tiptap/core";
 
 export type AiAssistantStatus = "available" | "unavailable" | "disabled";
 
@@ -68,4 +69,64 @@ export interface IAskConversation {
   scope: AskScope;
   turns: IAskTurn[];
   unavailable: boolean;
+}
+
+const extractedFieldKeySchema = z.enum([
+  "parties",
+  "term",
+  "noticePeriod",
+  "value",
+  "renewal",
+]);
+
+export type ExtractedFieldKey = z.infer<typeof extractedFieldKeySchema>;
+
+const extractedFieldSchema = z.object({
+  key: extractedFieldKeySchema,
+  value: z.string().nullable(),
+  quote: z.string().nullable(),
+  pdfPage: z.number().nullable(),
+});
+
+export type IExtractedField = z.infer<typeof extractedFieldSchema>;
+
+export const extractResultSchema = z.discriminatedUnion("outcome", [
+  z.object({
+    outcome: z.literal("extracted"),
+    fields: z
+      .array(extractedFieldSchema)
+      .length(extractedFieldKeySchema.options.length)
+      .refine(
+        (fields) =>
+          new Set(fields.map((field) => field.key)).size === fields.length,
+      ),
+  }),
+  z.object({
+    outcome: z.literal("refused"),
+    reason: z.enum([
+      "no_text_layer",
+      "too_many_pages",
+      "too_large",
+      "too_much_text",
+      "unreadable",
+    ]),
+    pageCount: z.number().nullable(),
+    fileSize: z.number().nullable(),
+    characterCount: z.number().nullable(),
+  }),
+  z.object({
+    outcome: z.literal("failed"),
+    reason: z.literal("model_unavailable"),
+  }),
+]);
+
+export type ExtractResult = z.infer<typeof extractResultSchema>;
+
+export type ExtractRequestErrorCode = "not_available" | "unreachable" | "model";
+
+export interface IExtractionRequest {
+  editor: Editor;
+  pageId: string;
+  attachmentId: string;
+  fileName: string;
 }

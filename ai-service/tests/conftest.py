@@ -15,6 +15,7 @@ from redis import Redis
 from ai_service.app import create_app
 from ai_service.ask import AskPipeline
 from ai_service.conversations import ConversationStore
+from ai_service.extraction import ExtractionPipeline
 from ai_service.index_store import IndexStore
 from ai_service.inference import ChatModel
 from ai_service.settings import AskSettings, Settings
@@ -60,6 +61,15 @@ def idle_ask_pipeline(redis: Redis) -> AskPipeline:
         conversations=ConversationStore(redis),
         threshold=0.45,
         inference_mode="local",
+    )
+
+
+def idle_extraction_pipeline() -> ExtractionPipeline:
+    return ExtractionPipeline(
+        fetch_attachment=lambda attachment_id: b"",
+        model=ChatModel("http://127.0.0.1:1/v1", "unused"),
+        mode="local",
+        model_name="unused",
     )
 
 
@@ -118,7 +128,11 @@ def redis_client() -> Redis:
 
 @pytest.fixture
 def client(settings: Settings, redis_client: Redis) -> TestClient:
-    return TestClient(create_app(settings, redis_client, idle_ask_pipeline(redis_client)))
+    return TestClient(
+        create_app(
+            settings, redis_client, idle_ask_pipeline(redis_client), idle_extraction_pipeline()
+        )
+    )
 
 
 @pytest.fixture
@@ -148,3 +162,8 @@ def make_token() -> Callable[..., str]:
         return jwt.encode(claims, secret, algorithm=algorithm)
 
     return make
+
+
+@pytest.fixture
+def headers(service_headers: dict[str, str], make_token: Callable[..., str]) -> dict[str, str]:
+    return {**service_headers, "X-User-Token": make_token()}

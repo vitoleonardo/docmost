@@ -7,6 +7,7 @@ import { SearchModule } from '../../core/search/search.module';
 import { AiQueueProcessor } from './ai-queue.processor';
 import { AiAskService } from './services/ai-ask.service';
 import { AiInternalAuthGuard } from './guards/ai-internal-auth.guard';
+import { AiExtractService } from './services/ai-extract.service';
 import { AiContentService } from './services/ai-content.service';
 import { AiPageAccessService } from './services/ai-page-access.service';
 import { AiPageListService } from './services/ai-page-list.service';
@@ -19,6 +20,7 @@ import { AiTokenService } from './services/ai-token.service';
   controllers: [AiBridgeController, AiBridgeInternalController],
   providers: [
     AiAskService,
+    AiExtractService,
     AiPageAccessService,
     AiTokenService,
     AiContentService,

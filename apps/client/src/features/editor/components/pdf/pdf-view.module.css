@@ -76,7 +76,8 @@
   opacity: 1;
 }
 
-.pdfResizeWrapper:hover .hoverMenu {
+.pdfResizeWrapper:hover .hoverMenu,
+.pdfResizeWrapper:global(.ProseMirror-selectednode) .hoverMenu {
   opacity: 1;
 }
 

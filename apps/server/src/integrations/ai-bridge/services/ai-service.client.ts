@@ -1,9 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { EnvironmentService } from '../../environment/environment.service';
+import { AiBridgeError } from '../ai-bridge.errors';
 
 const AI_SERVICE_TIMEOUT_MS = 3000;
+export const AI_EXTRACT_TIMEOUT_MS = 200_000;
 
 export class AiServiceUnreachableError extends Error {}
+export class AiServiceTimeoutError extends Error {}
+export class AiServiceMalformedResponseError extends Error {}
 
 interface AiServiceAskRequest {
   question: string;
@@ -25,6 +29,44 @@ interface AiServiceTurnConfirmation {
   conversationId: string;
   turnId: string;
 }
+
+interface AiServiceExtractRequest {
+  attachmentId: string;
+  fileSize: number;
+}
+
+const EXTRACT_FIELD_KEYS = [
+  'parties',
+  'term',
+  'noticePeriod',
+  'value',
+  'renewal',
+] as const;
+const REFUSED_REASONS = [
+  'no_text_layer',
+  'too_many_pages',
+  'too_large',
+  'too_much_text',
+  'unreadable',
+] as const;
+
+export interface AiServiceExtractField {
+  key: (typeof EXTRACT_FIELD_KEYS)[number];
+  value: string | null;
+  quote: string | null;
+  pdfPage: number | null;
+}
+
+export type AiServiceExtractResult =
+  | { outcome: 'extracted'; fields: AiServiceExtractField[] }
+  | {
+      outcome: 'refused';
+      reason: (typeof REFUSED_REASONS)[number];
+      pageCount: number | null;
+      fileSize: number | null;
+      characterCount: number | null;
+    }
+  | { outcome: 'failed'; reason: 'model_unavailable' };
 
 export type AiServiceAskEvent =
   | { type: 'delta'; text: string }
@@ -104,6 +146,38 @@ export class AiServiceClient {
     }
   }
 
+  async extract(
+    userToken: string,
+    request: AiServiceExtractRequest,
+    signal: AbortSignal,
+  ): Promise<AiServiceExtractResult> {
+    const deadline = new AbortController();
+    const timer = setTimeout(
+      () => deadline.abort(new DOMException('timeout', 'TimeoutError')),
+      AI_EXTRACT_TIMEOUT_MS,
+    );
+    try {
+      const response = await this.send(
+        '/v1/extract',
+        { 'content-type': 'application/json', 'x-user-token': userToken },
+        AbortSignal.any([signal, deadline.signal]),
+        JSON.stringify(request),
+      );
+      return await readExtractResult(response).catch((error: unknown) => {
+        throw this.toUnreachable(error);
+      });
+    } catch (error) {
+      if (deadline.signal.aborted && !signal.aborted) {
+        throw new AiServiceTimeoutError(
+          `no extraction result within ${AI_EXTRACT_TIMEOUT_MS} ms`,
+        );
+      }
+      throw error;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   async confirmTurn(
     userToken: string,
     confirmation: AiServiceTurnConfirmation,
@@ -173,6 +247,38 @@ export class AiServiceClient {
   }
 }
 
+async function readExtractResult(
+  response: Response,
+): Promise<AiServiceExtractResult> {
+  const text = await response.text();
+  if (response.status === 404 && errorCodeOf(text) === 'attachment_not_found') {
+    throw new AiBridgeError('attachment_not_found', 'Attachment not found');
+  }
+  if (response.status !== 200) {
+    throw new AiServiceUnreachableError(`HTTP ${response.status}`);
+  }
+  const result = toExtractResult(parseJson(text));
+  if (!result) {
+    throw new AiServiceMalformedResponseError(
+      'AI service sent a malformed extraction result',
+    );
+  }
+  return result;
+}
+
+function parseJson(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return undefined;
+  }
+}
+
+function errorCodeOf(text: string): unknown {
+  const body = parseJson(text);
+  return isRecord(body) ? body.code : undefined;
+}
+
 async function* readAskEvents(
   body: ReadableStream<Uint8Array>,
   release: () => void,
@@ -234,6 +340,77 @@ function isCitation(value: unknown): value is AiServiceCitation {
     isNullable(value.fileName, isString) &&
     isNullable(value.pdfPage, isNumber)
   );
+}
+
+const isOneOf =
+  <T extends string>(values: readonly T[]) =>
+  (value: unknown): value is T =>
+    values.includes(value as T);
+
+const isNullableString = (value: unknown) => isNullable(value, isString);
+const isNullableNumber = (value: unknown) => isNullable(value, isNumber);
+
+function toExtractField(
+  value: unknown,
+  key: AiServiceExtractField['key'],
+): AiServiceExtractField | null {
+  if (
+    !isRecord(value) ||
+    value.key !== key ||
+    !isNullableString(value.value) ||
+    !isNullableString(value.quote) ||
+    !isNullableNumber(value.pdfPage)
+  ) {
+    return null;
+  }
+  return {
+    key,
+    value: value.value,
+    quote: value.quote,
+    pdfPage: value.pdfPage,
+  };
+}
+
+function toExtractedFields(value: unknown): AiServiceExtractField[] | null {
+  if (!Array.isArray(value) || value.length !== EXTRACT_FIELD_KEYS.length) {
+    return null;
+  }
+  const fields = EXTRACT_FIELD_KEYS.map((key, index) =>
+    toExtractField(value[index], key),
+  ).filter((field): field is AiServiceExtractField => field !== null);
+  return fields.length === EXTRACT_FIELD_KEYS.length ? fields : null;
+}
+
+function toExtractResult(value: unknown): AiServiceExtractResult | null {
+  if (!isRecord(value)) return null;
+  switch (value.outcome) {
+    case 'extracted': {
+      const fields = toExtractedFields(value.fields);
+      return fields ? { outcome: 'extracted', fields } : null;
+    }
+    case 'refused':
+      if (
+        !isOneOf(REFUSED_REASONS)(value.reason) ||
+        !isNullableNumber(value.pageCount) ||
+        !isNullableNumber(value.fileSize) ||
+        !isNullableNumber(value.characterCount)
+      ) {
+        return null;
+      }
+      return {
+        outcome: 'refused',
+        reason: value.reason,
+        pageCount: value.pageCount,
+        fileSize: value.fileSize,
+        characterCount: value.characterCount,
+      };
+    case 'failed':
+      return value.reason === 'model_unavailable'
+        ? { outcome: 'failed', reason: 'model_unavailable' }
+        : null;
+    default:
+      return null;
+  }
 }
 
 function isAskEvent(value: unknown): value is AiServiceAskEvent {

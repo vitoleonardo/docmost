@@ -6,6 +6,7 @@ import { useHover } from "@mantine/hooks";
 import { formatBytes } from "@/lib";
 import { useTranslation } from "react-i18next";
 import { useCallback } from "react";
+import ExtractDataButton from "@/features/ai-assistant/components/extract-data-button.tsx";
 
 export default function AttachmentView(props: NodeViewProps) {
   const { t } = useTranslation();
@@ -36,7 +37,7 @@ export default function AttachmentView(props: NodeViewProps) {
         },
       )
       .run();
-  }, [editor, getPos, node, url, name, attachmentId]);
+  }, [editor, getPos, node, url, name, attachmentId, size]);
 
   return (
     <NodeViewWrapper>
@@ -72,6 +73,13 @@ export default function AttachmentView(props: NodeViewProps) {
                     <IconFileTypePdf size={18} />
                   </ActionIcon>
                 </Tooltip>
+              )}
+              {mime === "application/pdf" && (
+                <ExtractDataButton
+                  editor={editor}
+                  attachmentId={attachmentId}
+                  fileName={name}
+                />
               )}
               <a href={getFileUrl(url)} target="_blank">
                 <ActionIcon variant="default" aria-label="download file">
