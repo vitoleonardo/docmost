@@ -1,0 +1,126 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1020 660" width="1020" height="660" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" role="img" aria-labelledby="title desc">
+<title id="title">Architecture of the AI knowledge assistant</title>
+<desc id="desc">A question travels from the browser through ai-bridge in the Docmost server, which signs a short-lived user token, to ai-service, which searches the vector index in readable spaces only. ai-bridge filters every candidate page against live permissions, the local model answers from allowed sections only, and ai-bridge checks every cited page again before the answer returns.</desc>
+<style>
+  .bg { fill: #ffffff; stroke: #d0d7de; }
+  .box { fill: #ffffff; stroke: #d0d7de; }
+  .chip { fill: #f6f8fa; stroke: #d0d7de; }
+  .t { fill: #1f2328; }
+  .m { fill: #59636e; }
+  .line { stroke: #8c959f; fill: none; }
+  .acc { fill: #1c7ed6; }
+  .ok { fill: #2f9e44; }
+  .bad { fill: #e03131; }
+  .hl { fill: #1c7ed6; }
+  @media (prefers-color-scheme: dark) {
+    .bg { fill: #0d1117; stroke: #3d444d; }
+    .box { fill: #0d1117; stroke: #3d444d; }
+    .chip { fill: #151b23; stroke: #3d444d; }
+    .t { fill: #e6edf3; }
+    .m { fill: #9198a1; }
+    .line { stroke: #656c76; }
+    .acc { fill: #4dabf7; }
+    .ok { fill: #51cf66; }
+    .bad { fill: #ff6b6b; }
+    .hl { fill: #4dabf7; }
+  }
+</style>
+<rect class="bg" x="0.5" y="0.5" width="1019" height="659" rx="12"/>
+<text class="t" x="24" y="38" font-size="19" font-weight="700">How a question becomes a cited answer</text>
+<text class="m" x="996" y="38" font-size="13" text-anchor="end">everything runs locally</text>
+
+<path class="line" d="M170,155 L250,155" stroke-width="1.5"/>
+<path class="line" d="M450,150 L630,150" stroke-width="1.5"/>
+<path class="line" d="M830,160 L862,160 L862,520 L830,520" stroke-width="1.5"/>
+<path class="line" d="M630,172 L540,172 L540,226 L450,226" stroke-width="1.5"/>
+<path class="line" d="M450,246 L630,246" stroke-width="1.5"/>
+<path class="line" d="M830,226 L890,226" stroke-width="1.5"/>
+<path class="line" d="M890,246 L830,246" stroke-width="1.5"/>
+<path class="line" d="M655,260 L655,292 L515,292 L515,338 L450,338" stroke-width="1.5"/>
+<path class="line" d="M250,338 L95,338 L95,190" stroke-width="1.5"/>
+<path class="line" d="M345,410 L345,500" stroke-width="1.5" stroke-dasharray="4 4"/>
+<path class="line" d="M890,545 L830,545" stroke-width="1.5" stroke-dasharray="4 4"/>
+<rect class="box" x="20" y="80" width="150" height="110" rx="10" stroke-width="1.5"/>
+<text class="t" x="34" y="106" font-size="15" font-weight="700">Browser</text>
+<text class="m" x="34" y="125" font-size="12">Assistent panel</text>
+<text class="m" x="34" y="146" font-size="12">React · Mantine</text>
+<text class="m" x="34" y="163" font-size="12">normal session</text>
+<rect class="box" x="240" y="70" width="220" height="340" rx="10" stroke-width="1.5"/>
+<text class="t" x="254" y="96" font-size="15" font-weight="700">Docmost server</text>
+<text class="m" x="254" y="115" font-size="12">ai-bridge · NestJS</text>
+<rect class="box" x="620" y="70" width="220" height="340" rx="10" stroke-width="1.5"/>
+<text class="t" x="634" y="96" font-size="15" font-weight="700">ai-service</text>
+<text class="m" x="634" y="115" font-size="12">Python · FastAPI</text>
+<rect class="box" x="890" y="170" width="110" height="120" rx="10" stroke-width="1.5"/>
+<text class="t" x="904" y="196" font-size="15" font-weight="700">Ollama</text>
+<text class="m" x="904" y="215" font-size="12">qwen3:8b</text>
+<text class="m" x="904" y="236" font-size="12">local model</text>
+<text class="m" x="904" y="253" font-size="12">on the Mac</text>
+<rect class="box" x="240" y="460" width="600" height="120" rx="10" stroke-width="1.5"/>
+<text class="t" x="254" y="486" font-size="15" font-weight="700">Postgres 18 + pgvector</text>
+<rect class="box" x="890" y="460" width="110" height="120" rx="10" stroke-width="1.5"/>
+<text class="t" x="904" y="486" font-size="15" font-weight="700">Index worker</text>
+<text class="m" x="904" y="505" font-size="12">page events</text>
+<text class="m" x="904" y="526" font-size="12">via Redis,</text>
+<text class="m" x="904" y="543" font-size="12">embeddings</text>
+<text class="m" x="904" y="560" font-size="12">on the CPU</text>
+<rect class="hl" x="890" y="170" width="110" height="120" rx="10" opacity="0"><animate attributeName="opacity" dur="16.0s" repeatCount="indefinite" calcMode="discrete" values="0;0.16;0" keyTimes="0;0.6500;0.8000"/></rect>
+<rect class="chip" x="250" y="128" width="200" height="44" rx="8"/>
+<rect class="hl" x="250" y="128" width="200" height="44" rx="8" opacity="0"><animate attributeName="opacity" dur="16.0s" repeatCount="indefinite" calcMode="discrete" values="0;0.16;0" keyTimes="0;0.1437;0.2687"/></rect>
+<text class="t" x="260" y="146" font-size="13" font-weight="600">Session → user token</text>
+<text class="m" x="260" y="163" font-size="11">signed, 60 s, readable spaces</text>
+<rect class="chip" x="250" y="214" width="200" height="44" rx="8"/>
+<rect class="hl" x="250" y="214" width="200" height="44" rx="8" opacity="0"><animate attributeName="opacity" dur="16.0s" repeatCount="indefinite" calcMode="discrete" values="0;0.16;0" keyTimes="0;0.3937;0.6500"/></rect>
+<text class="t" x="260" y="232" font-size="13" font-weight="600">Permission filter</text>
+<text class="m" x="260" y="249" font-size="11">live: space, membership, trash</text>
+<rect class="chip" x="250" y="316" width="200" height="44" rx="8"/>
+<rect class="hl" x="250" y="316" width="200" height="44" rx="8" opacity="0"><animate attributeName="opacity" dur="16.0s" repeatCount="indefinite" calcMode="discrete" values="0;0.16;0" keyTimes="0;0.8000;1.0000"/></rect>
+<text class="t" x="260" y="334" font-size="13" font-weight="600">Citation check</text>
+<text class="m" x="260" y="351" font-size="11">every cited page, again</text>
+<rect class="chip" x="630" y="128" width="200" height="44" rx="8"/>
+<rect class="hl" x="630" y="128" width="200" height="44" rx="8" opacity="0"><animate attributeName="opacity" dur="16.0s" repeatCount="indefinite" calcMode="discrete" values="0;0.16;0" keyTimes="0;0.2687;0.3937"/></rect>
+<text class="t" x="640" y="146" font-size="13" font-weight="600">Retrieval</text>
+<text class="m" x="640" y="163" font-size="11">vector search, readable spaces</text>
+<rect class="chip" x="630" y="214" width="200" height="44" rx="8"/>
+<rect class="hl" x="630" y="214" width="200" height="44" rx="8" opacity="0"><animate attributeName="opacity" dur="16.0s" repeatCount="indefinite" calcMode="discrete" values="0;0.16;0" keyTimes="0;0.6500;0.8000"/></rect>
+<text class="t" x="640" y="232" font-size="13" font-weight="600">Inference adapter</text>
+<text class="m" x="640" y="249" font-size="11">one OpenAI-compatible API</text>
+<rect class="chip" x="630" y="316" width="200" height="44" rx="8"/>
+<text class="t" x="640" y="334" font-size="13" font-weight="600">Agent · Extraction</text>
+<text class="m" x="640" y="351" font-size="11">tools call back as the user</text>
+<rect class="chip" x="252" y="494" width="270" height="70" rx="8"/>
+<text class="t" x="264" y="516" font-size="13" font-weight="600">schema public</text>
+<text class="m" x="264" y="534" font-size="11">wiki pages, spaces, permissions</text>
+<text class="m" x="264" y="551" font-size="11">read only through Docmost services</text>
+<rect class="chip" x="548" y="494" width="282" height="70" rx="8"/>
+<rect class="hl" x="548" y="494" width="282" height="70" rx="8" opacity="0"><animate attributeName="opacity" dur="16.0s" repeatCount="indefinite" calcMode="discrete" values="0;0.16;0" keyTimes="0;0.2687;0.3937"/></rect>
+<text class="t" x="560" y="516" font-size="13" font-weight="600">schema ai</text>
+<text class="m" x="560" y="534" font-size="11">sections + embeddings, agent runs</text>
+<text class="m" x="560" y="551" font-size="11">ai-service role: this schema only</text>
+<text class="m" x="210" y="146" font-size="11" text-anchor="middle">question</text>
+<text class="m" x="540" y="141" font-size="11" text-anchor="middle">signed user token</text>
+<text class="m" x="495" y="218" font-size="11" text-anchor="middle">candidates</text>
+<text class="m" x="540" y="264" font-size="11" text-anchor="middle">allowed only</text>
+<text class="m" x="585" y="284" font-size="11" text-anchor="middle">answer + sources</text>
+<text class="m" x="172" y="356" font-size="11" text-anchor="middle">cited answer</text>
+<text class="m" x="874" y="430" font-size="11" transform="rotate(-90 874 430)" text-anchor="middle">search</text>
+<circle class="acc" r="6" opacity="0"><animateMotion dur="16.0s" repeatCount="indefinite" path="M170,155 L250,155" calcMode="linear" keyPoints="0;0;1;1" keyTimes="0;0.0187;0.1125;1"/><animate attributeName="opacity" dur="16.0s" repeatCount="indefinite" calcMode="discrete" values="0;1;0" keyTimes="0;0.0187;0.1125"/></circle>
+<circle class="acc" r="6" opacity="0"><animateMotion dur="16.0s" repeatCount="indefinite" path="M450,150 L630,150" calcMode="linear" keyPoints="0;0;1;1" keyTimes="0;0.1625;0.2500;1"/><animate attributeName="opacity" dur="16.0s" repeatCount="indefinite" calcMode="discrete" values="0;1;0" keyTimes="0;0.1625;0.2500"/></circle>
+<circle class="acc" r="6" opacity="0"><animateMotion dur="16.0s" repeatCount="indefinite" path="M830,160 L862,160 L862,520 L830,520" calcMode="linear" keyPoints="0;0;1;1" keyTimes="0;0.2812;0.3750;1"/><animate attributeName="opacity" dur="16.0s" repeatCount="indefinite" calcMode="discrete" values="0;1;0" keyTimes="0;0.2812;0.3750"/></circle>
+<circle class="ok" r="6" opacity="0"><animateMotion dur="16.0s" repeatCount="indefinite" path="M630,172 L540,172 L540,226 L450,226" calcMode="linear" keyPoints="0;0;1;1" keyTimes="0;0.4062;0.4938;1"/><animate attributeName="opacity" dur="16.0s" repeatCount="indefinite" calcMode="discrete" values="0;1;0" keyTimes="0;0.4062;0.4938"/></circle>
+<circle class="bad" r="6" opacity="0"><animateMotion dur="16.0s" repeatCount="indefinite" path="M630,172 L540,172 L540,226 L450,226" calcMode="linear" keyPoints="0;0;1;1" keyTimes="0;0.4250;0.5125;1"/><animate attributeName="opacity" dur="16.0s" repeatCount="indefinite" calcMode="discrete" values="0;1;0" keyTimes="0;0.4250;0.5125"/></circle>
+<g opacity="0"><animate attributeName="opacity" dur="16.0s" repeatCount="indefinite" calcMode="discrete" values="0;1;0" keyTimes="0;0.5125;0.6500"/><text class="bad" x="300" y="206" font-size="12" font-weight="700" text-anchor="middle">✕ restricted page dropped</text></g>
+<circle class="ok" r="6" opacity="0"><animateMotion dur="16.0s" repeatCount="indefinite" path="M450,246 L630,246" calcMode="linear" keyPoints="0;0;1;1" keyTimes="0;0.5563;0.6375;1"/><animate attributeName="opacity" dur="16.0s" repeatCount="indefinite" calcMode="discrete" values="0;1;0" keyTimes="0;0.5563;0.6375"/></circle>
+<circle class="acc" r="6" opacity="0"><animateMotion dur="16.0s" repeatCount="indefinite" path="M830,226 L890,226" calcMode="linear" keyPoints="0;0;1;1" keyTimes="0;0.6625;0.7125;1"/><animate attributeName="opacity" dur="16.0s" repeatCount="indefinite" calcMode="discrete" values="0;1;0" keyTimes="0;0.6625;0.7125"/></circle>
+<circle class="acc" r="6" opacity="0"><animateMotion dur="16.0s" repeatCount="indefinite" path="M890,246 L830,246" calcMode="linear" keyPoints="0;0;1;1" keyTimes="0;0.7312;0.7812;1"/><animate attributeName="opacity" dur="16.0s" repeatCount="indefinite" calcMode="discrete" values="0;1;0" keyTimes="0;0.7312;0.7812"/></circle>
+<circle class="acc" r="6" opacity="0"><animateMotion dur="16.0s" repeatCount="indefinite" path="M655,260 L655,292 L515,292 L515,338 L450,338" calcMode="linear" keyPoints="0;0;1;1" keyTimes="0;0.8063;0.8688;1"/><animate attributeName="opacity" dur="16.0s" repeatCount="indefinite" calcMode="discrete" values="0;1;0" keyTimes="0;0.8063;0.8688"/></circle>
+<circle class="acc" r="6" opacity="0"><animateMotion dur="16.0s" repeatCount="indefinite" path="M250,338 L95,338 L95,190" calcMode="linear" keyPoints="0;0;1;1" keyTimes="0;0.8812;0.9625;1"/><animate attributeName="opacity" dur="16.0s" repeatCount="indefinite" calcMode="discrete" values="0;1;0" keyTimes="0;0.8812;0.9625"/></circle>
+<circle class="acc" r="4" opacity="0.6"><animateMotion dur="3s" repeatCount="indefinite" path="M890,545 L830,545"/></circle>
+<line class="line" x1="24" y1="600" x2="996" y2="600" stroke-width="1"/>
+<g opacity="0"><animate attributeName="opacity" dur="16.0s" repeatCount="indefinite" calcMode="discrete" values="0;1;0" keyTimes="0;0.0000;0.1437"/><circle class="acc" cx="38" cy="630" r="13"/><text x="38" y="635" font-size="13" font-weight="700" fill="#ffffff" text-anchor="middle">1</text><text class="t" x="62" y="635" font-size="15">The panel sends the question with the user's normal Docmost session.</text></g>
+<g opacity="0"><animate attributeName="opacity" dur="16.0s" repeatCount="indefinite" calcMode="discrete" values="0;1;0" keyTimes="0;0.1437;0.2687"/><circle class="acc" cx="38" cy="630" r="13"/><text x="38" y="635" font-size="13" font-weight="700" fill="#ffffff" text-anchor="middle">2</text><text class="t" x="62" y="635" font-size="15">ai-bridge signs a 60-second user token that lists the spaces this user may read.</text></g>
+<g opacity="0"><animate attributeName="opacity" dur="16.0s" repeatCount="indefinite" calcMode="discrete" values="0;1;0" keyTimes="0;0.2687;0.3937"/><circle class="acc" cx="38" cy="630" r="13"/><text x="38" y="635" font-size="13" font-weight="700" fill="#ffffff" text-anchor="middle">3</text><text class="t" x="62" y="635" font-size="15">ai-service searches the vector index, limited to those spaces.</text></g>
+<g opacity="0"><animate attributeName="opacity" dur="16.0s" repeatCount="indefinite" calcMode="discrete" values="0;1;0" keyTimes="0;0.3937;0.6500"/><circle class="acc" cx="38" cy="630" r="13"/><text x="38" y="635" font-size="13" font-weight="700" fill="#ffffff" text-anchor="middle">4</text><text class="t" x="62" y="635" font-size="15">ai-bridge re-checks every candidate page against live permissions. Restricted pages never reach the prompt.</text></g>
+<g opacity="0"><animate attributeName="opacity" dur="16.0s" repeatCount="indefinite" calcMode="discrete" values="0;1;0" keyTimes="0;0.6500;0.8000"/><circle class="acc" cx="38" cy="630" r="13"/><text x="38" y="635" font-size="13" font-weight="700" fill="#ffffff" text-anchor="middle">5</text><text class="t" x="62" y="635" font-size="15">The local model writes the answer from the allowed sections only.</text></g>
+<g opacity="0"><animate attributeName="opacity" dur="16.0s" repeatCount="indefinite" calcMode="discrete" values="0;1;0" keyTimes="0;0.8000;1.0000"/><circle class="acc" cx="38" cy="630" r="13"/><text x="38" y="635" font-size="13" font-weight="700" fill="#ffffff" text-anchor="middle">6</text><text class="t" x="62" y="635" font-size="15">ai-bridge checks every cited page again, then the answer streams back with its sources.</text></g>
+</svg>

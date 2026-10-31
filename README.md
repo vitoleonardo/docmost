@@ -19,6 +19,12 @@ This fork adds an AI assistant to Docmost that runs on a local model (Ollama, `q
 - **Extraction:** turns a contract PDF into structured fields, each with its quote and page.
 - **Update agent:** finds outdated pages in a space and proposes changes. Nothing is written until the user reviews the diff and clicks "Übernehmen".
 
+### How it works
+
+<img alt="Animated architecture: a question goes from the browser through ai-bridge (user token, permission filter, citation check) to ai-service (retrieval, inference) and the local model; ai-service only has access to its own database schema" src="docs/media/ai-architecture.svg" width="100%">
+
+ai-service never reads the wiki's tables. It gets page content and every permission decision through ai-bridge, so access is checked against live data, not the index. Extraction and the agent use the same bridge; the agent's tools act as the user. Details: [`docs/spec.md`](docs/spec.md) sections 5 and 7.
+
 The seed data is a fictional German company, so the UI in the recordings is German. The badge at the bottom left names the signed-in user.
 
 ### Ask the wiki
