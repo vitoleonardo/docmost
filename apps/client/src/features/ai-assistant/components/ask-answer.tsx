@@ -3,12 +3,17 @@ import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import AnswerMarkdown from "@/features/ai-assistant/components/answer-markdown.tsx";
 import type {
+  AskTurnStatus,
   IAskSource,
   IAskTurn,
 } from "@/features/ai-assistant/types/ai-assistant.types.ts";
 
-const NO_SOURCE_KEY =
-  "I found no matching source in the pages you can access. Rephrase the question or contact the responsible department.";
+const REFUSAL_KEYS: Partial<Record<AskTurnStatus, string>> = {
+  no_source:
+    "I found no matching source in the pages you can access. Rephrase the question or contact the responsible department.",
+  page_forbidden: "You don't have access to this page.",
+  space_forbidden: "You don't have access to this space.",
+};
 const MODEL_ERROR_KEY =
   "The language model is not answering right now. Try again later.";
 
@@ -59,8 +64,9 @@ function SourceList({ sources }: { sources: IAskSource[] }) {
 export default function AskAnswer({ turn }: AskAnswerProps) {
   const { t } = useTranslation();
 
-  if (turn.status === "no_source") {
-    return <Text size="sm">{t(NO_SOURCE_KEY)}</Text>;
+  const refusalKey = REFUSAL_KEYS[turn.status];
+  if (refusalKey) {
+    return <Text size="sm">{t(refusalKey)}</Text>;
   }
 
   return (

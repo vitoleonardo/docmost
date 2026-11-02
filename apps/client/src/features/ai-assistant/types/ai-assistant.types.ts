@@ -31,6 +31,8 @@ export type AskRequestErrorCode =
   | "invalid_request"
   | "space_not_found"
   | "page_not_found"
+  | "space_forbidden"
+  | "page_forbidden"
   | "assistant_disabled"
   | "assistant_unavailable"
   | "unauthorized";
@@ -53,6 +55,8 @@ export type AskTurnStatus =
   | "streaming"
   | "done"
   | "no_source"
+  | "page_forbidden"
+  | "space_forbidden"
   | "stopped"
   | "error";
 
@@ -122,7 +126,11 @@ export const extractResultSchema = z.discriminatedUnion("outcome", [
 
 export type ExtractResult = z.infer<typeof extractResultSchema>;
 
-export type ExtractRequestErrorCode = "not_available" | "unreachable" | "model";
+export type ExtractRequestErrorCode =
+  | "not_available"
+  | "page_forbidden"
+  | "unreachable"
+  | "model";
 
 export interface IExtractionRequest {
   editor: Editor;
@@ -139,6 +147,7 @@ export interface IAgentRunRequest {
 export type AgentRequestErrorCode =
   | "invalid_request"
   | "space_not_found"
+  | "space_forbidden"
   | "run_in_progress"
   | "assistant_disabled"
   | "assistant_unavailable"
@@ -238,6 +247,7 @@ export type IAgentProposalView = z.infer<typeof agentProposalViewSchema>;
 export type AgentProposalErrorCode =
   | "not_found"
   | "page_gone"
+  | "page_forbidden"
   | "not_editable"
   | "not_open"
   | "stale"
@@ -249,7 +259,8 @@ type AgentRunStatus =
   | "ended"
   | "cancelled"
   | "failed"
-  | "in_progress_refused";
+  | "in_progress_refused"
+  | "space_forbidden";
 
 export interface IAgentRunProposal extends IAgentProposalSummary {
   status: AgentProposalStatus;

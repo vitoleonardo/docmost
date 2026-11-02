@@ -192,6 +192,23 @@ describe("useAgentRun", () => {
     expect(result.current.run?.status).toBe("in_progress_refused");
   });
 
+  it("AGENT-AC129: space_forbidden sets spaceForbidden and keeps the task and space", async () => {
+    runMock.mockRejectedValue(new AgentRequestError("space_forbidden"));
+    const { result } = setup();
+
+    await act(async () => result.current.start("space-1", "IT", "Aufgabe"));
+
+    expect(result.current.spaceForbidden).toBe(true);
+    expect(result.current.inProgressRefused).toBe(false);
+    expect(result.current.unavailable).toBe(false);
+    expect(result.current.isRunning).toBe(false);
+    expect(result.current.run).toMatchObject({
+      spaceId: "space-1",
+      task: "Aufgabe",
+      status: "space_forbidden",
+    });
+  });
+
   it("AGENT-AC95: startFromStale starts the fixed task in the run's space", async () => {
     mockStreamingRun();
     const { result } = setup();

@@ -176,8 +176,27 @@ describe("useAskConversation", () => {
     expect(result.current.turns[0].status).toBe("error");
   });
 
+  it.each(["page_forbidden", "space_forbidden"] as const)(
+    "ASK-AC82, ASK-AC83: %s marks the turn with that refusal and no sources",
+    async (code) => {
+      askMock.mockRejectedValue(new AskRequestError(code));
+      const { result } = setup();
+
+      await act(async () => {
+        await result.current.send("Frage?");
+      });
+
+      expect(result.current.turns[0]).toMatchObject({
+        status: code,
+        answer: "",
+        sources: [],
+      });
+      expect(result.current.isUnavailable).toBe(false);
+    },
+  );
+
   it.each(["page_not_found", "space_not_found"] as const)(
-    "ASK-AC66: %s marks the turn no_source so nothing is revealed",
+    "ASK-AC84: %s marks the turn no_source so nothing is revealed",
     async (code) => {
       askMock.mockRejectedValue(new AskRequestError(code));
       const { result } = setup();

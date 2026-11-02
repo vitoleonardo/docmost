@@ -349,7 +349,7 @@ describe("proposal dialog: other states", () => {
     expect(button("Verwerfen").disabled).toBe(false);
   });
 
-  it("AGENT-AC99: a gone page shows the text, Schließen and no proposal text", async () => {
+  it("AGENT-AC121: a gone page shows the text, Schließen and no proposal text", async () => {
     getMock.mockRejectedValue(new AgentProposalError("page_gone"));
     renderDialog();
     expect(
@@ -359,7 +359,39 @@ describe("proposal dialog: other states", () => {
     expect(screen.queryByText(/Begründung/)).toBeNull();
   });
 
-  it("AGENT-AC99: a page that vanishes on apply shows the same text", async () => {
+  it("AGENT-AC122: a page the user may no longer view shows the access text, Schließen and no proposal text", async () => {
+    getMock.mockRejectedValue(new AgentProposalError("page_forbidden"));
+    renderDialog();
+    expect(
+      await screen.findByText("Du hast keinen Zugriff auf diese Seite."),
+    ).toBeTruthy();
+    expect(button("Schließen")).toBeTruthy();
+    expect(screen.queryByText(/Begründung/)).toBeNull();
+    expect(screen.queryByText(SUMMARY.reason)).toBeNull();
+    expect(screen.queryByText("Diese Seite ist nicht mehr verfügbar.")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Übernehmen" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Verwerfen" })).toBeNull();
+    fireEvent.click(button("Schließen"));
+    expect(handlers.onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("AGENT-AC131: losing view access before Übernehmen shows the access text and no diff", async () => {
+    applyMock.mockRejectedValue(new AgentProposalError("page_forbidden"));
+    await openWith(view());
+    fireEvent.click(button("Übernehmen"));
+    expect(
+      await screen.findByText("Du hast keinen Zugriff auf diese Seite."),
+    ).toBeTruthy();
+    expect(button("Schließen")).toBeTruthy();
+    expect(screen.queryByText(/Begründung/)).toBeNull();
+    expect(screen.queryByText("0,30")).toBeNull();
+    expect(screen.queryByText("0,38")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Übernehmen" })).toBeNull();
+    expect(handlers.onStatus).not.toHaveBeenCalled();
+    expect(showMock).not.toHaveBeenCalled();
+  });
+
+  it("AGENT-AC121: a page that vanishes on apply shows the same text", async () => {
     applyMock.mockRejectedValue(new AgentProposalError("page_gone"));
     await openWith(view());
     fireEvent.click(button("Übernehmen"));

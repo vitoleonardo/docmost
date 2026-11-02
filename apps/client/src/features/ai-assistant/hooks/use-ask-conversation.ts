@@ -105,6 +105,9 @@ export function useAskConversation() {
         if (code === "page_not_found" || code === "space_not_found") {
           return finishWith("no_source");
         }
+        if (code === "page_forbidden" || code === "space_forbidden") {
+          return finishWith(code);
+        }
         if (code !== "assistant_unavailable") return finishWith("error");
         store.set(askConversationAtom, (latest) => ({
           ...latest,

@@ -214,6 +214,8 @@ const aiPageAccessService = {
   readableSpaceIds: jest.fn(),
   filterViewablePageIds: jest.fn(),
   findViewablePage: jest.fn(),
+  requireViewablePage: jest.fn(),
+  requireReadableSpace: jest.fn(),
   findEditablePage: jest.fn(),
 };
 const pageRepo = { findById: jest.fn() };
@@ -425,6 +427,8 @@ beforeEach(() => {
   aiPageAccessService.readableSpaceIds.mockResolvedValue([SPACE_ID]);
   aiPageAccessService.filterViewablePageIds.mockResolvedValue([PAGE_ID]);
   aiPageAccessService.findViewablePage.mockResolvedValue(PAGE);
+  aiPageAccessService.requireViewablePage.mockResolvedValue(PAGE);
+  aiPageAccessService.requireReadableSpace.mockResolvedValue(undefined);
   aiPageAccessService.findEditablePage.mockResolvedValue(PAGE);
   pageRepo.findById.mockResolvedValue(PAGE);
   spaceRepo.findById.mockResolvedValue({
@@ -596,6 +600,38 @@ describe('served routes', () => {
       Object.keys(AI_BRIDGE_ERROR_STATUS).sort(),
     );
   });
+
+  it.each([
+    [
+      'page_forbidden',
+      [
+        '/api/ai/ask',
+        '/api/ai/extract',
+        '/api/ai/agent/proposal',
+        '/api/ai/agent/proposal/apply',
+        '/api/ai-bridge/internal/tools/read-page',
+        '/api/ai-bridge/internal/tools/read-blocks',
+      ],
+    ],
+    [
+      'space_forbidden',
+      [
+        '/api/ai/ask',
+        '/api/ai/agent/run',
+        '/api/ai-bridge/internal/tools/search',
+      ],
+    ],
+  ])(
+    'BRIDGE-AC35: %s answers 403 and is listed by exactly the endpoints called with a user',
+    (code, paths) => {
+      const listing = SERVED_ENDPOINTS.filter((endpoint) =>
+        endpoint.errors.includes(code),
+      ).map((endpoint) => endpoint.path);
+
+      expect(CONTRACT.errors[code]).toBe(403);
+      expect(listing.sort()).toEqual([...paths].sort());
+    },
+  );
 
   it('BRIDGE-AC35: the status endpoint answers exactly the contract values', async () => {
     const statusEndpoint = endpointAt('/api/ai/status');

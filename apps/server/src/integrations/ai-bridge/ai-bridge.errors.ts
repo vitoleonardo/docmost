@@ -11,6 +11,8 @@ export const AI_BRIDGE_ERROR_STATUS = {
   too_many_page_ids: 400,
   page_not_found: 404,
   space_not_found: 404,
+  page_forbidden: 403,
+  space_forbidden: 403,
   attachment_not_found: 404,
   proposal_not_found: 404,
   proposal_not_open: 409,

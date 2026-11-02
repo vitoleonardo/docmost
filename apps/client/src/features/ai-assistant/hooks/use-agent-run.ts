@@ -103,6 +103,8 @@ export function useAgentRun() {
             ...current,
             status: "in_progress_refused",
           }));
+        } else if (code === "space_forbidden") {
+          updateRun((current) => ({ ...current, status: "space_forbidden" }));
         } else {
           updateRun((current) => ({ ...current, status: "failed" }));
         }
@@ -161,6 +163,7 @@ export function useAgentRun() {
     unavailable,
     nextTaskSpaceId,
     inProgressRefused: run?.status === "in_progress_refused",
+    spaceForbidden: run?.status === "space_forbidden",
     isRunning: run?.status === "running",
     start,
     cancel,

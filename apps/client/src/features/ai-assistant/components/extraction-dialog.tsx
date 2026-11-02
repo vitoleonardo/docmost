@@ -165,6 +165,8 @@ function ExtractionContent({
         return t(
           "The attachment is no longer available or you may not edit the page.",
         );
+      case "page_forbidden":
+        return t("You don't have access to this page.");
     }
   };
 

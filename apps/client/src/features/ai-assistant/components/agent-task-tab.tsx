@@ -121,11 +121,15 @@ function RunView({
 
 function StartView({
   inProgressRefused,
+  spaceForbidden,
   initialSpaceId,
+  initialTask,
   onStart,
 }: {
   inProgressRefused: boolean;
+  spaceForbidden: boolean;
   initialSpaceId: string | null;
+  initialTask: string;
   onStart: (spaceId: string, spaceName: string, task: string) => void;
 }) {
   const { t } = useTranslation();
@@ -135,7 +139,7 @@ function StartView({
   const [chosenSpaceId, setChosenSpaceId] = useState<string | null>(
     initialSpaceId,
   );
-  const [task, setTask] = useState("");
+  const [task, setTask] = useState(initialTask);
 
   const spaces = [...(data?.items ?? [])].sort((a, b) =>
     a.name.localeCompare(b.name),
@@ -170,6 +174,11 @@ function StartView({
           </Text>
         </Alert>
       )}
+      {spaceForbidden && (
+        <Alert color="yellow" variant="light">
+          <Text size="sm">{t("You don't have access to this space.")}</Text>
+        </Alert>
+      )}
       <Text size="xs" fw={600} c="dimmed">
         {t("Examples")}
       </Text>
@@ -194,14 +203,24 @@ function StartView({
 }
 
 export default function AgentTaskTab() {
-  const { run, inProgressRefused, isRunning, nextTaskSpaceId, start, cancel } =
-    useAgentRun();
+  const {
+    run,
+    inProgressRefused,
+    spaceForbidden,
+    isRunning,
+    nextTaskSpaceId,
+    start,
+    cancel,
+  } = useAgentRun();
 
-  if (!run || inProgressRefused) {
+  if (!run || inProgressRefused || spaceForbidden) {
+    const forbiddenRun = spaceForbidden ? run : null;
     return (
       <StartView
         inProgressRefused={inProgressRefused}
-        initialSpaceId={nextTaskSpaceId}
+        spaceForbidden={spaceForbidden}
+        initialSpaceId={forbiddenRun?.spaceId ?? nextTaskSpaceId}
+        initialTask={forbiddenRun?.task ?? ""}
         onStart={start}
       />
     );

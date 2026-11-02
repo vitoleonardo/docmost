@@ -1656,5 +1656,7 @@
   "Cancelled. Earlier proposals are kept.": "Abgebrochen. Bisherige Vorschläge bleiben erhalten.",
   "The language model is not responding right now. Try again later.": "Das Sprachmodell antwortet gerade nicht. Versuche es später noch einmal.",
   "I cannot do that with my tools. I can search pages in a space, read pages and suggest changes to pages that you review and apply.": "Das kann ich mit meinen Werkzeugen nicht erledigen. Ich kann in einem Bereich Seiten suchen, Seiten lesen und Änderungen an Seiten vorschlagen, die du prüfst und übernimmst.",
-  "New task": "Neue Aufgabe"
+  "New task": "Neue Aufgabe",
+  "You don't have access to this page.": "Du hast keinen Zugriff auf diese Seite.",
+  "You don't have access to this space.": "Du hast keinen Zugriff auf diesen Bereich."
 }
