@@ -12,6 +12,7 @@ export const AI_BRIDGE_ERROR_STATUS = {
   page_not_found: 404,
   space_not_found: 404,
   attachment_not_found: 404,
+  page_not_editable: 403,
 } as const;
 
 export type AiBridgeErrorCode = keyof typeof AI_BRIDGE_ERROR_STATUS;

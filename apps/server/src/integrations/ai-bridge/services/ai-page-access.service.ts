@@ -1,9 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable } from '@nestjs/common';
 import { SpaceMemberRepo } from '@docmost/db/repos/space/space-member.repo';
 import { SpaceRepo } from '@docmost/db/repos/space/space.repo';
 import { PageRepo } from '@docmost/db/repos/page/page.repo';
 import { PagePermissionRepo } from '@docmost/db/repos/page/page-permission.repo';
 import { Page, User } from '@docmost/db/types/entity.types';
+import { PageAccessService } from '../../../core/page/page-access/page-access.service';
+import { AiBridgeError } from '../ai-bridge.errors';
 
 @Injectable()
 export class AiPageAccessService {
@@ -12,6 +14,7 @@ export class AiPageAccessService {
     private readonly spaceRepo: SpaceRepo,
     private readonly pageRepo: PageRepo,
     private readonly pagePermissionRepo: PagePermissionRepo,
+    private readonly pageAccessService: PageAccessService,
   ) {}
 
   async readableSpaceIds(
@@ -61,6 +64,21 @@ export class AiPageAccessService {
       includeContent: true,
     });
     return page ?? null;
+  }
+
+  async findEditablePage(user: User, pageId: string): Promise<Page> {
+    const page = await this.findViewablePage(user, pageId);
+    if (!page) throw new AiBridgeError('page_not_found', 'Page not found');
+    try {
+      await this.pageAccessService.validateCanEdit(page, user);
+    } catch (error) {
+      if (!(error instanceof ForbiddenException)) throw error;
+      throw new AiBridgeError(
+        'page_not_editable',
+        'The user may not edit the page',
+      );
+    }
+    return page;
   }
 
   private async groupReadablePageIdsBySpace(

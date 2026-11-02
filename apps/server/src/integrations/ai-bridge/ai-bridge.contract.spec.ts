@@ -27,6 +27,7 @@ import { AiQueueProcessor } from './ai-queue.processor';
 import { AI_BRIDGE_USER_TOKEN_KEY } from './decorators/ai-bridge-auth.decorator';
 import { AiAskDto } from './dto/ai-ask.dto';
 import { AiAskService } from './services/ai-ask.service';
+import { AiExtractService } from './services/ai-extract.service';
 import { AiInternalAuthGuard } from './guards/ai-internal-auth.guard';
 import { AiContentService } from './services/ai-content.service';
 import { AiPageAccessService } from './services/ai-page-access.service';
@@ -34,6 +35,8 @@ import { AiPageListService } from './services/ai-page-list.service';
 import {
   AiServiceAskEvent,
   AiServiceClient,
+  AiServiceExtractResult,
+  AiServiceTimeoutError,
 } from './services/ai-service.client';
 import { AiStatusService } from './services/ai-status.service';
 import { AiTokenService } from './services/ai-token.service';
@@ -49,6 +52,7 @@ interface ContractEndpoint {
   responseType?: string;
   responseContentType?: string;
   events?: Record<string, string[]>;
+  outcomes?: Record<string, string[]>;
   values?: Record<string, string[]>;
   maxQuestionLength?: number;
   status: number;
@@ -192,6 +196,7 @@ const aiPageAccessService = {
   readableSpaceIds: jest.fn(),
   filterViewablePageIds: jest.fn(),
   findViewablePage: jest.fn(),
+  findEditablePage: jest.fn(),
 };
 const pageRepo = { findById: jest.fn() };
 const spaceRepo = { findById: jest.fn() };
@@ -253,6 +258,7 @@ const PDF_ATTACHMENT = stub<Attachment>({
   mimeType: 'application/pdf',
   fileSize: '2048',
   pageId: PAGE_ID,
+  workspaceId: WORKSPACE_ID,
   deletedAt: null,
 });
 
@@ -270,7 +276,11 @@ const statusService = (
 
 const RESPONSE_BODIES: Record<string, () => Promise<unknown>> = {
   '/api/ai/status': () =>
-    new AiBridgeController(statusService(true, true), stub({})).status(USER),
+    new AiBridgeController(
+      statusService(true, true),
+      stub({}),
+      stub({}),
+    ).status(USER),
   '/api/ai-bridge/internal/filter-pages': () =>
     internalController.filterPages({ pageIds: [PAGE_ID] }, USER),
   '/api/ai-bridge/internal/task-token': () =>
@@ -292,6 +302,7 @@ beforeEach(() => {
   aiPageAccessService.readableSpaceIds.mockResolvedValue([SPACE_ID]);
   aiPageAccessService.filterViewablePageIds.mockResolvedValue([PAGE_ID]);
   aiPageAccessService.findViewablePage.mockResolvedValue(PAGE);
+  aiPageAccessService.findEditablePage.mockResolvedValue(PAGE);
   pageRepo.findById.mockResolvedValue(PAGE);
   spaceRepo.findById.mockResolvedValue({
     id: SPACE_ID,
@@ -362,7 +373,8 @@ describe.each(SERVED_ENDPOINTS.map((endpoint) => [endpoint.path, endpoint]))(
     it('BRIDGE-AC35: response fields equal the keys of what the services return', async () => {
       if (
         endpoint.responseType === 'binary' ||
-        endpoint.responseType === 'sse'
+        endpoint.responseType === 'sse' ||
+        endpoint.outcomes
       ) {
         expect(endpoint.response).toEqual([]);
         return;
@@ -442,7 +454,7 @@ describe('served routes', () => {
         statusService(true, true),
         statusService(true, false),
       ].map((service) =>
-        new AiBridgeController(service, stub({})).status(USER),
+        new AiBridgeController(service, stub({}), stub({})).status(USER),
       ),
     );
 
@@ -506,11 +518,11 @@ describe('ask endpoint', () => {
       getHeaders: () => ({}),
     });
 
-    await new AiBridgeController(statusService(true, true), askService).ask(
-      { question: 'Frage', conversationId: CONVERSATION_ID },
-      USER,
-      reply,
-    );
+    await new AiBridgeController(
+      statusService(true, true),
+      askService,
+      stub({}),
+    ).ask({ question: 'Frage', conversationId: CONVERSATION_ID }, USER, reply);
 
     const frames: string[] = raw.write.mock.calls.map(([frame]) =>
       String(frame),
@@ -584,6 +596,98 @@ describe('ask endpoint', () => {
   });
 });
 
+const EXTRACT_RESULTS: Record<string, AiServiceExtractResult> = {
+  extracted: {
+    outcome: 'extracted',
+    fields: (
+      ['parties', 'term', 'noticePeriod', 'value', 'renewal'] as const
+    ).map((key) => ({
+      key,
+      value: 'Wert',
+      quote: 'Wert im Vertrag',
+      pdfPage: 1,
+    })),
+  },
+  refused: {
+    outcome: 'refused',
+    reason: 'too_many_pages',
+    pageCount: 11,
+    fileSize: null,
+    characterCount: null,
+  },
+  failed: { outcome: 'failed', reason: 'model_unavailable' },
+};
+
+const fieldsByOutcome = (bodies: unknown[]) =>
+  Object.fromEntries(
+    bodies.map((body) => [
+      (body as { outcome: string }).outcome,
+      sorted(fieldPaths(body)),
+    ]),
+  );
+
+const sortedOutcomes = (outcomes: Record<string, string[]>) =>
+  Object.fromEntries(
+    Object.entries(outcomes).map(([outcome, fields]) => [
+      outcome,
+      sorted(fields),
+    ]),
+  );
+
+describe('extract endpoint', () => {
+  const extractEndpoint = endpointAt('/api/ai/extract');
+
+  const served = (extractClient: object) =>
+    new AiBridgeController(
+      statusService(true, true),
+      stub({}),
+      new AiExtractService(
+        stub<EnvironmentService>({ isAiBridgeConfigured: () => true }),
+        stub<AiPageAccessService>(aiPageAccessService),
+        stub(attachmentRepo),
+        stub<AiTokenService>({ issueUserToken: async () => 'user-token' }),
+        stub<AiServiceClient>(extractClient),
+      ),
+    ).extract(
+      { pageId: PAGE_ID, attachmentId: PDF_ATTACHMENT.id },
+      USER,
+      stub<FastifyReply>({ raw: new EventEmitter() }),
+    );
+
+  it('extract contract: every outcome the wiki answers has exactly the fields of the contract', async () => {
+    const bodies = await Promise.all(
+      Object.values(EXTRACT_RESULTS).map((result) =>
+        served({ extract: async () => result }),
+      ),
+    );
+
+    expect(fieldsByOutcome(bodies)).toEqual(
+      sortedOutcomes(extractEndpoint.outcomes!),
+    );
+    expect(sorted(Object.keys(fieldsByOutcome(bodies)))).toEqual(
+      sorted(extractEndpoint.values!.outcome),
+    );
+  });
+
+  it('EXTRACT-AC67: a timed-out AI service answers the contract failure reason', async () => {
+    const body = await served({
+      extract: async () => {
+        throw new AiServiceTimeoutError('timeout');
+      },
+    });
+
+    expect(body).toEqual({
+      outcome: 'failed',
+      reason: extractEndpoint.values!.failedReason[0],
+    });
+  });
+
+  it('EXTRACT-AC44: the edit denial code is in the contract with status 403', () => {
+    expect(extractEndpoint.errors).toContain('page_not_editable');
+    expect(CONTRACT.errors.page_not_editable).toBe(403);
+  });
+});
+
 describe('AI service calls of the bridge', () => {
   const client = new AiServiceClient(
     stub<EnvironmentService>(environmentService),
@@ -627,9 +731,9 @@ describe('AI service calls of the bridge', () => {
     const { url, init } = lastRequest();
     expect(url.pathname).toBe(endpoint.path);
     expect(init.method).toBe(endpoint.method);
-    expect(init.headers[CONTRACT.headers.serviceTokenHeader.toLowerCase()]).toBe(
-      SERVICE_CREDENTIAL,
-    );
+    expect(
+      init.headers[CONTRACT.headers.serviceTokenHeader.toLowerCase()],
+    ).toBe(SERVICE_CREDENTIAL);
     expect(sorted(Object.keys(JSON.parse(init.body)))).toEqual(
       sorted(endpoint.request),
     );
@@ -726,6 +830,93 @@ describe('AI service calls of the bridge', () => {
     );
 
     await expect(events.next()).rejects.toThrow('malformed ask event');
+  });
+
+  it('extract contract: the extract call posts the contract request fields with both token headers', async () => {
+    const endpoint = endpointAt('/v1/extract');
+    fetchSpy.mockResolvedValue(
+      new Response(JSON.stringify(EXTRACT_RESULTS.failed), {
+        status: endpoint.status,
+      }),
+    );
+
+    await client.extract(
+      'user-token',
+      { attachmentId: 'att-1', fileSize: 2048 },
+      new AbortController().signal,
+    );
+
+    const { url, init } = lastRequest();
+    expect(url.pathname).toBe(endpoint.path);
+    expect(init.method).toBe(endpoint.method);
+    expect(
+      init.headers[CONTRACT.headers.serviceTokenHeader.toLowerCase()],
+    ).toBe(SERVICE_CREDENTIAL);
+    expect(init.headers[CONTRACT.headers.userTokenHeader.toLowerCase()]).toBe(
+      'user-token',
+    );
+    expect(sorted(Object.keys(JSON.parse(init.body)))).toEqual(
+      sorted(endpoint.request),
+    );
+  });
+
+  it('extract contract: the bridge reads every contract outcome of /v1/extract with exactly its fields', async () => {
+    const endpoint = endpointAt('/v1/extract');
+    const read: unknown[] = [];
+    for (const result of Object.values(EXTRACT_RESULTS)) {
+      fetchSpy.mockResolvedValueOnce(
+        new Response(JSON.stringify(result), { status: endpoint.status }),
+      );
+      read.push(
+        await client.extract(
+          'user-token',
+          { attachmentId: 'att-1', fileSize: 2048 },
+          new AbortController().signal,
+        ),
+      );
+    }
+
+    expect(fieldsByOutcome(read)).toEqual(sortedOutcomes(endpoint.outcomes!));
+  });
+
+  it('extract contract: the bridge accepts exactly the contract field keys and reasons of /v1/extract', async () => {
+    const endpoint = endpointAt('/v1/extract');
+    const extractAnswering = async (body: object) => {
+      fetchSpy.mockResolvedValueOnce(
+        new Response(JSON.stringify(body), { status: endpoint.status }),
+      );
+      return client
+        .extract(
+          'user-token',
+          { attachmentId: 'att-1', fileSize: 2048 },
+          new AbortController().signal,
+        )
+        .then(
+          () => true,
+          () => false,
+        );
+    };
+    const extracted = EXTRACT_RESULTS.extracted as {
+      fields: { key: string }[];
+    };
+
+    expect(extracted.fields.map((field) => field.key)).toEqual(
+      endpoint.values!.fieldKey,
+    );
+    for (const reason of endpoint.values!.refusedReason) {
+      expect(
+        await extractAnswering({ ...EXTRACT_RESULTS.refused, reason }),
+      ).toBe(true);
+    }
+    for (const reason of endpoint.values!.failedReason) {
+      expect(await extractAnswering({ outcome: 'failed', reason })).toBe(true);
+    }
+    expect(
+      await extractAnswering({ ...EXTRACT_RESULTS.refused, reason: 'other' }),
+    ).toBe(false);
+    expect(await extractAnswering({ outcome: 'failed', reason: 'other' })).toBe(
+      false,
+    );
   });
 
   it('BRIDGE-AC35: any other status than the contract status is a failed forward', async () => {

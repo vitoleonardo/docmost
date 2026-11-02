@@ -30,9 +30,10 @@ class PdfSection:
 
 
 class PdfSkipped(Exception):
-    def __init__(self, reason: str):
+    def __init__(self, reason: str, page_count: int | None = None):
         super().__init__(reason)
         self.reason = reason
+        self.page_count = page_count
 
 
 def split_text(text: str, level: int = 0) -> list[str]:
@@ -95,7 +96,7 @@ def read_pdf_pages(pdf_bytes: bytes) -> list[str]:
     try:
         reader = PdfReader(io.BytesIO(pdf_bytes))
         if len(reader.pages) > MAX_PDF_PAGES:
-            raise PdfSkipped(f"more than {MAX_PDF_PAGES} pages")
+            raise PdfSkipped(f"more than {MAX_PDF_PAGES} pages", len(reader.pages))
         return [page.extract_text() or "" for page in reader.pages]
     except PdfSkipped:
         raise

@@ -206,6 +206,37 @@ Install Ollama, run `ollama pull qwen3:8b` once and keep `ollama serve` running.
   Covers ASK-AC32 to ASK-AC35 (prompt content with the real bridge, index and embedder and a recording model), ASK-AC39 to ASK-AC41 and ASK-AC57 (through `POST /api/ai/ask` of the wiki, real model). It logs in as the four seed users once (the login throttle may add 61 s), creates two throwaway pages in "Allgemein" (one moved to "Geschäftsführung", one trashed, both put back into the index as stale entries) and removes them again. It prints `ASK-AC57 first text: <seconds> s` (limit 10 s). Run it on a freshly seeded stack: Ollama caches prompts, so a repeated run measures less than a first run.
 - Screenshots of A1 to A4 and the source click: `apps/client/e2e/ask.screenshots.ts`, run as in "Verify data runs and screenshots". It mocks `POST /api/ai/ask` and `POST /api/ai/status` (answers must be the same on every run), switches the seed user WS to German for each test and back afterwards. The source click uses the real heading id of "Bürozeiten und Erreichbarkeit". ai-service must run so the real status is `available` (A4 mocks the status); the model need not run.
 
+## Extraction
+
+Spec `specs/extraction.md`. The button "Daten extrahieren" on a PDF attachment sends the file to ai-service through the wiki (`POST /api/ai/extract`); the model fills the schema "Vertrag" and the dialog shows each value with its quote and page. Nothing is stored in ai-service.
+
+### Ollama context (human step)
+
+Set `OLLAMA_CONTEXT_LENGTH=16384` for Ollama and restart it. Ollama's default context is 4,096 tokens and cuts a long prompt without an error: the model then answers from the first pages only. ai-service detects this (fewer prompt tokens than a quarter of the characters sent), shows "Das Sprachmodell antwortet gerade nicht. Versuche es später noch einmal." and logs `outcome=context_too_small`. On macOS with the app: `launchctl setenv OLLAMA_CONTEXT_LENGTH 16384`, then quit and reopen Ollama. Seed contracts of 2 pages work at 4,096; a PDF of 10 pages needs 16,384.
+
+### Extraction tests
+
+- Fast, CI: `uv run pytest -m "not integration"` from `ai-service/` (stub model, `tests/test_extraction.py`, `tests/test_app_extract.py`).
+- Local model: `scripts/run-extraction-check.sh [pytest args]` from the repo root. It runs `ai-service/tests/test_stack_extract.py` (EXTRACT-AC52, AC55, AC56, AC57, AC68) against a throwaway stack: database `docmost_extract_check` and role `docmost_ai_extract` (recreated, dropped on exit), Redis db 11 (flushed at start and end), wiki on port 3101, ai-service on port 8102, seed storage in a temporary folder. Secrets are generated per run. The dev database `docmost` and the dev services stay untouched. Needs `psql` on PATH, `uv sync` in `ai-service/`, a built `apps/server/dist` and Ollama with the model.
+- The script drops and recreates any database named `docmost_extract…` that it is given, so never point `EXTRACT_DATABASE` at data you want to keep.
+- Two runs at once must use different `EXTRACT_DATABASE` and `EXTRACT_REDIS_URL` values (and ports), or they wipe each other.
+- Variables: `EXTRACT_LLM_BASE_URL` (default `http://127.0.0.1:11434/v1`), `EXTRACT_LLM_MODEL` (default `qwen3:8b`), `EXTRACT_DATABASE` (must start with `docmost_extract`), `EXTRACT_PG_ADMIN_URL`, `EXTRACT_REDIS_URL` (a database number from 1 to 15), `EXTRACT_WIKI_PORT`, `EXTRACT_AI_PORT`, `EXTRACT_HEALTH_TIMEOUT`.
+- Against the stack, a test reads `STACK_WIKI_URL`, `STACK_AI_DATABASE_URL`, `STACK_SERVICE_TOKEN`, `STACK_REDIS_URL` and, for the model, `STACK_LLM_BASE_URL` and `STACK_LLM_MODEL` (the script sets them). The tests extract all 6 seed contracts through `POST /api/ai/extract` as the seed owner after one warm-up call and print `EXTRACT-AC57 <file>: <seconds> s` (limit 40 s). EXTRACT-AC68 (10 pages of 5 seed contracts, limit 180 s) calls the pipeline directly and needs a context of 16,384 tokens: at 4,096 it fails with `outcome=context_too_small`.
+- Second Ollama for a run without changing the app's setting: `OLLAMA_HOST=127.0.0.1:11435 OLLAMA_CONTEXT_LENGTH=16384 ollama serve`, then `EXTRACT_LLM_BASE_URL=http://127.0.0.1:11435/v1 scripts/run-extraction-check.sh`; stop it afterwards.
+
+Measured on the M3 Pro with `qwen3:8b`, context 16,384, model loaded, 29.10.2026 (wall clock per request through the wiki):
+
+| Contract | Seconds |
+|---|---|
+| beratervertrag-unternehmensentwicklung | 18.0 |
+| kundenvertrag-stadtwerke-beispielstadt | 20.0 |
+| liefervertrag-pumpen-fiktivwerk | 27.7 |
+| rahmenvertrag-wasserverband-muster | 22.5 |
+| softwarelizenzvertrag-planungssoftware | 20.7 |
+| subunternehmervertrag-tiefbau | 22.8 |
+
+10 pages of 5 contracts: 19.4 s with the model loaded (47.0 s on the first call after Ollama started). With the default 4,096 context the same PDF fails after 23.4 s with `context_too_small`.
+
 ## Leak tests
 
 Spec `specs/leak-tests.md`. The prompt-content check proves that the prompt sent to the model never holds a section the asking user may not view: every seed user, every leak question, every scope, with the real wiki filter, a recording model and an index built from the seed. It also covers revoked membership, a stale index entry and a restored page.

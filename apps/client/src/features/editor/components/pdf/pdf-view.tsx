@@ -12,6 +12,7 @@ import {
   IconPaperclip,
   IconTrash,
 } from "@tabler/icons-react";
+import ExtractDataButton from "@/features/ai-assistant/components/extract-data-button.tsx";
 
 export default function PdfView(props: NodeViewProps) {
   const { t } = useTranslation();
@@ -163,6 +164,15 @@ export default function PdfView(props: NodeViewProps) {
                   <IconPaperclip size={14} />
                 </ActionIcon>
               </Tooltip>
+              <ExtractDataButton
+                editor={editor}
+                attachmentId={node.attrs.attachmentId}
+                fileName={node.attrs.name}
+                size="sm"
+                variant="filled"
+                color="dark"
+                iconSize={14}
+              />
               <Tooltip position="top" label={t("Delete")} withinPortal>
                 <ActionIcon
                   size="sm"

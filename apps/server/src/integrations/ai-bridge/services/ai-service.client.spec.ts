@@ -2,7 +2,14 @@ import { stub } from '../test-stub';
 import { createServer, IncomingMessage, Server } from 'node:http';
 import { AddressInfo } from 'node:net';
 import { EnvironmentService } from '../../environment/environment.service';
-import { AiServiceClient } from './ai-service.client';
+import { AiBridgeError } from '../ai-bridge.errors';
+import {
+  AI_EXTRACT_TIMEOUT_MS,
+  AiServiceClient,
+  AiServiceMalformedResponseError,
+  AiServiceTimeoutError,
+  AiServiceUnreachableError,
+} from './ai-service.client';
 
 const SERVICE_CREDENTIAL = 'test-service-token-0123456789abcdef';
 const USER_CREDENTIAL = 'test-user-token';
@@ -22,6 +29,7 @@ describe('AiServiceClient', () => {
   let behaviour: Behaviour;
   let requests: RecordedRequest[];
   let url: string | undefined;
+  let extractReply: { status: number; body: string } | undefined;
 
   const environmentService = stub<EnvironmentService>({
     getAiServiceUrl: () => url,
@@ -41,6 +49,13 @@ describe('AiServiceClient', () => {
           body: Buffer.concat(chunks).toString('utf8'),
         });
         if (behaviour === 'hang') return;
+        if (req.url === '/v1/extract' && extractReply) {
+          res.writeHead(extractReply.status, {
+            'content-type': 'application/json',
+          });
+          res.end(extractReply.body);
+          return;
+        }
         const status = {
           ok: 200,
           accepted: 202,
@@ -66,6 +81,11 @@ describe('AiServiceClient', () => {
     requests = [];
     behaviour = 'ok';
     url = baseUrl;
+    extractReply = undefined;
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
   });
 
   const closedPortUrl = async () => {
@@ -185,5 +205,175 @@ describe('AiServiceClient', () => {
 
       expect(String(error.message)).not.toContain(SERVICE_CREDENTIAL);
     });
+  });
+
+  describe('extract', () => {
+    const ATTACHMENT_ID = '7a1b2c3d-0000-4000-8000-000000000001';
+    const EXTRACTED = {
+      outcome: 'extracted',
+      fields: ['parties', 'term', 'noticePeriod', 'value', 'renewal'].map(
+        (key) => ({ key, value: null, quote: null, pdfPage: null }),
+      ),
+    };
+    const REFUSED = {
+      outcome: 'refused',
+      reason: 'too_many_pages',
+      pageCount: 11,
+      fileSize: null,
+      characterCount: null,
+    };
+    const FAILED = { outcome: 'failed', reason: 'model_unavailable' };
+
+    const answer = (status: number, body: unknown) => {
+      extractReply = {
+        status,
+        body: typeof body === 'string' ? body : JSON.stringify(body),
+      };
+    };
+
+    const extract = (signal = new AbortController().signal) =>
+      client.extract(
+        USER_CREDENTIAL,
+        { attachmentId: ATTACHMENT_ID, fileSize: 2048 },
+        signal,
+      );
+
+    const failureOf = (promise: Promise<unknown>) =>
+      promise.then(
+        () => undefined,
+        (caught: unknown) => caught,
+      );
+
+    it.each([
+      ['extracted', EXTRACTED],
+      ['refused', REFUSED],
+      ['failed', FAILED],
+    ])(
+      'extract contract: relays a %s result and posts attachment id and file size with both tokens to /v1/extract',
+      async (_outcome, body) => {
+        answer(200, body);
+
+        await expect(extract()).resolves.toEqual(body);
+
+        expect(requests).toHaveLength(1);
+        expect(requests[0].method).toBe('POST');
+        expect(requests[0].url).toBe('/v1/extract');
+        expect(requests[0].headers['x-service-token']).toBe(SERVICE_CREDENTIAL);
+        expect(requests[0].headers['x-user-token']).toBe(USER_CREDENTIAL);
+        expect(JSON.parse(requests[0].body)).toEqual({
+          attachmentId: ATTACHMENT_ID,
+          fileSize: 2048,
+        });
+      },
+    );
+
+    it('extract contract: drops fields of the AI service the contract does not name', async () => {
+      answer(200, {
+        ...FAILED,
+        detail: 'Vertragstext',
+      });
+
+      await expect(extract()).resolves.toEqual(FAILED);
+    });
+
+    it('EXTRACT-AC46: HTTP 404 attachment_not_found from the AI service is attachment_not_found', async () => {
+      answer(404, { code: 'attachment_not_found', message: 'gone' });
+
+      const error = await failureOf(extract());
+
+      expect(error).toBeInstanceOf(AiBridgeError);
+      expect((error as AiBridgeError).code).toBe('attachment_not_found');
+    });
+
+    it.each([
+      [503, { code: 'assistant_unavailable', message: 'x' }],
+      [500, { code: 'x', message: 'y' }],
+      [401, { code: 'user_token_invalid', message: 'y' }],
+      [404, { detail: 'Not Found' }],
+    ])(
+      'EXTRACT-AC41: HTTP %i from the AI service is unreachable',
+      async (status, body) => {
+        answer(status, body);
+
+        await expect(extract()).rejects.toBeInstanceOf(
+          AiServiceUnreachableError,
+        );
+      },
+    );
+
+    it('EXTRACT-AC41: a refused connection is unreachable', async () => {
+      url = await closedPortUrl();
+
+      await expect(extract()).rejects.toBeInstanceOf(AiServiceUnreachableError);
+    });
+
+    it.each([
+      ['a body that is not JSON', 'Vertragstext'],
+      ['an unknown outcome', { outcome: 'done' }],
+      ['four fields', { ...EXTRACTED, fields: EXTRACTED.fields.slice(1) }],
+      [
+        'fields out of schema order',
+        { ...EXTRACTED, fields: [...EXTRACTED.fields].reverse() },
+      ],
+      [
+        'a value that is a number',
+        {
+          ...EXTRACTED,
+          fields: EXTRACTED.fields.map((field) => ({ ...field, value: 42 })),
+        },
+      ],
+      ['an unknown refusal reason', { ...REFUSED, reason: 'too_old' }],
+      [
+        'a refusal without its counts',
+        { outcome: 'refused', reason: 'too_large' },
+      ],
+      ['an unknown failure reason', { outcome: 'failed', reason: 'oops' }],
+    ])('extract contract: %s is a malformed result', async (_case, body) => {
+      answer(200, body);
+
+      const error = await failureOf(extract());
+
+      expect(error).toBeInstanceOf(AiServiceMalformedResponseError);
+      expect(String((error as Error).message)).not.toContain('Vertragstext');
+    });
+
+    it('EXTRACT-AC67: an AI service that has not answered after 200 s times out, not earlier', async () => {
+      jest.useFakeTimers({
+        doNotFake: ['nextTick', 'setImmediate', 'queueMicrotask'],
+      });
+      behaviour = 'hang';
+      let settled = false;
+      const pending = failureOf(extract()).finally(() => {
+        settled = true;
+      });
+
+      await jest.advanceTimersByTimeAsync(AI_EXTRACT_TIMEOUT_MS - 1);
+      expect(settled).toBe(false);
+      await jest.advanceTimersByTimeAsync(1);
+
+      expect(await pending).toBeInstanceOf(AiServiceTimeoutError);
+      expect(AI_EXTRACT_TIMEOUT_MS).toBe(200_000);
+    });
+
+    it('extract contract: the caller aborting is an abort, not a timeout', async () => {
+      behaviour = 'hang';
+      const caller = new AbortController();
+      const pending = failureOf(extract(caller.signal));
+      await waitForRequest();
+
+      caller.abort();
+
+      const error = await pending;
+      expect(error).not.toBeInstanceOf(AiServiceTimeoutError);
+      expect(error).toBeDefined();
+    });
+
+    const waitForRequest = async () => {
+      const deadline = Date.now() + 2000;
+      while (requests.length === 0) {
+        if (Date.now() > deadline) throw new Error('timed out waiting');
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      }
+    };
   });
 });

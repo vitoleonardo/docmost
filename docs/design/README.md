@@ -15,8 +15,8 @@ The mockups copy Docmost v0.96's look: Mantine with the theme in `apps/client/sr
 | A4 | M3/M5 | Assistant unavailable |
 | E1 | M7 Extraction | "Extract data" action on the attachment and embedded PDF |
 | E2 | M7 Extraction | Review dialog: values, source quote and page per field, missing field flagged |
-| E3 | M7 Extraction | Refused: scanned PDF, file too large |
-| E4 | M7 Extraction | Inserted table, manual values marked |
+| E3 | M7 Extraction | Refused: scanned PDF, too many pages, too much text |
+| E4 | M7 Extraction | Inserted table with source column, manual values marked as text |
 | G1 | M8 Agent | Start: free-text task, space scope, examples |
 | G2 | M8 Agent | Running: steps, limits, cancel |
 | G3 | M8 Agent | Results: proposal cards with status; limit reached |
@@ -37,5 +37,4 @@ The mockups copy Docmost v0.96's look: Mantine with the theme in `apps/client/sr
 ## Open questions
 
 - Company name: `‹Seed-Firma›` is a placeholder until M2 picks the name.
-- Extraction limits in E3 (30 pages, 10 MB) are placeholders until M7 sets them.
 - Dark mode: Docmost supports it; the new UI uses Mantine color variables only, so it follows automatically. Not mocked separately.

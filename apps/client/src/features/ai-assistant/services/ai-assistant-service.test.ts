@@ -1,7 +1,12 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { askQuestion } from "@/features/ai-assistant/services/ai-assistant-service.ts";
+import api from "@/lib/api-client";
+import {
+  askQuestion,
+  extractContract,
+  ExtractRequestError,
+} from "@/features/ai-assistant/services/ai-assistant-service.ts";
 import { askEventSchema } from "@/features/ai-assistant/types/ai-assistant.types.ts";
 import type {
   AskEvent,
@@ -9,6 +14,12 @@ import type {
   IAskRequest,
   IAskSource,
 } from "@/features/ai-assistant/types/ai-assistant.types.ts";
+
+vi.mock("@/lib/api-client", () => ({
+  default: { post: vi.fn() },
+}));
+
+const postMock = vi.mocked(api.post);
 
 const BODY: IAskRequest = {
   question: "Wann ist die Kernarbeitszeit?",
@@ -57,7 +68,11 @@ function sseResponse(chunks: string[]): Response {
 async function collect(chunks: string[]): Promise<AskEvent[]> {
   mockFetch(sseResponse(chunks));
   const events: AskEvent[] = [];
-  await askQuestion(BODY, (event) => events.push(event), new AbortController().signal);
+  await askQuestion(
+    BODY,
+    (event) => events.push(event),
+    new AbortController().signal,
+  );
   return events;
 }
 
@@ -96,7 +111,8 @@ describe("askQuestion", () => {
   });
 
   it("ASK-AC9: reassembles a frame split mid-JSON and mid-'data:'", async () => {
-    const whole = frame({ type: "delta", text: "Grüße" }) + frame({ type: "no_source" });
+    const whole =
+      frame({ type: "delta", text: "Grüße" }) + frame({ type: "no_source" });
     const splitInsideUmlaut = whole.indexOf("ü");
 
     const events = await collect([
@@ -129,11 +145,16 @@ describe("askQuestion", () => {
     );
     const events: AskEvent[] = [];
 
-    await askQuestion(BODY, (event) => events.push(event), new AbortController().signal).catch(
-      () => undefined,
-    );
+    await askQuestion(
+      BODY,
+      (event) => events.push(event),
+      new AbortController().signal,
+    ).catch(() => undefined);
 
-    expect(events).toEqual([{ type: "delta", text: "ü" }, { type: "error", code: "model_unavailable" }]);
+    expect(events).toEqual([
+      { type: "delta", text: "ü" },
+      { type: "error", code: "model_unavailable" },
+    ]);
   });
 
   it("ASK-AC66: a stream that ends without a final event becomes model_unavailable", async () => {
@@ -155,20 +176,26 @@ describe("askQuestion", () => {
     ["a delta without text", 'data: {"type":"delta"}\n\n'],
     ["an unknown event type", 'data: {"type":"other"}\n\n'],
     ["an error with an unknown code", 'data: {"type":"error","code":"x"}\n\n'],
-    ["a source with a missing field", 'data: {"type":"sources","sources":[{"number":1}]}\n\n'],
+    [
+      "a source with a missing field",
+      'data: {"type":"sources","sources":[{"number":1}]}\n\n',
+    ],
     ["a frame that is not JSON", "data: {oops\n\n"],
-  ])("ASK-AC66: %s ends the stream as model_unavailable", async (_name, malformed) => {
-    const events = await collect([
-      frame({ type: "delta", text: "Teil" }),
-      malformed,
-      frame({ type: "delta", text: "danach" }),
-    ]);
+  ])(
+    "ASK-AC66: %s ends the stream as model_unavailable",
+    async (_name, malformed) => {
+      const events = await collect([
+        frame({ type: "delta", text: "Teil" }),
+        malformed,
+        frame({ type: "delta", text: "danach" }),
+      ]);
 
-    expect(events).toEqual([
-      { type: "delta", text: "Teil" },
-      { type: "error", code: "model_unavailable" },
-    ]);
-  });
+      expect(events).toEqual([
+        { type: "delta", text: "Teil" },
+        { type: "error", code: "model_unavailable" },
+      ]);
+    },
+  );
 
   it.each<[number, AskRequestErrorCode]>([
     [400, "invalid_request"],
@@ -176,16 +203,25 @@ describe("askQuestion", () => {
     [404, "page_not_found"],
     [503, "assistant_disabled"],
     [503, "assistant_unavailable"],
-  ])("ASK-AC66: maps HTTP %i with code %s to a typed error", async (status, code) => {
-    mockFetch(new Response(JSON.stringify({ code, message: "x" }), { status }));
+  ])(
+    "ASK-AC66: maps HTTP %i with code %s to a typed error",
+    async (status, code) => {
+      mockFetch(
+        new Response(JSON.stringify({ code, message: "x" }), { status }),
+      );
 
-    await expect(
-      askQuestion(BODY, () => undefined, new AbortController().signal),
-    ).rejects.toMatchObject({ name: "AskRequestError", code });
-  });
+      await expect(
+        askQuestion(BODY, () => undefined, new AbortController().signal),
+      ).rejects.toMatchObject({ name: "AskRequestError", code });
+    },
+  );
 
   it("ASK-AC66: maps 401 without a code to unauthorized", async () => {
-    mockFetch(new Response(JSON.stringify({ message: "Unauthorized" }), { status: 401 }));
+    mockFetch(
+      new Response(JSON.stringify({ message: "Unauthorized" }), {
+        status: 401,
+      }),
+    );
 
     await expect(
       askQuestion(BODY, () => undefined, new AbortController().signal),
@@ -201,7 +237,10 @@ describe("askQuestion", () => {
   });
 
   it("ASK-AC66: maps a network failure to assistant_unavailable", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockRejectedValue(new TypeError("Failed to fetch")),
+    );
 
     await expect(
       askQuestion(BODY, () => undefined, new AbortController().signal),
@@ -230,7 +269,10 @@ describe("askQuestion", () => {
 
 describe("contract", () => {
   const contract = JSON.parse(
-    readFileSync(join(__dirname, "../../../../../../docs/contracts/ai-bridge.json"), "utf8"),
+    readFileSync(
+      join(__dirname, "../../../../../../docs/contracts/ai-bridge.json"),
+      "utf8",
+    ),
   ) as {
     endpoints: {
       path: string;
@@ -240,7 +282,9 @@ describe("contract", () => {
       errors: string[];
     }[];
   };
-  const ask = contract.endpoints.find((endpoint) => endpoint.path === "/api/ai/ask")!;
+  const ask = contract.endpoints.find(
+    (endpoint) => endpoint.path === "/api/ai/ask",
+  )!;
 
   it("ASK-AC9: client request, event and source fields equal the contract", () => {
     const request: Record<keyof IAskRequest, true> = {
@@ -273,7 +317,9 @@ describe("contract", () => {
         .map((field) => field.slice("sources[].".length))
         .sort(),
     );
-    expect(Object.keys(eventTypes).sort()).toEqual(Object.keys(ask.events).sort());
+    expect(Object.keys(eventTypes).sort()).toEqual(
+      Object.keys(ask.events).sort(),
+    );
   });
 
   it("ASK-AC9: the event schema keys equal the contract's event fields", () => {
@@ -292,7 +338,10 @@ describe("contract", () => {
 
     expect(
       Object.fromEntries(
-        Object.entries(shapes).map(([type, shape]) => [type, Object.keys(shape).sort()]),
+        Object.entries(shapes).map(([type, shape]) => [
+          type,
+          Object.keys(shape).sort(),
+        ]),
       ),
     ).toEqual(contractKeys);
     expect(Object.keys(shapes.sources.sources.element.shape).sort()).toEqual(
@@ -314,7 +363,153 @@ describe("contract", () => {
       "unauthorized",
     ];
 
-    expect(handled).toEqual(expect.arrayContaining(ask.errors as AskRequestErrorCode[]));
+    expect(handled).toEqual(
+      expect.arrayContaining(ask.errors as AskRequestErrorCode[]),
+    );
     expect(ask.values.errorCode).toEqual(["model_unavailable"]);
+  });
+});
+
+const EXTRACTED_FIELDS = [
+  {
+    key: "parties",
+    value: "Acme GmbH",
+    quote: "Zwischen Acme GmbH",
+    pdfPage: 1,
+  },
+  { key: "term", value: null, quote: null, pdfPage: null },
+  { key: "noticePeriod", value: null, quote: null, pdfPage: null },
+  { key: "value", value: null, quote: null, pdfPage: null },
+  { key: "renewal", value: null, quote: null, pdfPage: null },
+];
+
+function httpError(status: number, code?: string) {
+  return Object.assign(new Error("request failed"), {
+    response: { status, data: { code, message: "x" } },
+  });
+}
+
+async function extractError(rejection: unknown): Promise<unknown> {
+  postMock.mockRejectedValueOnce(rejection);
+  return extractContract("page-1", "att-1", new AbortController().signal).catch(
+    (error) => error,
+  );
+}
+
+describe("extractContract", () => {
+  it("EXTRACT-AC9: posts page and attachment id with the signal and parses an extracted result", async () => {
+    postMock.mockResolvedValueOnce({
+      data: { outcome: "extracted", fields: EXTRACTED_FIELDS },
+    });
+    const signal = new AbortController().signal;
+
+    const result = await extractContract("page-1", "att-1", signal);
+
+    expect(postMock).toHaveBeenCalledWith(
+      "/ai/extract",
+      { pageId: "page-1", attachmentId: "att-1" },
+      { signal },
+    );
+    expect(result).toEqual({ outcome: "extracted", fields: EXTRACTED_FIELDS });
+  });
+
+  it("EXTRACT-AC33: parses a refused result with counts", async () => {
+    const refused = {
+      outcome: "refused",
+      reason: "too_many_pages",
+      pageCount: 11,
+      fileSize: null,
+      characterCount: null,
+    };
+    postMock.mockResolvedValueOnce({ data: refused });
+    expect(
+      await extractContract("p", "a", new AbortController().signal),
+    ).toEqual(refused);
+  });
+
+  it("EXTRACT-AC38: parses a failed result", async () => {
+    postMock.mockResolvedValueOnce({
+      data: { outcome: "failed", reason: "model_unavailable" },
+    });
+    expect(
+      await extractContract("p", "a", new AbortController().signal),
+    ).toEqual({ outcome: "failed", reason: "model_unavailable" });
+  });
+
+  it.each([
+    ["an unknown outcome", { outcome: "other" }],
+    [
+      "four fields",
+      { outcome: "extracted", fields: EXTRACTED_FIELDS.slice(1) },
+    ],
+    [
+      "a duplicated key",
+      {
+        outcome: "extracted",
+        fields: [...EXTRACTED_FIELDS.slice(0, 4), EXTRACTED_FIELDS[0]],
+      },
+    ],
+    [
+      "an unknown refusal reason",
+      {
+        outcome: "refused",
+        reason: "x",
+        pageCount: null,
+        fileSize: null,
+        characterCount: null,
+      },
+    ],
+  ])("EXTRACT-AC40: rejects %s as a model error", async (_name, body) => {
+    postMock.mockResolvedValueOnce({ data: body });
+    const error = await extractContract(
+      "p",
+      "a",
+      new AbortController().signal,
+    ).catch((caught) => caught);
+    expect(error).toBeInstanceOf(ExtractRequestError);
+    expect(error.code).toBe("model");
+  });
+
+  it.each([
+    [403, "page_not_editable"],
+    [404, "page_not_found"],
+    [404, "attachment_not_found"],
+  ])("EXTRACT-AC42: maps HTTP %i %s to not_available", async (status, code) => {
+    const error = (await extractError(
+      httpError(status, code),
+    )) as ExtractRequestError;
+    expect(error).toBeInstanceOf(ExtractRequestError);
+    expect(error.code).toBe("not_available");
+  });
+
+  it.each(["assistant_unavailable", "assistant_disabled"])(
+    "EXTRACT-AC41: maps HTTP 503 %s to unreachable",
+    async (code) => {
+      const error = (await extractError(
+        httpError(503, code),
+      )) as ExtractRequestError;
+      expect(error.code).toBe("unreachable");
+    },
+  );
+
+  it("EXTRACT-AC41: maps a network error without response to unreachable", async () => {
+    const error = (await extractError(
+      new Error("Network Error"),
+    )) as ExtractRequestError;
+    expect(error.code).toBe("unreachable");
+  });
+
+  it("EXTRACT-AC8: rethrows the abort instead of mapping it", async () => {
+    const controller = new AbortController();
+    const abort = Object.assign(new Error("canceled"), {
+      code: "ERR_CANCELED",
+    });
+    postMock.mockImplementationOnce(async () => {
+      controller.abort();
+      throw abort;
+    });
+    await expect(extractContract("p", "a", controller.signal)).rejects.toBe(
+      abort,
+    );
   });
 });

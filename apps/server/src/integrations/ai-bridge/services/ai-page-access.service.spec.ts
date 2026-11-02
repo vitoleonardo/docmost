@@ -1,3 +1,4 @@
+import { ForbiddenException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
@@ -6,6 +7,8 @@ import { SpaceRepo } from '@docmost/db/repos/space/space.repo';
 import { PageRepo } from '@docmost/db/repos/page/page.repo';
 import { PagePermissionRepo } from '@docmost/db/repos/page/page-permission.repo';
 import { Page, Space, User } from '@docmost/db/types/entity.types';
+import { PageAccessService } from '../../../core/page/page-access/page-access.service';
+import { AiBridgeError } from '../ai-bridge.errors';
 import { FilterPagesDto } from '../dto/ai-bridge-internal.dto';
 import { AiPageAccessService } from './ai-page-access.service';
 
@@ -35,6 +38,7 @@ describe('AiPageAccessService', () => {
   const spaceRepo = { findById: jest.fn() };
   const pageRepo = { findManyByIds: jest.fn(), findById: jest.fn() };
   const pagePermissionRepo = { filterAccessiblePageIds: jest.fn() };
+  const pageAccessService = { validateCanEdit: jest.fn() };
 
   beforeEach(async () => {
     jest.resetAllMocks();
@@ -97,6 +101,7 @@ describe('AiPageAccessService', () => {
         { provide: SpaceRepo, useValue: spaceRepo },
         { provide: PageRepo, useValue: pageRepo },
         { provide: PagePermissionRepo, useValue: pagePermissionRepo },
+        { provide: PageAccessService, useValue: pageAccessService },
       ],
     }).compile();
     service = moduleRef.get(AiPageAccessService);
@@ -352,6 +357,65 @@ describe('AiPageAccessService', () => {
         ).resolves.toBeNull();
       }
       expect(pageRepo.findById).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('findEditablePage', () => {
+    const failureOf = async (promise: Promise<unknown>) => {
+      const error = await promise.then(
+        () => undefined,
+        (caught: unknown) => caught,
+      );
+      expect(error).toBeInstanceOf(AiBridgeError);
+      return {
+        code: (error as AiBridgeError).code,
+        status: (error as AiBridgeError).status,
+      };
+    };
+
+    it('EXTRACT-AC42: returns the viewable page when the user may edit it', async () => {
+      pageAccessService.validateCanEdit.mockResolvedValue({
+        hasRestriction: false,
+      });
+
+      await expect(service.findEditablePage(USER, 'page-a1')).resolves.toEqual(
+        expect.objectContaining({ id: 'page-a1' }),
+      );
+      expect(pageAccessService.validateCanEdit).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'page-a1' }),
+        USER,
+      );
+    });
+
+    it('EXTRACT-AC44: a page the user may view but not edit throws 403 page_not_editable', async () => {
+      pageAccessService.validateCanEdit.mockRejectedValue(
+        new ForbiddenException(),
+      );
+
+      expect(
+        await failureOf(service.findEditablePage(USER, 'page-a1')),
+      ).toEqual({ code: 'page_not_editable', status: 403 });
+    });
+
+    it('EXTRACT-AC45: restricted, other-space, trashed and unknown pages throw 404 page_not_found without an edit check', async () => {
+      restrictedPageIds = new Set(['page-a2']);
+      pages.push({ id: 'page-trash', spaceId: 'space-a', trashed: true });
+
+      for (const pageId of ['page-a2', 'page-gf', 'page-trash', 'page-x']) {
+        expect(await failureOf(service.findEditablePage(USER, pageId))).toEqual(
+          { code: 'page_not_found', status: 404 },
+        );
+      }
+      expect(pageAccessService.validateCanEdit).not.toHaveBeenCalled();
+    });
+
+    it('EXTRACT-AC44: an edit check error that is not a denial is rethrown unchanged', async () => {
+      const broken = new Error('database down');
+      pageAccessService.validateCanEdit.mockRejectedValue(broken);
+
+      await expect(service.findEditablePage(USER, 'page-a1')).rejects.toBe(
+        broken,
+      );
     });
   });
 });

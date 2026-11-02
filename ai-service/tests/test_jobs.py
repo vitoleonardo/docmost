@@ -8,7 +8,12 @@ from redis import Redis
 
 from ai_service.app import create_app
 from ai_service.settings import Settings
-from tests.conftest import TEST_REDIS_URL, WORKSPACE_ID, idle_ask_pipeline
+from tests.conftest import (
+    TEST_REDIS_URL,
+    WORKSPACE_ID,
+    idle_ask_pipeline,
+    idle_extraction_pipeline,
+)
 
 STREAM = "ai-service:jobs"
 
@@ -87,7 +92,11 @@ def test_bridge_ac31_job_survives_service_restart(
     settings: Settings, service_headers: dict[str, str]
 ):
     first_client: Redis = Redis.from_url(TEST_REDIS_URL, decode_responses=True)
-    first_app = TestClient(create_app(settings, first_client, idle_ask_pipeline(first_client)))
+    first_app = TestClient(
+        create_app(
+            settings, first_client, idle_ask_pipeline(first_client), idle_extraction_pipeline()
+        )
+    )
     response = first_app.post(
         "/v1/jobs",
         headers=service_headers,
@@ -99,7 +108,9 @@ def test_bridge_ac31_job_survives_service_restart(
     del first_app, first_client
 
     second_client: Redis = Redis.from_url(TEST_REDIS_URL, decode_responses=True)
-    create_app(settings, second_client, idle_ask_pipeline(second_client))
+    create_app(
+        settings, second_client, idle_ask_pipeline(second_client), idle_extraction_pipeline()
+    )
     entries = stream_entries(second_client)
     second_client.close()
     assert [entry[0] for entry in entries] == [job_id]

@@ -2,6 +2,9 @@ import api from "@/lib/api-client";
 import {
   askEventSchema,
   AskEvent,
+  ExtractRequestErrorCode,
+  ExtractResult,
+  extractResultSchema,
   AskRequestErrorCode,
   IAiAssistantStatus,
   IAskRequest,
@@ -34,7 +37,10 @@ async function requestErrorFrom(response: Response): Promise<AskRequestError> {
   return new AskRequestError(code ?? "assistant_unavailable");
 }
 
-const MODEL_UNAVAILABLE: AskEvent = { type: "error", code: "model_unavailable" };
+const MODEL_UNAVAILABLE: AskEvent = {
+  type: "error",
+  code: "model_unavailable",
+};
 
 function parseFrame(frame: string): AskEvent | null {
   const data = frame
@@ -97,4 +103,45 @@ export async function askQuestion(
   }
 
   if (!finished) onEvent(MODEL_UNAVAILABLE);
+}
+
+export class ExtractRequestError extends Error {
+  constructor(readonly code: ExtractRequestErrorCode) {
+    super(code);
+    this.name = "ExtractRequestError";
+  }
+}
+
+function extractErrorFrom(error: unknown): ExtractRequestError {
+  const status = (error as { response?: { status?: number } }).response?.status;
+  if (status === 403 || status === 404) {
+    return new ExtractRequestError("not_available");
+  }
+  if (status === undefined || status === 503) {
+    return new ExtractRequestError("unreachable");
+  }
+  return new ExtractRequestError("model");
+}
+
+export async function extractContract(
+  pageId: string,
+  attachmentId: string,
+  signal: AbortSignal,
+): Promise<ExtractResult> {
+  let body: { data: unknown };
+  try {
+    body = (await api.post(
+      "/ai/extract",
+      { pageId, attachmentId },
+      { signal },
+    )) as {
+      data: unknown;
+    };
+  } catch (error) {
+    if (signal.aborted) throw error;
+    throw extractErrorFrom(error);
+  }
+  const parsed = extractResultSchema.safeParse(body.data);
+  if (!parsed.success) throw new ExtractRequestError("model");
+  return parsed.data;
 }
