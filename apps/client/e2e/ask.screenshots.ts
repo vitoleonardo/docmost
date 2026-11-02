@@ -129,6 +129,24 @@ async function answerWith(page: Page, events: object[]) {
   });
 }
 
+async function forbid(page: Page, code: "page_forbidden" | "space_forbidden") {
+  await page.route("**/api/ai/ask", (route) =>
+    route.fulfill({
+      status: 403,
+      contentType: "application/json",
+      body: JSON.stringify({ code }),
+    }),
+  );
+}
+
+async function chooseScope(page: Page, label: string) {
+  await page.getByRole("combobox", { name: "Bereich" }).click();
+  await page.getByRole("option", { name: label, exact: true }).click();
+  await expect(page.getByRole("combobox", { name: "Bereich" })).toHaveValue(
+    label,
+  );
+}
+
 async function streamWithPause(
   page: Page,
   first: object[],
@@ -291,6 +309,42 @@ test.describe("WS asks the wiki", () => {
     await expect(page.getByText(NO_SOURCE_TEXT)).toBeVisible();
     await expect(page.getByText("Quellen", { exact: true })).toHaveCount(0);
     await screenshot(page, testInfo, "ASK-AC36", "a3");
+  });
+
+  test("ASK-AC82: the scope Diese Seite shows the missing page access without sources", async ({
+    page,
+  }, testInfo) => {
+    const pages = await allgemeinPages(page);
+    await forbid(page, "page_forbidden");
+    await openPanelOnAnotherPage(page, pages);
+    await chooseScope(page, "Diese Seite");
+
+    await page.getByText(EXAMPLE_QUESTION).click();
+
+    await expect(
+      page.getByText("Du hast keinen Zugriff auf diese Seite."),
+    ).toBeVisible();
+    await expect(page.getByText("Quellen", { exact: true })).toHaveCount(0);
+    await expect(page.getByText(NO_SOURCE_TEXT)).toHaveCount(0);
+    await screenshot(page, testInfo, "ASK-AC82", "page-forbidden");
+  });
+
+  test("ASK-AC83: a space as scope shows the missing space access without sources", async ({
+    page,
+  }, testInfo) => {
+    const pages = await allgemeinPages(page);
+    await forbid(page, "space_forbidden");
+    await openPanelOnAnotherPage(page, pages);
+    await chooseScope(page, "IT");
+
+    await page.getByText(EXAMPLE_QUESTION).click();
+
+    await expect(
+      page.getByText("Du hast keinen Zugriff auf diesen Bereich."),
+    ).toBeVisible();
+    await expect(page.getByText("Quellen", { exact: true })).toHaveCount(0);
+    await expect(page.getByText(NO_SOURCE_TEXT)).toHaveCount(0);
+    await screenshot(page, testInfo, "ASK-AC83", "space-forbidden");
   });
 
   test("ASK-AC7: A4 shows the unavailable text with the input disabled", async ({
