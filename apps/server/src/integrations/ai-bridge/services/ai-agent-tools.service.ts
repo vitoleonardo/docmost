@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import { User } from '@docmost/db/types/entity.types';
-import { AiBridgeError } from '../ai-bridge.errors';
 import { AgentBlock } from './agent-document';
 import { AiLiveDocumentService } from './ai-live-document.service';
 import { AiPageAccessService } from './ai-page-access.service';
@@ -25,10 +24,11 @@ export class AiAgentToolsService {
     pageId: string,
     spaceId: string,
   ): Promise<AiReadBlocksResult> {
-    const page = await this.aiPageAccessService.findViewablePage(user, pageId);
-    if (!page || page.spaceId !== spaceId) {
-      throw new AiBridgeError('page_not_found', 'Page not found');
-    }
+    const page = await this.aiPageAccessService.requireViewablePage(
+      user,
+      pageId,
+      spaceId,
+    );
     const { fingerprint, blocks } = await this.aiLiveDocumentService.readBlocks(
       page.id,
     );

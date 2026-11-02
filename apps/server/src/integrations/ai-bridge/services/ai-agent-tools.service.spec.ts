@@ -35,6 +35,7 @@ const USER = {
 } as User;
 const ALLGEMEIN = 'space-allgemein';
 const VERTRIEB = 'space-vertrieb';
+const GESCHAEFTSFUEHRUNG = 'space-geschaeftsfuehrung';
 const PAGE_ID = 'page-reisekosten';
 const UNKNOWN_PAGE_ID = '00000000-0000-4000-8000-000000000000';
 
@@ -113,6 +114,15 @@ function seedWiki(): WikiState {
         {
           spaceId: VERTRIEB,
           title: 'Preisliste',
+          trashed: false,
+          restricted: false,
+        },
+      ],
+      [
+        'page-geschaeftsfuehrung',
+        {
+          spaceId: GESCHAEFTSFUEHRUNG,
+          title: 'Umstrukturierung 2027',
           trashed: false,
           restricted: false,
         },
@@ -240,15 +250,27 @@ describe('AiAgentToolsService.readBlocks', () => {
     expect(gateway.handleYjsEvent).not.toHaveBeenCalled();
   });
 
-  it('AGENT-AC27: a restricted page is refused with the same answer as an unknown id', async () => {
+  it('AGENT-AC132: a page of a space the user is not a member of is refused as not found', async () => {
+    const refusal = await refusalOf(
+      service.readBlocks(USER, 'page-geschaeftsfuehrung', ALLGEMEIN),
+    );
+
+    expect(refusal).toEqual(await unknownPageRefusal());
+    expect(refusal).toMatchObject({ code: 'page_not_found', status: 404 });
+    expect(JSON.stringify(refusal)).not.toContain('Umstrukturierung');
+    expect(gateway.handleYjsEvent).not.toHaveBeenCalled();
+  });
+
+  it('AGENT-AC118: a restricted page of the run space is refused as forbidden without its text', async () => {
     wiki.pages.get(PAGE_ID)!.restricted = true;
 
     const refusal = await refusalOf(
       service.readBlocks(USER, PAGE_ID, ALLGEMEIN),
     );
 
-    expect(refusal).toEqual(await unknownPageRefusal());
-    expect(refusal).toMatchObject({ code: 'page_not_found' });
+    expect(refusal).toBeInstanceOf(AiBridgeError);
+    expect(refusal).toMatchObject({ code: 'page_forbidden', status: 403 });
+    expect(JSON.stringify(refusal)).not.toContain('Reisekosten');
     expect(gateway.handleYjsEvent).not.toHaveBeenCalled();
   });
 
@@ -276,7 +298,7 @@ describe('AiAgentToolsService.readBlocks', () => {
     expect(gateway.handleYjsEvent).not.toHaveBeenCalled();
   });
 
-  it('AGENT-AC31: after the user is removed from the run space the next read is refused as not found', async () => {
+  it('AGENT-AC120: after the user is removed from the run space the next read is refused as forbidden', async () => {
     await service.readBlocks(USER, PAGE_ID, ALLGEMEIN);
     wiki.memberOf.delete(ALLGEMEIN);
 
@@ -284,8 +306,8 @@ describe('AiAgentToolsService.readBlocks', () => {
       service.readBlocks(USER, PAGE_ID, ALLGEMEIN),
     );
 
-    expect(refusal).toEqual(await unknownPageRefusal());
-    expect(refusal).toMatchObject({ code: 'page_not_found' });
+    expect(refusal).toBeInstanceOf(AiBridgeError);
+    expect(refusal).toMatchObject({ code: 'page_forbidden', status: 403 });
     expect(gateway.handleYjsEvent).toHaveBeenCalledTimes(1);
   });
 

@@ -579,7 +579,7 @@ describe('AI agent live document (e2e)', () => {
     ]);
   });
 
-  it('AGENT-AC31: a member removed from the run space gets 404 page_not_found on read-blocks with a still valid token', async () => {
+  it('AGENT-AC120: a member removed from the run space gets 403 page_forbidden on read-blocks with a still valid token', async () => {
     const id = await pageId('Vertriebsprozess Anlagenbau');
     const vertriebId = spaceId('Vertrieb');
     const token = await agent.aiTokenService.issueUserToken(users.VT);
@@ -597,8 +597,8 @@ describe('AI agent live document (e2e)', () => {
     try {
       expectError(
         await readBlocksWith(token, id, 'Vertrieb'),
-        404,
-        'page_not_found',
+        403,
+        'page_forbidden',
       );
     } finally {
       await agent.spaceMemberRepo.insertSpaceMember(member);

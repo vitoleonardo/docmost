@@ -58,17 +58,35 @@ export class AiPageAccessService {
   }
 
   async findViewablePage(user: User, pageId: string): Promise<Page | null> {
-    const [viewablePageId] = await this.filterViewablePageIds(user, [pageId]);
-    if (!viewablePageId) return null;
-    const page = await this.pageRepo.findById(viewablePageId, {
-      includeContent: true,
-    });
-    return page ?? null;
+    return this.loadViewablePage(user, pageId);
+  }
+
+  async requireViewablePage(
+    user: User,
+    pageId: string,
+    spaceId?: string,
+  ): Promise<Page> {
+    const page = await this.loadViewablePage(user, pageId, spaceId);
+    if (page) return page;
+    throw await this.refusalOfPage(user, pageId, spaceId);
+  }
+
+  async requireReadableSpace(user: User, spaceId: string): Promise<void> {
+    const space = await this.spaceRepo.findById(spaceId, user.workspaceId);
+    if (!space || space.deletedAt) {
+      throw new AiBridgeError('space_not_found', 'Space not found');
+    }
+    const readable = await this.readableSpaceIds(user.id, user.workspaceId);
+    if (!readable.includes(space.id)) {
+      throw new AiBridgeError(
+        'space_forbidden',
+        'The user is not a member of the space',
+      );
+    }
   }
 
   async findEditablePage(user: User, pageId: string): Promise<Page> {
-    const page = await this.findViewablePage(user, pageId);
-    if (!page) throw new AiBridgeError('page_not_found', 'Page not found');
+    const page = await this.requireViewablePage(user, pageId);
     try {
       await this.pageAccessService.validateCanEdit(page, user);
     } catch (error) {
@@ -79,6 +97,50 @@ export class AiPageAccessService {
       );
     }
     return page;
+  }
+
+  private async loadViewablePage(
+    user: User,
+    pageId: string,
+    spaceId?: string,
+  ): Promise<Page | null> {
+    const [viewablePageId] = await this.filterViewablePageIds(
+      user,
+      [pageId],
+      spaceId,
+    );
+    if (!viewablePageId) return null;
+    const page = await this.pageRepo.findById(viewablePageId, {
+      includeContent: true,
+    });
+    return page ?? null;
+  }
+
+  private async refusalOfPage(
+    user: User,
+    pageId: string,
+    spaceId?: string,
+  ): Promise<AiBridgeError> {
+    if (await this.isMissingPage(user, pageId, spaceId)) {
+      return new AiBridgeError('page_not_found', 'Page not found');
+    }
+    return new AiBridgeError(
+      'page_forbidden',
+      'The user may not view the page',
+    );
+  }
+
+  private async isMissingPage(
+    user: User,
+    pageId: string,
+    spaceId?: string,
+  ): Promise<boolean> {
+    const [page] = await this.pageRepo.findManyByIds([pageId], {
+      workspaceId: user.workspaceId,
+    });
+    if (!page || (spaceId && page.spaceId !== spaceId)) return true;
+    const space = await this.spaceRepo.findById(page.spaceId, user.workspaceId);
+    return !space || Boolean(space.deletedAt);
   }
 
   private async groupReadablePageIdsBySpace(

@@ -301,11 +301,10 @@ describe('AiAgentService', () => {
     });
 
     it.each([
-      ['a space the user is not a member of', SPACE_FOREIGN],
       ['a space marked as deleted', SPACE_DELETED],
       ['a space id that does not exist', SPACE_MISSING],
     ])(
-      'AGENT-AC103: %s answers 404 space_not_found and the AI service is not called',
+      'AGENT-AC127: %s answers 404 space_not_found and the AI service is not called',
       async (_case, spaceId) => {
         expect(await rejectionOf(run({ spaceId }))).toEqual({
           code: 'space_not_found',
@@ -315,12 +314,20 @@ describe('AiAgentService', () => {
       },
     );
 
-    it('AGENT-AC103: a space the user was removed from answers 404 space_not_found', async () => {
+    it('AGENT-AC128: a space the user is not a member of answers 403 space_forbidden and the AI service is not called', async () => {
+      expect(await rejectionOf(run({ spaceId: SPACE_FOREIGN }))).toEqual({
+        code: 'space_forbidden',
+        status: 403,
+      });
+      expect(requests).toHaveLength(0);
+    });
+
+    it('AGENT-AC128: a space the user was removed from answers 403 space_forbidden', async () => {
       memberSpaceIds = [];
 
       expect(await rejectionOf(run())).toEqual({
-        code: 'space_not_found',
-        status: 404,
+        code: 'space_forbidden',
+        status: 403,
       });
       expect(requests).toHaveLength(0);
     });

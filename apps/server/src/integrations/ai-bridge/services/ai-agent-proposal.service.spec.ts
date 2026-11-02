@@ -456,32 +456,43 @@ describe('AiAgentProposalService', () => {
       expect(writes()).toHaveLength(0);
     });
 
-    it.each(['restricted', 'trashed', 'deleted', 'space_left'] as const)(
-      'AGENT-AC100: a page that is %s answers 404 page_not_found with no text of the proposal',
-      async (state) => {
-        pageState = state;
-        const error = await service.viewProposal(USER, PROPOSAL_ID).then(
-          () => undefined,
-          (caught: unknown) => caught,
-        );
+    const expectViewRefusedWithoutText = async (
+      state: PageState,
+      status: number,
+      code: string,
+    ) => {
+      pageState = state;
+      const error = await service.viewProposal(USER, PROPOSAL_ID).then(
+        () => undefined,
+        (caught: unknown) => caught,
+      );
 
-        expect(error).toBeInstanceOf(AiBridgeError);
-        const answer = filteredAnswerOf(error as AiBridgeError);
-        expect(answer.status).toBe(404);
-        expect(answer.body.code).toBe('page_not_found');
-        const body = JSON.stringify(answer.body);
-        for (const text of [
-          REASON,
-          OLD_TEXT,
-          NEW_TEXT,
-          PAGE_TITLE,
-          '0,30',
-          '0,38',
-        ]) {
-          expect(body).not.toContain(text);
-        }
-        expect(gatewayCalls).toEqual([]);
-      },
+      expect(error).toBeInstanceOf(AiBridgeError);
+      const answer = filteredAnswerOf(error as AiBridgeError);
+      expect(answer.status).toBe(status);
+      expect(answer.body.code).toBe(code);
+      const body = JSON.stringify(answer.body);
+      for (const text of [
+        REASON,
+        OLD_TEXT,
+        NEW_TEXT,
+        PAGE_TITLE,
+        '0,30',
+        '0,38',
+      ]) {
+        expect(body).not.toContain(text);
+      }
+      expect(gatewayCalls).toEqual([]);
+    };
+
+    it.each(['trashed', 'deleted'] as const)(
+      'AGENT-AC123: a page that is %s answers 404 page_not_found with no text of the proposal',
+      (state) => expectViewRefusedWithoutText(state, 404, 'page_not_found'),
+    );
+
+    it.each(['restricted', 'space_left'] as const)(
+      'AGENT-AC124: a page that is %s answers 403 page_forbidden with no text of the proposal',
+      (state) => expectViewRefusedWithoutText(state, 403, 'page_forbidden'),
     );
   });
 
@@ -648,20 +659,32 @@ describe('AiAgentProposalService', () => {
       expect(stored.status).toBe('open');
     });
 
-    it.each(['restricted', 'trashed', 'deleted', 'space_left'] as const)(
-      'AGENT-AC101: a page that is %s answers 404 page_not_found, no claim and no write',
-      async (state) => {
-        pageState = state;
+    const expectApplyRefusedUntouched = async (
+      state: PageState,
+      status: number,
+      code: string,
+    ) => {
+      pageState = state;
 
-        expect(
-          await refusalOf(service.applyProposal(USER, PROPOSAL_ID)),
-        ).toEqual({
-          code: 'page_not_found',
-          status: 404,
-        });
-        expect(transitions).toEqual([]);
-        expect(gatewayCalls).toEqual([]);
-      },
+      expect(await refusalOf(service.applyProposal(USER, PROPOSAL_ID))).toEqual(
+        {
+          code,
+          status,
+        },
+      );
+      expect(transitions).toEqual([]);
+      expect(gatewayCalls).toEqual([]);
+      expect(stored.status).toBe('open');
+    };
+
+    it.each(['trashed', 'deleted'] as const)(
+      'AGENT-AC125: a page that is %s answers 404 page_not_found, no claim and no write',
+      (state) => expectApplyRefusedUntouched(state, 404, 'page_not_found'),
+    );
+
+    it.each(['restricted', 'space_left'] as const)(
+      'AGENT-AC126: a page that is %s answers 403 page_forbidden, no claim and no write',
+      (state) => expectApplyRefusedUntouched(state, 403, 'page_forbidden'),
     );
   });
 
@@ -701,6 +724,19 @@ describe('AiAgentProposalService', () => {
     it.each(ACTIONS)(
       'AGENT-AC102: a %s request for a proposal of another user answers 404 proposal_not_found',
       async (_action, act) => {
+        expect(await refusalOf(act(OTHER_USER, PROPOSAL_ID))).toEqual({
+          code: 'proposal_not_found',
+          status: 404,
+        });
+        expect(gatewayCalls).toEqual([]);
+        expect(transitions).toEqual([]);
+      },
+    );
+
+    it.each(ACTIONS)(
+      'AGENT-AC102: a %s request for a proposal of another user on a page the requester may not view answers 404 proposal_not_found',
+      async (_action, act) => {
+        pageState = 'restricted';
         expect(await refusalOf(act(OTHER_USER, PROPOSAL_ID))).toEqual({
           code: 'proposal_not_found',
           status: 404,
@@ -873,6 +909,14 @@ describe('AiAgentProposalService', () => {
         },
       ],
       [
+        'page_forbidden',
+        'apply',
+        () => {
+          pageState = 'restricted';
+          return service.applyProposal(USER, PROPOSAL_ID);
+        },
+      ],
+      [
         'proposal_not_open',
         'apply',
         () => {
@@ -901,7 +945,7 @@ describe('AiAgentProposalService', () => {
     ];
 
     it.each(OUTCOMES)(
-      'AGENT-AC112: the outcome %s of a %s request logs one line with the run id, the proposal id and the outcome',
+      'AGENT-AC130: the outcome %s of a %s request logs one line with the run id, the proposal id and the outcome',
       async (outcome, action, act) => {
         await act().catch(() => undefined);
 
@@ -911,7 +955,7 @@ describe('AiAgentProposalService', () => {
       },
     );
 
-    it('AGENT-AC112: a request for a proposal that is not found logs no outcome line, as it has no run id', async () => {
+    it('AGENT-AC130: a request for a proposal that is not found logs no outcome line, as it has no run id', async () => {
       await service
         .applyProposal(OTHER_USER, PROPOSAL_ID)
         .catch(() => undefined);

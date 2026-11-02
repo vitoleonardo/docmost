@@ -17,12 +17,14 @@ type ProposalOutcome =
   | 'stale'
   | 'not_editable'
   | 'page_not_found'
+  | 'page_forbidden'
   | 'proposal_not_open'
   | 'write_failed';
 
 const REFUSAL_OUTCOMES: Partial<Record<AiBridgeErrorCode, ProposalOutcome>> = {
   page_not_editable: 'not_editable',
   page_not_found: 'page_not_found',
+  page_forbidden: 'page_forbidden',
   proposal_not_open: 'proposal_not_open',
   proposal_stale: 'stale',
   write_failed: 'write_failed',

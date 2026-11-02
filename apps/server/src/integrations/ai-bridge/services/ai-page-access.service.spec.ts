@@ -20,6 +20,7 @@ interface StoredPage {
   id: string;
   spaceId: string;
   trashed?: boolean;
+  workspaceId?: string;
 }
 
 interface StoredSpace {
@@ -71,13 +72,18 @@ describe('AiPageAccessService', () => {
         pages
           .filter((page) => ids.includes(page.id))
           .filter((page) => !(opts?.workspaceId && page.trashed))
+          .filter(
+            (page) =>
+              !opts?.workspaceId ||
+              (page.workspaceId ?? WORKSPACE_ID) === opts.workspaceId,
+          )
           .reverse()
           .map(
             (page) =>
               ({
                 id: page.id,
                 spaceId: page.spaceId,
-                workspaceId: WORKSPACE_ID,
+                workspaceId: page.workspaceId ?? WORKSPACE_ID,
               }) as Page,
           ),
     );
@@ -85,6 +91,7 @@ describe('AiPageAccessService', () => {
       async (id: string) =>
         ({
           id,
+          spaceId: pages.find((page) => page.id === id)?.spaceId,
           title: `Title ${id}`,
           content: PAGE_CONTENT,
         }) as Page,
@@ -323,8 +330,22 @@ describe('AiPageAccessService', () => {
     );
   });
 
+  const failureOf = async (promise: Promise<unknown>) => {
+    const error = await promise.then(
+      () => undefined,
+      (caught: unknown) => caught,
+    );
+    expect(error).toBeInstanceOf(AiBridgeError);
+    return {
+      code: (error as AiBridgeError).code,
+      status: (error as AiBridgeError).status,
+    };
+  };
+  const NOT_FOUND = { code: 'page_not_found', status: 404 };
+  const FORBIDDEN = { code: 'page_forbidden', status: 403 };
+
   describe('findViewablePage', () => {
-    it('BRIDGE-AC61: returns the page with its content when the user may view it', async () => {
+    it('BRIDGE-AC13: returns the page with its content when the user may view it', async () => {
       await expect(service.findViewablePage(USER, 'page-a1')).resolves.toEqual(
         expect.objectContaining({ id: 'page-a1', content: PAGE_CONTENT }),
       );
@@ -333,7 +354,7 @@ describe('AiPageAccessService', () => {
       });
     });
 
-    it('BRIDGE-AC61: restricted, other-space, deleted-space, trashed and unknown pages all give null', async () => {
+    it('BRIDGE-AC13: restricted, other-space, deleted-space, trashed and unknown pages all give null', async () => {
       restrictedPageIds = new Set(['page-a2']);
       spaces = [
         { id: 'space-a' },
@@ -360,20 +381,137 @@ describe('AiPageAccessService', () => {
     });
   });
 
-  describe('findEditablePage', () => {
-    const failureOf = async (promise: Promise<unknown>) => {
-      const error = await promise.then(
-        () => undefined,
-        (caught: unknown) => caught,
+  describe('requireViewablePage', () => {
+    it('BRIDGE-AC80: returns the page with its content when the user may view it', async () => {
+      await expect(
+        service.requireViewablePage(USER, 'page-a1'),
+      ).resolves.toEqual(
+        expect.objectContaining({ id: 'page-a1', content: PAGE_CONTENT }),
       );
-      expect(error).toBeInstanceOf(AiBridgeError);
-      return {
-        code: (error as AiBridgeError).code,
-        status: (error as AiBridgeError).status,
-      };
-    };
+      expect(pageRepo.findById).toHaveBeenCalledWith('page-a1', {
+        includeContent: true,
+      });
+    });
 
-    it('EXTRACT-AC42: returns the viewable page when the user may edit it', async () => {
+    it('BRIDGE-AC79: a page in a deleted space, in the trash, of another workspace or unknown throws 404 page_not_found', async () => {
+      spaces = [
+        { id: 'space-a' },
+        { id: 'space-b', deleted: true },
+        { id: 'space-gf' },
+      ];
+      pages = [
+        ...pages,
+        { id: 'page-trashed', spaceId: 'space-a', trashed: true },
+        { id: 'page-foreign', spaceId: 'space-a', workspaceId: 'workspace-2' },
+      ];
+
+      for (const pageId of [
+        'page-b1',
+        'page-trashed',
+        'page-foreign',
+        '00000000-0000-4000-8000-000000000000',
+      ]) {
+        expect(
+          await failureOf(service.requireViewablePage(USER, pageId)),
+        ).toEqual(NOT_FOUND);
+      }
+      expect(pageRepo.findById).not.toHaveBeenCalled();
+    });
+
+    it('BRIDGE-AC80: a restricted page and a page of a space the user is not a member of throw 403 page_forbidden', async () => {
+      restrictedPageIds = new Set(['page-a2']);
+
+      for (const pageId of ['page-a2', 'page-gf']) {
+        expect(
+          await failureOf(service.requireViewablePage(USER, pageId)),
+        ).toEqual(FORBIDDEN);
+      }
+      expect(pageRepo.findById).not.toHaveBeenCalled();
+    });
+
+    it('BRIDGE-AC80: a page of a space the user was removed from throws 403 page_forbidden', async () => {
+      memberSpaceIds = ['space-b'];
+
+      expect(
+        await failureOf(service.requireViewablePage(USER, 'page-a1')),
+      ).toEqual(FORBIDDEN);
+    });
+
+    it('BRIDGE-AC79: not found wins over forbidden for a restricted page in a deleted space of a non-member', async () => {
+      memberSpaceIds = ['space-a'];
+      spaces = [{ id: 'space-a' }, { id: 'space-b', deleted: true }];
+      restrictedPageIds = new Set(['page-b1']);
+
+      expect(
+        await failureOf(service.requireViewablePage(USER, 'page-b1')),
+      ).toEqual(NOT_FOUND);
+    });
+
+    it('AGENT-AC133: in the named space, a viewable page is returned and a restricted page throws 403 page_forbidden', async () => {
+      restrictedPageIds = new Set(['page-a2']);
+
+      await expect(
+        service.requireViewablePage(USER, 'page-a1', 'space-a'),
+      ).resolves.toEqual(expect.objectContaining({ id: 'page-a1' }));
+      expect(
+        await failureOf(
+          service.requireViewablePage(USER, 'page-a2', 'space-a'),
+        ),
+      ).toEqual(FORBIDDEN);
+    });
+
+    it('AGENT-AC133: a page outside the named space throws 404 page_not_found, viewable or hidden', async () => {
+      restrictedPageIds = new Set(['page-b1']);
+      pages.push({ id: 'page-b2', spaceId: 'space-b' });
+
+      for (const pageId of ['page-b1', 'page-b2', 'page-gf']) {
+        expect(
+          await failureOf(service.requireViewablePage(USER, pageId, 'space-a')),
+        ).toEqual(NOT_FOUND);
+      }
+    });
+  });
+
+  describe('requireReadableSpace', () => {
+    const SPACE_NOT_FOUND = { code: 'space_not_found', status: 404 };
+
+    it('BRIDGE-AC82: a space the user is a member of passes', async () => {
+      await expect(
+        service.requireReadableSpace(USER, 'space-a'),
+      ).resolves.toBeUndefined();
+    });
+
+    it('BRIDGE-AC81: a space marked as deleted, of another workspace or unknown throws 404 space_not_found', async () => {
+      spaces = [{ id: 'space-a', deleted: true }, { id: 'space-b' }];
+
+      for (const [user, spaceId] of [
+        [USER, 'space-a'],
+        [{ ...USER, workspaceId: 'workspace-2' } as User, 'space-b'],
+        [USER, '00000000-0000-4000-8000-000000000000'],
+      ] as const) {
+        expect(
+          await failureOf(service.requireReadableSpace(user, spaceId)),
+        ).toEqual(SPACE_NOT_FOUND);
+      }
+    });
+
+    it('BRIDGE-AC82: a space the user is not a member of throws 403 space_forbidden', async () => {
+      expect(
+        await failureOf(service.requireReadableSpace(USER, 'space-gf')),
+      ).toEqual({ code: 'space_forbidden', status: 403 });
+    });
+
+    it('BRIDGE-AC81: not found wins for a deleted space the user is not a member of', async () => {
+      spaces = [...spaces, { id: 'space-old', deleted: true }];
+
+      expect(
+        await failureOf(service.requireReadableSpace(USER, 'space-old')),
+      ).toEqual(SPACE_NOT_FOUND);
+    });
+  });
+
+  describe('findEditablePage', () => {
+    it('EXTRACT-AC44: returns the viewable page when the user may edit it', async () => {
       pageAccessService.validateCanEdit.mockResolvedValue({
         hasRestriction: false,
       });
@@ -397,13 +535,23 @@ describe('AiPageAccessService', () => {
       ).toEqual({ code: 'page_not_editable', status: 403 });
     });
 
-    it('EXTRACT-AC45: restricted, other-space, trashed and unknown pages throw 404 page_not_found without an edit check', async () => {
-      restrictedPageIds = new Set(['page-a2']);
+    it('EXTRACT-AC70: trashed and unknown pages throw 404 page_not_found without an edit check', async () => {
       pages.push({ id: 'page-trash', spaceId: 'space-a', trashed: true });
 
-      for (const pageId of ['page-a2', 'page-gf', 'page-trash', 'page-x']) {
+      for (const pageId of ['page-trash', 'page-x']) {
         expect(await failureOf(service.findEditablePage(USER, pageId))).toEqual(
-          { code: 'page_not_found', status: 404 },
+          NOT_FOUND,
+        );
+      }
+      expect(pageAccessService.validateCanEdit).not.toHaveBeenCalled();
+    });
+
+    it('EXTRACT-AC71: restricted and other-space pages throw 403 page_forbidden without an edit check', async () => {
+      restrictedPageIds = new Set(['page-a2']);
+
+      for (const pageId of ['page-a2', 'page-gf']) {
+        expect(await failureOf(service.findEditablePage(USER, pageId))).toEqual(
+          FORBIDDEN,
         );
       }
       expect(pageAccessService.validateCanEdit).not.toHaveBeenCalled();

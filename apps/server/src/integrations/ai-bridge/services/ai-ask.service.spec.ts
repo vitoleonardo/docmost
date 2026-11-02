@@ -444,11 +444,10 @@ describe('AiAskService', () => {
     });
 
     it.each([
-      ['a space the user is not a member of', SPACE_FOREIGN],
       ['a space marked as deleted', SPACE_DELETED],
       ['a space id that does not exist', SPACE_MISSING],
     ])(
-      'ASK-AC62: %s answers 404 space_not_found and calls nothing',
+      'ASK-AC78: %s answers 404 space_not_found and calls nothing',
       async (_case, spaceId) => {
         expect(await rejectionOf(ask({ spaceId }))).toEqual({
           code: 'space_not_found',
@@ -458,12 +457,29 @@ describe('AiAskService', () => {
       },
     );
 
+    it('ASK-AC79: a space the user is not a member of answers 403 space_forbidden and calls nothing', async () => {
+      expect(await rejectionOf(ask({ spaceId: SPACE_FOREIGN }))).toEqual({
+        code: 'space_forbidden',
+        status: 403,
+      });
+      expect(requests).toHaveLength(0);
+    });
+
+    it('ASK-AC79: a space the user left answers 403 space_forbidden and calls nothing', async () => {
+      memberSpaceIds = [SPACE_ALLG];
+
+      expect(await rejectionOf(ask({ spaceId: SPACE_GF }))).toEqual({
+        code: 'space_forbidden',
+        status: 403,
+      });
+      expect(requests).toHaveLength(0);
+    });
+
     it.each([
-      ['a page the user may not view', PAGE_RESTRICTED],
       ['a page in the trash', PAGE_TRASHED],
       ['a page id that does not exist', PAGE_MISSING],
     ])(
-      'ASK-AC63: %s answers 404 page_not_found and calls nothing',
+      'ASK-AC80: %s answers 404 page_not_found and calls nothing',
       async (_case, pageId) => {
         expect(await rejectionOf(ask({ pageId }))).toEqual({
           code: 'page_not_found',
@@ -473,13 +489,36 @@ describe('AiAskService', () => {
       },
     );
 
-    it('ASK-AC62: a page of a space the user left answers 404 page_not_found', async () => {
-      memberSpaceIds = [SPACE_ALLG];
+    it('ASK-AC80: a restricted page in a space marked as deleted answers 404 page_not_found, not found wins', async () => {
+      pages = pages.map((page) =>
+        page.id === PAGE_RESTRICTED
+          ? { ...page, spaceId: SPACE_DELETED }
+          : page,
+      );
 
-      expect(await rejectionOf(ask({ pageId: PAGE_BANDS }))).toEqual({
+      expect(await rejectionOf(ask({ pageId: PAGE_RESTRICTED }))).toEqual({
         code: 'page_not_found',
         status: 404,
       });
+      expect(requests).toHaveLength(0);
+    });
+
+    it('ASK-AC81: a page the user may not view answers 403 page_forbidden and calls nothing', async () => {
+      expect(await rejectionOf(ask({ pageId: PAGE_RESTRICTED }))).toEqual({
+        code: 'page_forbidden',
+        status: 403,
+      });
+      expect(requests).toHaveLength(0);
+    });
+
+    it('ASK-AC81: a page of a space the user is not a member of answers 403 page_forbidden and calls nothing', async () => {
+      memberSpaceIds = [SPACE_ALLG];
+
+      expect(await rejectionOf(ask({ pageId: PAGE_BANDS }))).toEqual({
+        code: 'page_forbidden',
+        status: 403,
+      });
+      expect(requests).toHaveLength(0);
     });
 
     it('ASK-AC66: a refused connection answers 503 assistant_unavailable', async () => {
@@ -531,7 +570,7 @@ describe('AiAskService', () => {
       });
     });
 
-    it('ASK-AC63: a viewable page scope is sent as pageId only', async () => {
+    it('ASK-AC31: a viewable page scope is sent as pageId only', async () => {
       await askAndCollect({ pageId: PAGE_BANDS });
 
       expect(JSON.parse(requests[0].body)).toEqual({

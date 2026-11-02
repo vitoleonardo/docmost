@@ -116,8 +116,10 @@ export class AiContentService {
   }
 
   async readPage(user: User, pageId: string): Promise<AiReadPageResult> {
-    const page = await this.aiPageAccessService.findViewablePage(user, pageId);
-    if (!page) throw pageNotFound();
+    const page = await this.aiPageAccessService.requireViewablePage(
+      user,
+      pageId,
+    );
 
     return {
       id: page.id,
@@ -136,13 +138,7 @@ export class AiContentService {
     if (!trimmedQuery) {
       throw new AiBridgeError('invalid_request', 'query must not be empty');
     }
-    const readableSpaceIds = await this.aiPageAccessService.readableSpaceIds(
-      user.id,
-      user.workspaceId,
-    );
-    if (!readableSpaceIds.includes(spaceId)) {
-      throw new AiBridgeError('space_not_found', 'Space not found');
-    }
+    await this.aiPageAccessService.requireReadableSpace(user, spaceId);
 
     const results: AiSearchResults['results'] = [];
     const collectedIds = new Set<string>();
