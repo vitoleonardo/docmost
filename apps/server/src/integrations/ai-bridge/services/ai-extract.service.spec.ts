@@ -293,16 +293,28 @@ describe('AiExtractService', () => {
     });
 
     it.each([
-      ['a page the user may not view', PAGE_RESTRICTED],
       ['a page in the trash', PAGE_TRASHED],
-      ['a page of a space the user is not a member of', PAGE_FOREIGN_SPACE],
       ['a page id that does not exist', PAGE_MISSING],
     ])(
-      'EXTRACT-AC45: %s answers 404 page_not_found and calls nothing',
+      'EXTRACT-AC70: %s answers 404 page_not_found and calls nothing',
       async (_case, pageId) => {
         expect(await rejectionOf(extract({ pageId }))).toEqual({
           code: 'page_not_found',
           status: 404,
+        });
+        expect(requests).toHaveLength(0);
+      },
+    );
+
+    it.each([
+      ['a page the user may not view', PAGE_RESTRICTED],
+      ['a page of a space the user is not a member of', PAGE_FOREIGN_SPACE],
+    ])(
+      'EXTRACT-AC71: %s answers 403 page_forbidden and calls nothing',
+      async (_case, pageId) => {
+        expect(await rejectionOf(extract({ pageId }))).toEqual({
+          code: 'page_forbidden',
+          status: 403,
         });
         expect(requests).toHaveLength(0);
       },
@@ -317,7 +329,7 @@ describe('AiExtractService', () => {
       expect(requests).toHaveLength(0);
     });
 
-    it('EXTRACT-AC42: a user who lost the edit right after the button was shown gets 403 page_not_editable', async () => {
+    it('EXTRACT-AC73: a user who lost the edit right after the button was shown gets 403 page_not_editable', async () => {
       await extract();
       editablePageIds.delete(PAGE_CONTRACT);
 

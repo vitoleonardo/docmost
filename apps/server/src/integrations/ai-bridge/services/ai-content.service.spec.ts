@@ -77,8 +77,8 @@ describe('AiContentService', () => {
   const storageService = { readStream: jest.fn(), exists: jest.fn() };
   const searchService = { searchPage: jest.fn() };
   const aiPageAccessService = {
-    findViewablePage: jest.fn(),
-    readableSpaceIds: jest.fn(),
+    requireViewablePage: jest.fn(),
+    requireReadableSpace: jest.fn(),
     filterViewablePageIds: jest.fn(),
   };
 
@@ -306,11 +306,11 @@ describe('AiContentService', () => {
 
   describe('readPage', () => {
     it('BRIDGE-AC24: returns id, title, space and markdown of a viewable page', async () => {
-      aiPageAccessService.findViewablePage.mockResolvedValue(makePage());
+      aiPageAccessService.requireViewablePage.mockResolvedValue(makePage());
 
       const result = await service.readPage(USER, 'page-1');
 
-      expect(aiPageAccessService.findViewablePage).toHaveBeenCalledWith(
+      expect(aiPageAccessService.requireViewablePage).toHaveBeenCalledWith(
         USER,
         'page-1',
       );
@@ -322,19 +322,32 @@ describe('AiContentService', () => {
       });
     });
 
-    it('BRIDGE-AC61: a page the user may not view answers page_not_found', async () => {
-      aiPageAccessService.findViewablePage.mockResolvedValue(null);
+    it('BRIDGE-AC79: a page that is not found answers page_not_found', async () => {
+      aiPageAccessService.requireViewablePage.mockRejectedValue(
+        new AiBridgeError('page_not_found', 'Page not found'),
+      );
 
       await expectBridgeError(
         service.readPage(USER, 'page-1'),
         'page_not_found',
       );
     });
+
+    it('BRIDGE-AC80: a page the user may not view answers page_forbidden', async () => {
+      aiPageAccessService.requireViewablePage.mockRejectedValue(
+        new AiBridgeError('page_forbidden', 'The user may not view the page'),
+      );
+
+      await expectBridgeError(
+        service.readPage(USER, 'page-1'),
+        'page_forbidden',
+      );
+    });
   });
 
   describe('searchSpace', () => {
     beforeEach(() => {
-      aiPageAccessService.readableSpaceIds.mockResolvedValue(['space-a']);
+      aiPageAccessService.requireReadableSpace.mockResolvedValue(undefined);
       aiPageAccessService.filterViewablePageIds.mockImplementation(
         async (_user: User, ids: string[]) => ids,
       );
@@ -453,10 +466,33 @@ describe('AiContentService', () => {
       ]);
     });
 
-    it('BRIDGE-AC62: a space outside the readable spaces answers space_not_found without searching', async () => {
+    it('BRIDGE-AC81: a space that is not found answers space_not_found without searching', async () => {
+      aiPageAccessService.requireReadableSpace.mockRejectedValue(
+        new AiBridgeError('space_not_found', 'Space not found'),
+      );
+
+      await expectBridgeError(
+        service.searchSpace(USER, 'space-x', 'Plan'),
+        'space_not_found',
+      );
+      expect(aiPageAccessService.requireReadableSpace).toHaveBeenCalledWith(
+        USER,
+        'space-x',
+      );
+      expect(searchService.searchPage).not.toHaveBeenCalled();
+    });
+
+    it('BRIDGE-AC82: a space the user is not a member of answers space_forbidden without searching', async () => {
+      aiPageAccessService.requireReadableSpace.mockRejectedValue(
+        new AiBridgeError(
+          'space_forbidden',
+          'The user is not a member of the space',
+        ),
+      );
+
       await expectBridgeError(
         service.searchSpace(USER, 'space-gf', 'Plan'),
-        'space_not_found',
+        'space_forbidden',
       );
       expect(searchService.searchPage).not.toHaveBeenCalled();
     });

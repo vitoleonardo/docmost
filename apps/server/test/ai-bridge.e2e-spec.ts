@@ -274,7 +274,7 @@ describe('AI bridge page access (e2e)', () => {
     }
   });
 
-  it('BRIDGE-AC61: findViewablePage returns the page with content for a viewer and null otherwise', async () => {
+  it('BRIDGE-AC13: findViewablePage returns the page with content for a viewer and null otherwise', async () => {
     const id = await pageId('Umstrukturierung 2027');
 
     const page = await bridge.aiPageAccessService.findViewablePage(
@@ -767,6 +767,16 @@ describe('AI bridge page access (e2e)', () => {
       const searchAs = (token: string, space: string, query: unknown) =>
         post('tools/search', { spaceId: space, query }, asUser(token));
 
+      const errorBodiesOf = (status: number, code: string) => {
+        const bodies: string[] = [];
+        const collect = async (answer: ReturnType<typeof post>) => {
+          const response = await answer;
+          expectError(response, status, code);
+          bodies.push(JSON.stringify(response.json()));
+        };
+        return { bodies, collect };
+      };
+
       const taskTokenOf = async (key: SeedUserKey) => {
         const exchanged = await post(
           'task-token',
@@ -1017,46 +1027,57 @@ describe('AI bridge page access (e2e)', () => {
         ).not.toHaveLength(0);
       });
 
-      it('BRIDGE-AC61: read-page answers every unreadable variant with the same 404 page_not_found', async () => {
+      it('BRIDGE-AC79: read-page answers a trashed, deleted-space or unknown page with the same 404 page_not_found', async () => {
         const token = await userToken('WS');
-        const bodies: unknown[] = [];
-        const collect = async (id: string) => {
-          const response = await readPageAs(token, id);
-          expectError(response, 404, 'page_not_found');
-          bodies.push(response.json());
-        };
+        const { bodies, collect } = errorBodiesOf(404, 'page_not_found');
 
-        await collect(await pageId('Umstrukturierung 2027'));
-        await collect(await pageId('Strategie 2027 bis 2030'));
-        await collect(randomUUID());
+        await collect(readPageAs(token, randomUUID()));
         await withTrashedPage('Willkommen bei Ostmooimooi', async () =>
-          collect(await pageId('Willkommen bei Ostmooimooi')),
+          collect(
+            readPageAs(token, await pageId('Willkommen bei Ostmooimooi')),
+          ),
         );
         await withDeletedSpace('IT', async () =>
-          collect(await pageId('Wartung Serverraum')),
+          collect(readPageAs(token, await pageId('Wartung Serverraum'))),
         );
 
-        expect(bodies).toHaveLength(5);
-        expect(new Set(bodies.map((body) => JSON.stringify(body))).size).toBe(
-          1,
-        );
+        expect(bodies).toHaveLength(3);
+        expect(new Set(bodies).size).toBe(1);
       });
 
-      it('BRIDGE-AC62: search answers a foreign, deleted or unknown space with the same 404 space_not_found', async () => {
+      it('BRIDGE-AC80: read-page answers a restricted page and a page of a foreign space with the same 403 page_forbidden', async () => {
         const token = await userToken('WS');
-        const bodies: unknown[] = [];
-        const collect = async (space: string) => {
-          const response = await searchAs(token, space, 'Plan');
-          expectError(response, 404, 'space_not_found');
-          bodies.push(response.json());
-        };
+        const { bodies, collect } = errorBodiesOf(403, 'page_forbidden');
 
-        await collect(spaceId('Geschäftsführung'));
-        await collect(randomUUID());
-        await withDeletedSpace('IT', async () => collect(spaceId('IT')));
+        await collect(readPageAs(token, await pageId('Umstrukturierung 2027')));
+        await collect(
+          readPageAs(token, await pageId('Strategie 2027 bis 2030')),
+        );
 
-        expect(new Set(bodies.map((body) => JSON.stringify(body))).size).toBe(
-          1,
+        expect(bodies).toHaveLength(2);
+        expect(new Set(bodies).size).toBe(1);
+      });
+
+      it('BRIDGE-AC81: search answers a deleted or unknown space with the same 404 space_not_found', async () => {
+        const token = await userToken('WS');
+        const { bodies, collect } = errorBodiesOf(404, 'space_not_found');
+
+        await collect(searchAs(token, randomUUID(), 'Plan'));
+        await withDeletedSpace('IT', async () =>
+          collect(searchAs(token, spaceId('IT'), 'Plan')),
+        );
+
+        expect(bodies).toHaveLength(2);
+        expect(new Set(bodies).size).toBe(1);
+      });
+
+      it('BRIDGE-AC82: search answers a space the user is not a member of with 403 space_forbidden', async () => {
+        const token = await userToken('WS');
+
+        expectError(
+          await searchAs(token, spaceId('Geschäftsführung'), 'Plan'),
+          403,
+          'space_forbidden',
         );
       });
 
@@ -1745,18 +1766,10 @@ describe('AI bridge page access (e2e)', () => {
         expect(askRequests()).toHaveLength(0);
       });
 
-      it('ASK-AC62: a foreign, deleted or unknown space answers the same 404 space_not_found', async () => {
+      it('ASK-AC78: a deleted or unknown space answers 404 space_not_found', async () => {
         const headers = await session('WS');
         const itId = spaceId('IT');
 
-        expectError(
-          await ask(
-            { question: 'Frage', spaceId: spaceId('Geschäftsführung') },
-            headers,
-          ),
-          404,
-          'space_not_found',
-        );
         expectError(
           await ask({ question: 'Frage', spaceId: randomUUID() }, headers),
           404,
@@ -1783,16 +1796,24 @@ describe('AI bridge page access (e2e)', () => {
         expect(askRequests()).toHaveLength(0);
       });
 
-      it('ASK-AC63: a restricted, trashed or unknown page answers the same 404 page_not_found', async () => {
+      it('ASK-AC79: a space the user is not a member of answers 403 space_forbidden', async () => {
         const headers = await session('WS');
-        const restricted = await pageId('Umstrukturierung 2027');
-        const trashed = await pageId('Bürozeiten und Erreichbarkeit');
 
         expectError(
-          await ask({ question: 'Frage', pageId: restricted }, headers),
-          404,
-          'page_not_found',
+          await ask(
+            { question: 'Frage', spaceId: spaceId('Geschäftsführung') },
+            headers,
+          ),
+          403,
+          'space_forbidden',
         );
+        expect(askRequests()).toHaveLength(0);
+      });
+
+      it('ASK-AC80: a trashed or unknown page answers 404 page_not_found', async () => {
+        const headers = await session('WS');
+        const trashed = await pageId('Bürozeiten und Erreichbarkeit');
+
         expectError(
           await ask({ question: 'Frage', pageId: randomUUID() }, headers),
           404,
@@ -1811,6 +1832,25 @@ describe('AI bridge page access (e2e)', () => {
           );
         } finally {
           await bridge.pageRepo.restorePage(trashed, bridge.seed.workspaceId);
+        }
+        expect(askRequests()).toHaveLength(0);
+      });
+
+      it('ASK-AC81: a restricted page and a page of a foreign space answer 403 page_forbidden', async () => {
+        const headers = await session('WS');
+
+        for (const title of [
+          'Umstrukturierung 2027',
+          'Strategie 2027 bis 2030',
+        ]) {
+          expectError(
+            await ask(
+              { question: 'Frage', pageId: await pageId(title) },
+              headers,
+            ),
+            403,
+            'page_forbidden',
+          );
         }
         expect(askRequests()).toHaveLength(0);
       });
@@ -2118,11 +2158,36 @@ describe('AI bridge page access (e2e)', () => {
         expect(extractRequests()).toHaveLength(0);
       });
 
-      it('EXTRACT-AC45: a user who may not view the page answers 404 page_not_found', async () => {
+      it('EXTRACT-AC70: a trashed or unknown page answers 404 page_not_found and calls nothing', async () => {
+        const headers = await session('GF');
+        const body = await licenseBody();
+
         expectError(
-          await extract(await licenseBody(), await session('VT')),
+          await extract({ ...body, pageId: randomUUID() }, headers),
           404,
           'page_not_found',
+        );
+        await bridge.pageRepo.removePage(
+          body.pageId,
+          users.GF.id,
+          bridge.seed.workspaceId,
+        );
+        try {
+          expectError(await extract(body, headers), 404, 'page_not_found');
+        } finally {
+          await bridge.pageRepo.restorePage(
+            body.pageId,
+            bridge.seed.workspaceId,
+          );
+        }
+        expect(extractRequests()).toHaveLength(0);
+      });
+
+      it('EXTRACT-AC71: a page of a space the user is not a member of answers 403 page_forbidden and calls nothing', async () => {
+        expectError(
+          await extract(await licenseBody(), await session('VT')),
+          403,
+          'page_forbidden',
         );
         expect(extractRequests()).toHaveLength(0);
       });

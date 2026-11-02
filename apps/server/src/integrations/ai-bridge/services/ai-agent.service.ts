@@ -29,13 +29,7 @@ export class AiAgentService {
     signal: AbortSignal,
   ): Promise<AsyncGenerator<AiServiceAgentEvent> | null> {
     assertAssistantEnabled(this.environmentService.isAiBridgeConfigured());
-    const readableSpaceIds = await this.aiPageAccessService.readableSpaceIds(
-      user.id,
-      user.workspaceId,
-    );
-    if (!readableSpaceIds.includes(spaceId)) {
-      throw new AiBridgeError('space_not_found', 'Space not found');
-    }
+    await this.aiPageAccessService.requireReadableSpace(user, spaceId);
     const userToken = await this.aiTokenService.issueUserToken(user);
     const upstream = await this.aiServiceClient
       .agentRun(userToken, { spaceId, task }, signal)

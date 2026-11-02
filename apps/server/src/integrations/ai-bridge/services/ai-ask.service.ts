@@ -84,20 +84,10 @@ export class AiAskService {
 
   private async checkScope(user: User, dto: AiAskDto): Promise<void> {
     if (dto.spaceId) {
-      const readableSpaceIds = await this.aiPageAccessService.readableSpaceIds(
-        user.id,
-        user.workspaceId,
-      );
-      if (!readableSpaceIds.includes(dto.spaceId)) {
-        throw new AiBridgeError('space_not_found', 'Space not found');
-      }
+      await this.aiPageAccessService.requireReadableSpace(user, dto.spaceId);
     }
     if (dto.pageId) {
-      const page = await this.aiPageAccessService.findViewablePage(
-        user,
-        dto.pageId,
-      );
-      if (!page) throw new AiBridgeError('page_not_found', 'Page not found');
+      await this.aiPageAccessService.requireViewablePage(user, dto.pageId);
     }
   }
 
