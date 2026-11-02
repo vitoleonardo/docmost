@@ -107,3 +107,4 @@ Reviewers of every change, and the people who watch the demo, need proof that th
 - 29.10.2026: 2 injection pages in Allgemein, created and removed by the suite, because the seed data spec leaves prompt-injection pages to M6's fixtures and keeps them out of the seed; Allgemein is the space every seed user can read.
 - 29.10.2026: the suite's `failed` outcome joins the panel's model and filter failures; the suite never stops an answer, so `stopped` does not occur.
 - 29.10.2026: the report `reports/leak-tests.md` is committed with the numbers of the latest local run, because spec section 14 publishes it with real numbers.
+- 02.11.2026: the revocation criteria LEAK-AC11 to LEAK-AC14 ask with the scope "Alle Bereiche", because a scope the user lost now answers 403 before any prompt is built (ASK-AC79, ASK-AC81), so a run with that scope would record no prompt to check.

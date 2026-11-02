@@ -10,7 +10,15 @@ from typing import Any, Protocol
 
 from ai_service.agent_store import RunOutcome, StoredProposal
 from ai_service.auth import UserSession
-from ai_service.bridge_client import BlockRead, BridgeClient, BridgeError, NotFound, SpaceNotFound
+from ai_service.bridge_client import (
+    BlockRead,
+    BridgeClient,
+    BridgeError,
+    NotFound,
+    PageForbidden,
+    SpaceForbidden,
+    SpaceNotFound,
+)
 from ai_service.extraction import MAX_CHARACTERS_PER_PROMPT_TOKEN
 from ai_service.inference import ModelCallCancelled, ModelUnavailable, ToolCall, ToolCompletion
 from ai_service.proposals import Block, PageRead, ProposalDraft, ProposalRefused, build_proposal
@@ -26,6 +34,8 @@ LEADING_THINK_BLOCK = re.compile(r"\A\s*<think>.*?</think>", re.DOTALL)
 
 PAGE_NOT_FOUND = "Seite nicht gefunden."
 SPACE_NOT_FOUND = "Bereich nicht gefunden."
+PAGE_FORBIDDEN = "Kein Zugriff auf diese Seite."
+SPACE_FORBIDDEN = "Kein Zugriff auf diesen Bereich."
 TOOL_UNAVAILABLE = "Werkzeug gerade nicht verfügbar."
 NO_PAGES_FOUND = "Keine Seiten gefunden."
 BLOCKS_LEFT_OUT = "Weitere Blöcke wurden ausgelassen."
@@ -396,6 +406,10 @@ class PreparedRun:
             return ToolOutcome(refusal.reason, refused)
         except SpaceNotFound:
             return ToolOutcome(SPACE_NOT_FOUND, refused)
+        except SpaceForbidden:
+            return ToolOutcome(SPACE_FORBIDDEN, refused)
+        except PageForbidden:
+            return ToolOutcome(PAGE_FORBIDDEN, refused)
         except NotFound:
             return ToolOutcome(PAGE_NOT_FOUND, refused)
         except BridgeError:

@@ -51,6 +51,18 @@ class SpaceNotFound(NotFound):
     pass
 
 
+class Forbidden(BridgeError):
+    pass
+
+
+class PageForbidden(Forbidden):
+    pass
+
+
+class SpaceForbidden(Forbidden):
+    pass
+
+
 class AttachmentNotFound(BridgeError):
     pass
 
@@ -299,6 +311,10 @@ class BridgeClient:
             raise PageNotFound(cause)
         if response.status_code == 404 and code == "space_not_found":
             raise SpaceNotFound(cause)
+        if response.status_code == 403 and code == "page_forbidden":
+            raise PageForbidden(cause)
+        if response.status_code == 403 and code == "space_forbidden":
+            raise SpaceForbidden(cause)
         if response.status_code == 404 and code == "attachment_not_found":
             raise AttachmentNotFound(cause)
         raise BridgeError(cause)
