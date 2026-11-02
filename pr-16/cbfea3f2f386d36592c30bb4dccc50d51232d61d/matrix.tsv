@@ -1,0 +1,78 @@
+BRIDGE-AC79	not found	BRIDGE-AC79: a page in a deleted space, in the trash, of another workspace or unknown throws 404 page_not_found	pass
+BRIDGE-AC79	not found wins	BRIDGE-AC79: not found wins over forbidden for a restricted page in a deleted space of a non-member	pass
+BRIDGE-AC79	service maps code	BRIDGE-AC79: a page that is not found answers page_not_found	pass
+BRIDGE-AC79	real route	n/a: server e2e, "BRIDGE-AC79: read-page answers a trashed, deleted-space or unknown page with the same 404 page_not_found" in apps/server/test/ai-bridge.e2e-spec.ts, run in verify step 3	n/a
+BRIDGE-AC80	missing permission	BRIDGE-AC80: a restricted page and a page of a space the user is not a member of throw 403 page_forbidden	pass
+BRIDGE-AC80	removed member	BRIDGE-AC80: a page of a space the user was removed from throws 403 page_forbidden	pass
+BRIDGE-AC80	allowed	BRIDGE-AC80: returns the page with its content when the user may view it	pass
+BRIDGE-AC80	real route	n/a: server e2e, "BRIDGE-AC80: read-page answers a restricted page and a page of a foreign space with the same 403 page_forbidden" in apps/server/test/ai-bridge.e2e-spec.ts, run in verify step 3	n/a
+BRIDGE-AC81	not found	BRIDGE-AC81: a space marked as deleted, of another workspace or unknown throws 404 space_not_found	pass
+BRIDGE-AC81	not found wins	BRIDGE-AC81: not found wins for a deleted space the user is not a member of	pass
+BRIDGE-AC81	no search run	BRIDGE-AC81: a space that is not found answers space_not_found without searching	pass
+BRIDGE-AC81	real route	n/a: server e2e, "BRIDGE-AC81: search answers a deleted or unknown space with the same 404 space_not_found" in apps/server/test/ai-bridge.e2e-spec.ts, run in verify step 3	n/a
+BRIDGE-AC82	missing permission	BRIDGE-AC82: a space the user is not a member of throws 403 space_forbidden	pass
+BRIDGE-AC82	allowed	BRIDGE-AC82: a space the user is a member of passes	pass
+BRIDGE-AC82	no search run	BRIDGE-AC82: a space the user is not a member of answers space_forbidden without searching	pass
+BRIDGE-AC82	real route	n/a: server e2e, "BRIDGE-AC82: search answers a space the user is not a member of with 403 space_forbidden" in apps/server/test/ai-bridge.e2e-spec.ts, run in verify step 3	n/a
+BRIDGE-AC82	contract	answers 403 and is listed by exactly the endpoints called with a user	pass
+ASK-AC78	not found, no AI call	answers 404 space_not_found and calls nothing	pass
+ASK-AC78	real route	n/a: server e2e, "ASK-AC78: a deleted or unknown space answers 404 space_not_found" in apps/server/test/ai-bridge.e2e-spec.ts, run in verify step 3	n/a
+ASK-AC79	missing permission	ASK-AC79: a space the user is not a member of answers 403 space_forbidden and calls nothing	pass
+ASK-AC79	removed member	ASK-AC79: a space the user left answers 403 space_forbidden and calls nothing	pass
+ASK-AC79	real route	n/a: server e2e, "ASK-AC79: a space the user is not a member of answers 403 space_forbidden" in apps/server/test/ai-bridge.e2e-spec.ts, run in verify step 3	n/a
+ASK-AC80	not found, no AI call	answers 404 page_not_found and calls nothing	pass
+ASK-AC80	not found wins	ASK-AC80: a restricted page in a space marked as deleted answers 404 page_not_found, not found wins	pass
+ASK-AC80	real route	n/a: server e2e, "ASK-AC80: a trashed or unknown page answers 404 page_not_found" in apps/server/test/ai-bridge.e2e-spec.ts, run in verify step 3	n/a
+ASK-AC81	missing permission	ASK-AC81: a page the user may not view answers 403 page_forbidden and calls nothing	pass
+ASK-AC81	foreign space	ASK-AC81: a page of a space the user is not a member of answers 403 page_forbidden and calls nothing	pass
+ASK-AC81	real route	n/a: server e2e, "ASK-AC81: a restricted page and a page of a foreign space answer 403 page_forbidden" in apps/server/test/ai-bridge.e2e-spec.ts, run in verify step 3	n/a
+ASK-AC82	panel text	ASK-AC82: a page_forbidden turn shows the access text and no sources	pass
+ASK-AC82	service mapping	ASK-AC82, ASK-AC83: maps HTTP 403 with code page_forbidden to a typed error	pass
+ASK-AC82	conversation state	ASK-AC82, ASK-AC83: page_forbidden marks the turn with that refusal and no sources	pass
+ASK-AC83	panel text	ASK-AC83: a space_forbidden turn shows the access text and no sources	pass
+ASK-AC83	service mapping	maps HTTP 403 with code space_forbidden to a typed error	pass
+ASK-AC83	conversation state	ASK-AC82, ASK-AC83: space_forbidden marks the turn with that refusal and no sources	pass
+ASK-AC84	trashed page	ASK-AC84:	pass
+EXTRACT-AC70	not found, no AI call	EXTRACT-AC70: trashed and unknown pages throw 404 page_not_found without an edit check	pass
+EXTRACT-AC70	real route	n/a: server e2e, "EXTRACT-AC70: a trashed or unknown page answers 404 page_not_found and calls nothing" in apps/server/test/ai-bridge.e2e-spec.ts, run in verify step 3	n/a
+EXTRACT-AC71	missing permission	EXTRACT-AC71: restricted and other-space pages throw 403 page_forbidden without an edit check	pass
+EXTRACT-AC71	real route	n/a: server e2e, "EXTRACT-AC71: a page of a space the user is not a member of answers 403 page_forbidden and calls nothing" in apps/server/test/ai-bridge.e2e-spec.ts, run in verify step 3	n/a
+EXTRACT-AC72	dialog text	EXTRACT-AC72, EXTRACT-AC43: shows the text and only Schließen	pass
+EXTRACT-AC72	service mapping	EXTRACT-AC72: maps HTTP 403 page_forbidden to page_forbidden	pass
+EXTRACT-AC73	lost edit right	EXTRACT-AC73: a user who lost the edit right after the button was shown gets 403 page_not_editable	pass
+EXTRACT-AC73	dialog text	EXTRACT-AC73, EXTRACT-AC43: shows the text and only Schließen	pass
+EXTRACT-AC73	unknown 403/404	EXTRACT-AC73: maps HTTP	pass
+EXTRACT-AC74	close	EXTRACT-AC74: Schließen after the access text closes the dialog and inserts nothing	pass
+AGENT-AC118	tool refusal	test_agent_ac118_a_restricted_page_is_refused_as_not_accessible_with_no_page_text	pass
+AGENT-AC118	client error	test_agent_ac118_a_page_the_user_may_not_view_is_forbidden	pass
+AGENT-AC118	not not-found	test_agent_ac118_forbidden_variants_share_one_handling_and_are_not_not_found	pass
+AGENT-AC118	server	AGENT-AC118: a restricted page of the run space is refused as forbidden without its text	pass
+AGENT-AC119	removed mid-run	test_agent_ac119_a_search_after_the_user_left_the_space_is_refused_as_not_accessible	pass
+AGENT-AC119	client error	test_agent_ac119_ac120_a_space_the_user_left_is_forbidden_for_search_and_read	pass
+AGENT-AC120	removed mid-run	test_agent_ac120_a_read_after_the_user_left_the_space_is_refused_as_not_accessible	pass
+AGENT-AC120	server	AGENT-AC120: after the user is removed from the run space the next read is refused as forbidden	pass
+AGENT-AC120	real route, valid token	n/a: server e2e, "AGENT-AC120: a member removed from the run space gets 403 page_forbidden on read-blocks with a still valid token" in apps/server/test/ai-agent.e2e-spec.ts, run in verify step 3	n/a
+AGENT-AC121	page gone on view	AGENT-AC121: a gone page shows the text, Schließen and no proposal text	pass
+AGENT-AC121	page gone on apply	AGENT-AC121: a page that vanishes on apply shows the same text	pass
+AGENT-AC121	service mapping	AGENT-AC121: viewing with 404 page_not_found maps to page_gone	pass
+AGENT-AC122	missing permission	AGENT-AC122: a page the user may no longer view shows the access text, Schließen and no proposal text	pass
+AGENT-AC122	service mapping	AGENT-AC122: viewing with 403 page_forbidden maps to page_forbidden	pass
+AGENT-AC123	not found on view	answers 404 page_not_found with no text of the proposal	pass
+AGENT-AC124	missing permission on view	answers 403 page_forbidden with no text of the proposal	pass
+AGENT-AC125	not found on apply	answers 404 page_not_found, no claim and no write	pass
+AGENT-AC126	missing permission on apply	answers 403 page_forbidden, no claim and no write	pass
+AGENT-AC126	other user's proposal	a proposal of another user on a page the requester may not view answers 404 proposal_not_found	pass
+AGENT-AC127	not found, no AI call	answers 404 space_not_found and the AI service is not called	pass
+AGENT-AC128	missing permission	AGENT-AC128: a space the user is not a member of answers 403 space_forbidden and the AI service is not called	pass
+AGENT-AC128	removed member	AGENT-AC128: a space the user was removed from answers 403 space_forbidden	pass
+AGENT-AC129	panel state	AGENT-AC129: space_forbidden keeps state G1 with the task and shows the space text	pass
+AGENT-AC129	hook state	AGENT-AC129: space_forbidden sets spaceForbidden and keeps the task and space	pass
+AGENT-AC129	service mapping	AGENT-AC129: 403 space_forbidden maps to space_forbidden	pass
+AGENT-AC130	log outcome	the outcome page_forbidden of a	pass
+AGENT-AC130	no run id	AGENT-AC130: a request for a proposal that is not found logs no outcome line, as it has no run id	pass
+AGENT-AC131	lost view before apply	AGENT-AC131: losing view access before Übernehmen shows the access text and no diff	pass
+AGENT-AC131	service mapping	AGENT-AC131: applying with 403 page_forbidden maps to page_forbidden	pass
+AGENT-AC132	non-member space read	AGENT-AC132: a page of a space the user is not a member of is refused as not found	pass
+AGENT-AC133	in the named space	AGENT-AC133: in the named space, a viewable page is returned and a restricted page throws 403 page_forbidden	pass
+AGENT-AC133	outside the named space	AGENT-AC133: a page outside the named space throws 404 page_not_found, viewable or hidden	pass
+AGENT-AC133	double submit	n/a: read-only block reads; a repeated read gives the same answer and changes nothing	n/a
