@@ -160,6 +160,23 @@ describe("AskAnswer", () => {
     expect(screen.queryByText("Quellen")).toBeNull();
   });
 
+  it.each([
+    ["ASK-AC82", "page_forbidden", "Du hast keinen Zugriff auf diese Seite."],
+    [
+      "ASK-AC83",
+      "space_forbidden",
+      "Du hast keinen Zugriff auf diesen Bereich.",
+    ],
+  ] as const)(
+    "%s: a %s turn shows the access text and no sources",
+    (_id, status, text) => {
+      renderAnswer(turn({ status, answer: "", sources: [] }));
+      expect(screen.getByText(text)).toBeTruthy();
+      expect(screen.queryByText(NO_SOURCE_TEXT)).toBeNull();
+      expect(screen.queryByText("Quellen")).toBeNull();
+    },
+  );
+
   it("ASK-AC12: keeps the text and adds Abgebrochen without sources", () => {
     renderAnswer(turn({ status: "stopped", answer: "Halber Satz" }));
     expect(screen.getByText("Halber Satz")).toBeTruthy();

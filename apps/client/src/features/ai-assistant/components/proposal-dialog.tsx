@@ -19,6 +19,7 @@ import {
   getAgentProposal,
 } from "@/features/ai-assistant/services/ai-assistant-service.ts";
 import type {
+  AgentProposalErrorCode,
   AgentProposalStatus,
   IAgentProposalView,
   IAgentRunProposal,
@@ -32,17 +33,28 @@ interface ProposalDialogProps {
   onNewProposal: () => void;
 }
 
+const NOTICE_KEYS = {
+  gone: "This page is no longer available.",
+  forbidden: "You don't have access to this page.",
+  unreachable:
+    "The assistant is currently unreachable. The wiki keeps working normally.",
+};
+
+type NoticeKind = keyof typeof NOTICE_KEYS;
+
+const NOTICE_BY_ERROR: Partial<Record<AgentProposalErrorCode, NoticeKind>> = {
+  page_gone: "gone",
+  page_forbidden: "forbidden",
+};
+
 type DialogState =
   | { kind: "loading" }
   | { kind: "ready"; view: IAgentProposalView; writeFailed: boolean }
-  | { kind: "gone" }
-  | { kind: "unreachable" };
+  | { kind: NoticeKind };
 
 function failureState(error: unknown): DialogState {
-  if (error instanceof AgentProposalError && error.code === "page_gone") {
-    return { kind: "gone" };
-  }
-  return { kind: "unreachable" };
+  if (!(error instanceof AgentProposalError)) return { kind: "unreachable" };
+  return { kind: NOTICE_BY_ERROR[error.code] ?? "unreachable" };
 }
 
 function ProposalContent(props: Omit<ProposalDialogProps, "opened">) {
@@ -127,16 +139,10 @@ function ProposalContent(props: Omit<ProposalDialogProps, "opened">) {
     );
   }
 
-  if (state.kind === "gone" || state.kind === "unreachable") {
+  if (state.kind !== "ready") {
     return (
       <Stack>
-        <Text size="sm">
-          {state.kind === "gone"
-            ? t("This page is no longer available.")
-            : t(
-                "The assistant is currently unreachable. The wiki keeps working normally.",
-              )}
-        </Text>
+        <Text size="sm">{t(NOTICE_KEYS[state.kind])}</Text>
         <Group justify="flex-end">{closeButton}</Group>
       </Stack>
     );

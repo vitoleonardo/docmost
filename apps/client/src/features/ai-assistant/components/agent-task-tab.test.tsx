@@ -466,6 +466,39 @@ describe("agent task tab: refusals", () => {
     expect(await taskInput()).toBeTruthy();
   });
 
+  it("AGENT-AC129: space_forbidden keeps state G1 with the task and shows the space text", async () => {
+    openPage.spaceId = "space-hr";
+    fetchMock.mockImplementation(
+      async () =>
+        new Response(JSON.stringify({ code: "space_forbidden" }), {
+          status: 403,
+        }),
+    );
+    renderTaskTab();
+    await waitFor(async () => expect((await spaceSelect()).value).toBe("HR"));
+    fireEvent.click(await spaceSelect());
+    fireEvent.click(
+      await screen.findByRole("option", { name: "Allgemein", hidden: true }),
+    );
+    await waitFor(async () =>
+      expect((await spaceSelect()).value).toBe("Allgemein"),
+    );
+    fireEvent.change(await taskInput(), { target: { value: "Meine Aufgabe" } });
+    fireEvent.click(startButton());
+    expect(
+      await screen.findByText("Du hast keinen Zugriff auf diesen Bereich."),
+    ).toBeTruthy();
+    expect((await taskInput()).value).toBe("Meine Aufgabe");
+    expect((await spaceSelect()).value).toBe("Allgemein");
+    expect(startButton()).toBeTruthy();
+    expect(screen.queryByText("Meine Aufgabe · Allgemein")).toBeNull();
+    expect(
+      screen.queryByText(
+        "Es läuft bereits eine Aufgabe. Warte, bis sie fertig ist, oder brich sie ab.",
+      ),
+    ).toBeNull();
+  });
+
   it("AGENT-AC3: an unreachable service during the start shows state A4 and retry clears it", async () => {
     openPage.spaceId = "space-allg";
     fetchMock.mockImplementation(

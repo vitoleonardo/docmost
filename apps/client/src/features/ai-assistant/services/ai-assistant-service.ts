@@ -41,6 +41,8 @@ const ASK_REQUEST_ERROR_CODES: readonly AskRequestErrorCode[] = [
   "invalid_request",
   "space_not_found",
   "page_not_found",
+  "space_forbidden",
+  "page_forbidden",
   "assistant_disabled",
   "assistant_unavailable",
 ];
@@ -48,6 +50,7 @@ const ASK_REQUEST_ERROR_CODES: readonly AskRequestErrorCode[] = [
 const AGENT_REQUEST_ERROR_CODES: readonly AgentRequestErrorCode[] = [
   "invalid_request",
   "space_not_found",
+  "space_forbidden",
   "run_in_progress",
   "assistant_disabled",
   "assistant_unavailable",
@@ -209,16 +212,24 @@ export class AgentProposalError extends Error {
 const PROPOSAL_ERROR_BY_CODE: Record<string, AgentProposalErrorCode> = {
   proposal_not_found: "not_found",
   page_not_found: "page_gone",
+  page_forbidden: "page_forbidden",
   page_not_editable: "not_editable",
   proposal_not_open: "not_open",
   proposal_stale: "stale",
   write_failed: "write_failed",
 };
 
+interface HttpErrorResponse {
+  status?: number;
+  data?: { code?: unknown };
+}
+
+function httpErrorResponseOf(error: unknown): HttpErrorResponse | undefined {
+  return (error as { response?: HttpErrorResponse }).response;
+}
+
 function proposalErrorFrom(error: unknown): AgentProposalError {
-  const response = (
-    error as { response?: { status?: number; data?: { code?: unknown } } }
-  ).response;
+  const response = httpErrorResponseOf(error);
   const code = response?.data?.code;
   const mapped =
     typeof code === "string" ? PROPOSAL_ERROR_BY_CODE[code] : undefined;
@@ -265,7 +276,11 @@ export class ExtractRequestError extends Error {
 }
 
 function extractErrorFrom(error: unknown): ExtractRequestError {
-  const status = (error as { response?: { status?: number } }).response?.status;
+  const response = httpErrorResponseOf(error);
+  const status = response?.status;
+  if (response?.data?.code === "page_forbidden") {
+    return new ExtractRequestError("page_forbidden");
+  }
   if (status === 403 || status === 404) {
     return new ExtractRequestError("not_available");
   }

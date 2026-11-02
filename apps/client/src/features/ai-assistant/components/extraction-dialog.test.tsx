@@ -411,9 +411,14 @@ describe("extraction dialog refusals and failures", () => {
       "Der Assistent ist gerade nicht erreichbar. Das Wiki funktioniert normal weiter.",
     ],
     [
-      "EXTRACT-AC42",
+      "EXTRACT-AC73",
       new ExtractRequestError("not_available"),
       "Der Anhang ist nicht mehr verfügbar oder du darfst die Seite nicht bearbeiten.",
+    ],
+    [
+      "EXTRACT-AC72",
+      new ExtractRequestError("page_forbidden"),
+      "Du hast keinen Zugriff auf diese Seite.",
     ],
   ])(
     "%s, EXTRACT-AC43: shows the text and only Schließen, which closes without inserting",
@@ -429,6 +434,22 @@ describe("extraction dialog refusals and failures", () => {
       expect(props.onInsert).not.toHaveBeenCalled();
     },
   );
+
+  it("EXTRACT-AC74: Schließen after the access text closes the dialog and inserts nothing", async () => {
+    const props = await renderWith(new ExtractRequestError("page_forbidden"));
+
+    expect(
+      await screen.findByText("Du hast keinen Zugriff auf diese Seite."),
+    ).toBeTruthy();
+    expect(
+      screen.queryByText(
+        "Der Anhang ist nicht mehr verfügbar oder du darfst die Seite nicht bearbeiten.",
+      ),
+    ).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Schließen" }));
+    expect(props.onClose).toHaveBeenCalledTimes(1);
+    expect(props.onInsert).not.toHaveBeenCalled();
+  });
 
   it("EXTRACT-AC65: a file of exactly 10 MB plus one byte rounds up to 10,1 MB, not 10,0 MB", async () => {
     await renderWith(refused("too_large", { fileSize: 10485761 }));

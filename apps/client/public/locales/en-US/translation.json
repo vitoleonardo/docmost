@@ -1656,5 +1656,7 @@
   "Cancelled. Earlier proposals are kept.": "Cancelled. Earlier proposals are kept.",
   "The language model is not responding right now. Try again later.": "The language model is not responding right now. Try again later.",
   "I cannot do that with my tools. I can search pages in a space, read pages and suggest changes to pages that you review and apply.": "I cannot do that with my tools. I can search pages in a space, read pages and suggest changes to pages that you review and apply.",
-  "New task": "New task"
+  "New task": "New task",
+  "You don't have access to this page.": "You don't have access to this page.",
+  "You don't have access to this space.": "You don't have access to this space."
 }

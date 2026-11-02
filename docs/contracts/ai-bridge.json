@@ -18,6 +18,8 @@
     "too_many_page_ids": 400,
     "page_not_found": 404,
     "space_not_found": 404,
+    "page_forbidden": 403,
+    "space_forbidden": 403,
     "attachment_not_found": 404,
     "proposal_not_found": 404,
     "proposal_not_open": 409,
@@ -75,7 +77,9 @@
         "assistant_unavailable",
         "invalid_request",
         "space_not_found",
-        "page_not_found"
+        "space_forbidden",
+        "page_not_found",
+        "page_forbidden"
       ]
     },
     {
@@ -119,6 +123,7 @@
         "invalid_request",
         "page_not_editable",
         "page_not_found",
+        "page_forbidden",
         "attachment_not_found",
         "assistant_disabled",
         "assistant_unavailable"
@@ -171,6 +176,7 @@
       "errors": [
         "invalid_request",
         "space_not_found",
+        "space_forbidden",
         "run_in_progress",
         "assistant_disabled",
         "assistant_unavailable"
@@ -205,6 +211,7 @@
         "invalid_request",
         "proposal_not_found",
         "page_not_found",
+        "page_forbidden",
         "assistant_disabled",
         "assistant_unavailable"
       ]
@@ -224,6 +231,7 @@
         "invalid_request",
         "proposal_not_found",
         "page_not_found",
+        "page_forbidden",
         "page_not_editable",
         "proposal_not_open",
         "proposal_stale",
@@ -385,7 +393,8 @@
         "user_token_invalid",
         "user_id_not_allowed",
         "invalid_request",
-        "page_not_found"
+        "page_not_found",
+        "page_forbidden"
       ]
     },
     {
@@ -408,7 +417,8 @@
         "user_token_invalid",
         "user_id_not_allowed",
         "invalid_request",
-        "space_not_found"
+        "space_not_found",
+        "space_forbidden"
       ]
     },
     {
@@ -441,7 +451,8 @@
         "user_token_invalid",
         "user_id_not_allowed",
         "invalid_request",
-        "page_not_found"
+        "page_not_found",
+        "page_forbidden"
       ]
     },
     {

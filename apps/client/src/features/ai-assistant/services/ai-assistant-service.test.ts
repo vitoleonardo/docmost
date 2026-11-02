@@ -225,6 +225,19 @@ describe("askQuestion", () => {
     },
   );
 
+  it.each<AskRequestErrorCode>(["page_forbidden", "space_forbidden"])(
+    "ASK-AC82, ASK-AC83: maps HTTP 403 with code %s to a typed error",
+    async (code) => {
+      mockFetch(
+        new Response(JSON.stringify({ code, message: "x" }), { status: 403 }),
+      );
+
+      await expect(
+        askQuestion(BODY, () => undefined, new AbortController().signal),
+      ).rejects.toMatchObject({ name: "AskRequestError", code });
+    },
+  );
+
   it("ASK-AC66: maps 401 without a code to unauthorized", async () => {
     mockFetch(
       new Response(JSON.stringify({ message: "Unauthorized" }), {
@@ -367,6 +380,8 @@ describe("contract", () => {
       "invalid_request",
       "space_not_found",
       "page_not_found",
+      "space_forbidden",
+      "page_forbidden",
       "assistant_disabled",
       "assistant_unavailable",
       "unauthorized",
@@ -479,16 +494,25 @@ describe("extractContract", () => {
     expect(error.code).toBe("model");
   });
 
-  it.each([
+  it.each<[number, string | undefined]>([
     [403, "page_not_editable"],
+    [403, undefined],
     [404, "page_not_found"],
     [404, "attachment_not_found"],
-  ])("EXTRACT-AC42: maps HTTP %i %s to not_available", async (status, code) => {
+  ])("EXTRACT-AC73: maps HTTP %i %s to not_available", async (status, code) => {
     const error = (await extractError(
       httpError(status, code),
     )) as ExtractRequestError;
     expect(error).toBeInstanceOf(ExtractRequestError);
     expect(error.code).toBe("not_available");
+  });
+
+  it("EXTRACT-AC72: maps HTTP 403 page_forbidden to page_forbidden", async () => {
+    const error = (await extractError(
+      httpError(403, "page_forbidden"),
+    )) as ExtractRequestError;
+    expect(error).toBeInstanceOf(ExtractRequestError);
+    expect(error.code).toBe("page_forbidden");
   });
 
   it.each(["assistant_unavailable", "assistant_disabled"])(
@@ -627,6 +651,23 @@ describe("runAgentTask", () => {
     expect(error.code).toBe(expected);
   });
 
+  it("AGENT-AC129: 403 space_forbidden maps to space_forbidden", async () => {
+    mockFetch(
+      new Response(JSON.stringify({ code: "space_forbidden" }), {
+        status: 403,
+      }),
+    );
+
+    const error = await runAgentTask(
+      AGENT_BODY,
+      () => undefined,
+      new AbortController().signal,
+    ).catch((caught) => caught);
+
+    expect(error).toBeInstanceOf(AgentRequestError);
+    expect(error.code).toBe("space_forbidden");
+  });
+
   it("AGENT-AC69: 401 maps to unauthorized", async () => {
     mockFetch(new Response("", { status: 401 }));
 
@@ -715,5 +756,31 @@ describe("agent proposal calls", () => {
 
     expect(error).toBeInstanceOf(AgentProposalError);
     expect(error.code).toBe(expected);
+  });
+
+  it("AGENT-AC122: viewing with 403 page_forbidden maps to page_forbidden", async () => {
+    postMock.mockRejectedValueOnce(proposalFailure(403, "page_forbidden"));
+
+    const error = await getAgentProposal("prop-1").catch((caught) => caught);
+
+    expect(error).toBeInstanceOf(AgentProposalError);
+    expect(error.code).toBe("page_forbidden");
+  });
+
+  it("AGENT-AC131: applying with 403 page_forbidden maps to page_forbidden", async () => {
+    postMock.mockRejectedValueOnce(proposalFailure(403, "page_forbidden"));
+
+    const error = await applyAgentProposal("prop-1").catch((caught) => caught);
+
+    expect(error).toBeInstanceOf(AgentProposalError);
+    expect(error.code).toBe("page_forbidden");
+  });
+
+  it("AGENT-AC121: viewing with 404 page_not_found maps to page_gone", async () => {
+    postMock.mockRejectedValueOnce(proposalFailure(404, "page_not_found"));
+
+    const error = await getAgentProposal("prop-1").catch((caught) => caught);
+
+    expect(error.code).toBe("page_gone");
   });
 });
