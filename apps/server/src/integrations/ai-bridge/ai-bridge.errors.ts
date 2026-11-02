@@ -12,6 +12,11 @@ export const AI_BRIDGE_ERROR_STATUS = {
   page_not_found: 404,
   space_not_found: 404,
   attachment_not_found: 404,
+  proposal_not_found: 404,
+  proposal_not_open: 409,
+  proposal_stale: 409,
+  write_failed: 503,
+  run_in_progress: 409,
   page_not_editable: 403,
 } as const;
 
@@ -28,5 +33,14 @@ export class AiBridgeError extends Error {
 
   get status(): number {
     return AI_BRIDGE_ERROR_STATUS[this.code];
+  }
+}
+
+export function assertAssistantEnabled(configured: boolean): void {
+  if (!configured) {
+    throw new AiBridgeError(
+      'assistant_disabled',
+      'The assistant is switched off',
+    );
   }
 }

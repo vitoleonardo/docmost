@@ -8,7 +8,9 @@ import fakeredis
 import pytest
 from fastapi.testclient import TestClient
 
+from ai_service import app as app_module
 from ai_service import auth
+from ai_service.agent_store import ProposalStatus, RunOutcome
 from ai_service.app import create_app
 from ai_service.extraction import ExtractionPipeline, RefusalReason
 from ai_service.inference import JsonCompletion, ModelUnavailable
@@ -16,6 +18,8 @@ from ai_service.jobs import JOB_STREAM, enqueue_job
 from tests.conftest import idle_ask_pipeline, idle_extraction_pipeline, make_settings
 from tests.index_db import SPACE_A, page_id
 from tests.pdf_fixtures import build_blank_pdf, build_pdf
+from tests.test_agent import Harness as AgentHarness
+from tests.test_agent import answer, final, propose, read, search, travel_page
 from tests.test_ask import Harness, hit
 
 CONTRACT_PATH = Path(__file__).resolve().parents[2] / "docs" / "contracts" / "ai-bridge.json"
@@ -158,6 +162,47 @@ def test_ask_ac9_every_ask_event_has_exactly_the_fields_of_the_contract(
     assert by_type == {name: set(fields) for name, fields in ask["events"].items()}
     errors = [event["code"] for event in events if event["type"] == "error"]
     assert set(errors) == set(ask["values"]["errorCode"])
+
+
+def agent_endpoint(path: str) -> dict[str, Any]:
+    return next(endpoint for endpoint in AI_SERVICE_ENDPOINTS if endpoint["path"] == path)
+
+
+def test_agent_contract_every_agent_event_has_exactly_the_fields_of_the_contract() -> None:
+    runs = agent_endpoint("/v1/agent/runs")
+    full_run = AgentHarness(travel_page()).script(
+        answer(search("Reisekosten")),
+        answer(read(1)),
+        answer(read(9)),
+        answer(propose(1)),
+        final(),
+    )
+    failing_run = AgentHarness(travel_page()).script(ModelUnavailable("HTTP 503"))
+
+    events = [*full_run.run(), *failing_run.run()]
+
+    by_type: dict[str, set[str]] = {}
+    for event in events:
+        by_type.setdefault(event["type"], set()).update(event_fields(event))
+    assert by_type == {name: set(fields) for name, fields in runs["events"].items()}
+    kinds = {event["label"]["kind"] for event in events if event["type"] == "step"}
+    assert kinds == set(runs["values"]["stepKind"])
+    outcomes = {event["outcome"] for event in events if event["type"] == "end"}
+    assert outcomes <= set(runs["values"]["endOutcome"])
+
+
+def test_agent_contract_end_outcomes_are_every_run_outcome_but_cancelled() -> None:
+    runs = agent_endpoint("/v1/agent/runs")
+
+    assert set(runs["values"]["endOutcome"]) == set(get_args(RunOutcome)) - {"cancelled"}
+
+
+def test_agent_contract_task_length_and_proposal_states_equal_the_service() -> None:
+    assert agent_endpoint("/v1/agent/runs")["maxTaskLength"] == app_module.MAX_TASK_LENGTH
+    get_values = agent_endpoint("/v1/agent/proposals/get")["values"]
+    transition_values = agent_endpoint("/v1/agent/proposals/transition")["values"]
+    assert set(get_values["status"]) == set(get_args(ProposalStatus))
+    assert set(transition_values["to"]) == set(get_args(ProposalStatus))
 
 
 @dataclass

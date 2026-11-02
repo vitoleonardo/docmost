@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ActionIcon, Group, Textarea } from "@mantine/core";
+import { ActionIcon, Button, Group, Textarea } from "@mantine/core";
 import { IconPlayerStopFilled, IconSend } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 
@@ -9,7 +9,11 @@ interface AskInputProps {
   disabled: boolean;
   isPending: boolean;
   onSend: (question: string) => void;
-  onStop: () => void;
+  onStop?: () => void;
+  placeholder?: string;
+  submitLabel?: string;
+  value?: string;
+  onValueChange?: (value: string) => void;
 }
 
 export default function AskInput({
@@ -17,9 +21,15 @@ export default function AskInput({
   isPending,
   onSend,
   onStop,
+  placeholder,
+  submitLabel,
+  value: controlledValue,
+  onValueChange,
 }: AskInputProps) {
   const { t } = useTranslation();
-  const [value, setValue] = useState("");
+  const [ownValue, setOwnValue] = useState("");
+  const value = controlledValue ?? ownValue;
+  const setValue = onValueChange ?? setOwnValue;
   const trimmed = value.trim();
   const tooLong = trimmed.length > MAX_QUESTION_LENGTH;
   const canSend = !disabled && trimmed.length > 0 && !tooLong;
@@ -36,7 +46,7 @@ export default function AskInput({
         style={{ flex: 1 }}
         rows={2}
         disabled={disabled}
-        placeholder={t("Ask a question …")}
+        placeholder={placeholder ?? t("Ask a question …")}
         value={value}
         error={tooLong ? t("At most 2,000 characters") : undefined}
         onChange={(event) => setValue(event.currentTarget.value)}
@@ -55,6 +65,10 @@ export default function AskInput({
         >
           <IconPlayerStopFilled size={16} />
         </ActionIcon>
+      ) : submitLabel ? (
+        <Button disabled={!canSend} onClick={send}>
+          {submitLabel}
+        </Button>
       ) : (
         <ActionIcon
           size="lg"

@@ -20,6 +20,7 @@ import type { ICurrentUser } from "@/features/user/types/user.types.ts";
 import api from "@/lib/api-client";
 import PageHeaderMenu from "@/features/page/components/header/page-header-menu.tsx";
 import type { AiAssistantStatus } from "@/features/ai-assistant/types/ai-assistant.types.ts";
+import { useAgentRun } from "@/features/ai-assistant/hooks/use-agent-run.ts";
 
 vi.mock("react-i18next", async (importOriginal) => ({
   ...(await importOriginal<typeof import("react-i18next")>()),
@@ -581,10 +582,13 @@ describe("ai assistant panel: ask", () => {
     expect(screen.queryByText("Frage eins")).toBeNull();
     expect((await questionInput()).disabled).toBe(true);
     expect(
-      (screen.getByRole("button", { name: "Senden" }) as HTMLButtonElement).disabled,
+      (screen.getByRole("button", { name: "Senden" }) as HTMLButtonElement)
+        .disabled,
     ).toBe(true);
     fireEvent.click(screen.getByRole("button", { name: "Erneut versuchen" }));
-    await waitFor(() => expect(screen.queryByText(UNAVAILABLE_TEXT)).toBeNull());
+    await waitFor(() =>
+      expect(screen.queryByText(UNAVAILABLE_TEXT)).toBeNull(),
+    );
     expect((await questionInput()).disabled).toBe(false);
     expect(await screen.findByText("Frag das Wiki")).toBeTruthy();
   });
@@ -611,7 +615,9 @@ function renderPageMenuWithAside() {
 }
 
 async function openPageMenu() {
-  fireEvent.click(await screen.findByRole("button", { name: "Seitenaktionen" }));
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Seitenaktionen" }),
+  );
 }
 
 describe("ai assistant: ask about this page", () => {
@@ -643,8 +649,11 @@ describe("ai assistant: ask about this page", () => {
       isAsideOpen: true,
     });
     expect(
-      ((await screen.findByRole("combobox", { name: "Bereich" })) as HTMLInputElement)
-        .value,
+      (
+        (await screen.findByRole("combobox", {
+          name: "Bereich",
+        })) as HTMLInputElement
+      ).value,
     ).toBe("Diese Seite");
     expect(screen.getByText("Frage eins")).toBeTruthy();
     expect(screen.getByText("Antwort eins")).toBeTruthy();
@@ -681,5 +690,166 @@ describe("ai assistant: ask about this page", () => {
     expect(
       await screen.findByRole("menuitem", { name: "Zu dieser Seite fragen" }),
     ).toBeTruthy();
+  });
+});
+
+function streamAssistantRequests(stream: { response: Response }) {
+  fetchMock.mockImplementation(async (url: string) =>
+    url.startsWith("/api/ai/") ? stream.response : new Response("{}"),
+  );
+}
+
+function selectedTab() {
+  return screen
+    .getAllByRole("tab")
+    .find((tab) => tab.getAttribute("aria-selected") === "true")?.textContent;
+}
+
+describe("ai assistant panel: tabs", () => {
+  beforeEach(() => {
+    fetchMock.mockReset();
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  it("AGENT-AC1: the first open shows the tabs Fragen and Aufgabe with Fragen selected", async () => {
+    mockWiki("available");
+    renderAside();
+    expect(await screen.findByRole("tab", { name: "Fragen" })).toBeTruthy();
+    expect(screen.getByRole("tab", { name: "Aufgabe" })).toBeTruthy();
+    expect(selectedTab()).toBe("Fragen");
+    expect(await screen.findByText("Frag das Wiki")).toBeTruthy();
+  });
+
+  it("AGENT-AC3: an unavailable assistant shows state A4 with a retry button in the Aufgabe tab", async () => {
+    mockWiki("unavailable");
+    renderAside();
+    fireEvent.click(await screen.findByRole("tab", { name: "Aufgabe" }));
+    expect(selectedTab()).toBe("Aufgabe");
+    expect(await screen.findByText(UNAVAILABLE_TEXT)).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Erneut versuchen" }),
+    ).toBeTruthy();
+  });
+
+  it("AGENT-AC3: an unavailable assistant shows state A4 in the Fragen tab too", async () => {
+    mockWiki("unavailable");
+    renderAside();
+    expect(await screen.findByRole("tab", { name: "Fragen" })).toBeTruthy();
+    expect(await screen.findByText(UNAVAILABLE_TEXT)).toBeTruthy();
+  });
+
+  it("AGENT-AC12: an ask turn is still there after switching to Aufgabe and back", async () => {
+    mockWiki("available");
+    const stream = controlledStream();
+    streamAssistantRequests(stream);
+    renderAside();
+    type(await questionInput(), "Frage eins");
+    fireEvent.click(screen.getByRole("button", { name: "Senden" }));
+    stream.push({ type: "delta", text: "Antwort eins" });
+    await screen.findByText("Antwort eins");
+    fireEvent.click(screen.getByRole("tab", { name: "Aufgabe" }));
+    await waitFor(() => expect(screen.queryByText("Antwort eins")).toBeNull());
+    fireEvent.click(screen.getByRole("tab", { name: "Fragen" }));
+    expect(await screen.findByText("Frage eins")).toBeTruthy();
+    expect(screen.getByText("Antwort eins")).toBeTruthy();
+  });
+
+  it("AGENT-AC13: a running agent task is not stopped by switching tabs", async () => {
+    mockWiki("available");
+    const stream = controlledStream();
+    streamAssistantRequests(stream);
+    function RunProbe() {
+      const { run, start } = useAgentRun();
+      return (
+        <>
+          <button onClick={() => void start("space-1", "IT", "Aufräumen")}>
+            probe-start
+          </button>
+          <span data-testid="probe">
+            {run ? `${run.task}:${run.status}` : "-"}
+          </span>
+        </>
+      );
+    }
+    const client = new QueryClient();
+    const store = createStore();
+    store.set(asideStateAtom, { tab: "ai-assistant", isAsideOpen: true });
+    render(
+      <MantineProvider>
+        <QueryClientProvider client={client}>
+          <Provider store={store}>
+            <MemoryRouter>
+              <RunProbe />
+              <Aside />
+            </MemoryRouter>
+          </Provider>
+        </QueryClientProvider>
+      </MantineProvider>,
+    );
+    fireEvent.click(await screen.findByRole("button", { name: "probe-start" }));
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/ai/agent/run",
+        expect.anything(),
+      ),
+    );
+    const signal = fetchMock.mock.calls.find(([url]) =>
+      url.startsWith("/api/ai/"),
+    )![1].signal as AbortSignal;
+    fireEvent.click(await screen.findByRole("tab", { name: "Aufgabe" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Fragen" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Aufgabe" }));
+    expect(screen.getByTestId("probe").textContent).toBe("Aufräumen:running");
+    expect(signal.aborted).toBe(false);
+  });
+
+  it("AGENT-AC14: Neue Unterhaltung is shown on Fragen and hidden on Aufgabe", async () => {
+    mockWiki("available");
+    renderAside();
+    expect(
+      await screen.findByRole("button", { name: "Neue Unterhaltung" }),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole("tab", { name: "Aufgabe" }));
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("button", { name: "Neue Unterhaltung" }),
+      ).toBeNull(),
+    );
+    fireEvent.click(screen.getByRole("tab", { name: "Fragen" }));
+    expect(
+      await screen.findByRole("button", { name: "Neue Unterhaltung" }),
+    ).toBeTruthy();
+  });
+
+  it("AGENT-AC15: Zu dieser Seite fragen selects Fragen with the scope Diese Seite while Aufgabe was selected", async () => {
+    mockWiki("available");
+    renderPageMenuWithAside();
+    fireEvent.click(await screen.findByRole("button", { name: "Assistent" }));
+    fireEvent.click(await screen.findByRole("tab", { name: "Aufgabe" }));
+    expect(selectedTab()).toBe("Aufgabe");
+    await openPageMenu();
+    fireEvent.click(
+      await screen.findByRole("menuitem", { name: "Zu dieser Seite fragen" }),
+    );
+    expect(
+      (
+        (await screen.findByRole("combobox", {
+          name: "Bereich",
+        })) as HTMLInputElement
+      ).value,
+    ).toBe("Diese Seite");
+    expect(selectedTab()).toBe("Fragen");
+  });
+
+  it("AGENT-AC15: the last selected tab is kept when the aside is opened again", async () => {
+    mockWiki("available");
+    const store = renderAssistant();
+    fireEvent.click(await screen.findByRole("button", { name: "Assistent" }));
+    fireEvent.click(await screen.findByRole("tab", { name: "Aufgabe" }));
+    fireEvent.click(screen.getByRole("button", { name: "Assistent" }));
+    expect(store.get(asideStateAtom).isAsideOpen).toBe(false);
+    fireEvent.click(screen.getByRole("button", { name: "Assistent" }));
+    expect(store.get(asideStateAtom).isAsideOpen).toBe(true);
+    expect(selectedTab()).toBe("Aufgabe");
   });
 });

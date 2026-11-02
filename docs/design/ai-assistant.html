@@ -363,14 +363,14 @@
       <div class="screen panel">
         <div class="row between"><span class="h6">Assistent</span><svg class="icon dim"><use href="#i-x"/></svg></div>
         <div class="seg"><span>Fragen</span><span class="on">Aufgabe</span></div>
-        <div class="row"><span class="chip">Bereich: HR ▾</span></div>
+        <div class="row"><span class="chip">Bereich: Allgemein ▾</span></div>
         <div class="alert blue"><svg class="icon"><use href="#i-lock"/></svg><span>Der Assistent kann Seiten suchen, lesen und Änderungen vorschlagen. Nichts wird ohne deine Bestätigung geändert.</span></div>
         <div style="display:flex;flex-direction:column;gap:6px">
           <span class="xs dim" style="font-weight:600">BEISPIELE</span>
-          <div class="suggest">Finde veraltete Seiten zu Urlaub und schlage Updates vor</div>
-          <div class="suggest">Prüfe, ob sich Seiten zu Reisekosten widersprechen</div>
+          <div class="suggest">Finde veraltete Seiten zu Reisekosten und schlage Updates vor</div>
+          <div class="suggest">Prüfe, ob sich Seiten zum Urlaubsantrag widersprechen</div>
         </div>
-        <div class="composer"><div class="input filled" style="min-height:58px">Finde veraltete Seiten zu Urlaub und Abwesenheiten und schlage Updates vor</div><span class="btn primary icon-only"><svg class="icon"><use href="#i-send"/></svg></span></div>
+        <div class="composer"><div class="input" style="min-height:58px">Aufgabe beschreiben …</div><span class="btn primary">Starten</span></div>
       </div>
       <figcaption><b>G1 Aufgabe beschreiben.</b> Freier Text wie im Fragen-Modus, dazu die Bereichsauswahl (nur lesbare Bereiche). Was der Agent kann, legen seine Werkzeuge fest, nicht die Eingabe. Passt eine Aufgabe nicht dazu, antwortet er im Panel, was er stattdessen kann, statt es zu versuchen.</figcaption>
     </figure>
@@ -379,16 +379,15 @@
       <div class="screen panel">
         <div class="row between"><span class="h6">Assistent</span><svg class="icon dim"><use href="#i-x"/></svg></div>
         <div class="seg"><span>Fragen</span><span class="on">Aufgabe</span></div>
-        <div class="bubble">Finde veraltete Seiten zu Urlaub und Abwesenheiten und schlage Updates vor <span class="xs dim">· HR</span></div>
+        <div class="bubble">Finde veraltete Seiten zu Reisekosten und schlage Updates vor <span class="xs dim">· Allgemein</span></div>
         <div class="steps">
-          <div class="row"><svg class="icon ok"><use href="#i-check"/></svg><span>Gesucht: „Urlaub“, „Abwesenheit“: 7 Seiten</span></div>
-          <div class="row"><svg class="icon ok"><use href="#i-check"/></svg><span>5 Seiten gelesen</span></div>
-          <div class="row"><svg class="icon ok"><use href="#i-check"/></svg><span>Widerspruch gefunden: „Reisekostenrichtlinie“ nennt 28 Urlaubstage</span></div>
-          <div class="row"><svg class="icon run"><use href="#i-loader"/></svg><span>Vorschlag für „Onboarding Checkliste“ wird erstellt …</span></div>
+          <div class="row"><svg class="icon ok"><use href="#i-check"/></svg><span>Gesucht: „Reisekosten“: 2 Seiten</span></div>
+          <div class="row"><svg class="icon ok"><use href="#i-check"/></svg><span>Gelesen: „Reisekosten Richtlinie 2022“</span></div>
+          <div class="row"><svg class="icon ok"><use href="#i-check"/></svg><span>Gelesen: „Reisekosten Abrechnung“</span></div>
+          <div class="row"><svg class="icon ok"><use href="#i-check"/></svg><span>Vorschlag erstellt: „Reisekosten Richtlinie 2022“</span></div>
         </div>
         <div style="margin-top:auto;display:flex;flex-direction:column;gap:8px">
-          <div class="row xs dim between"><span>Schritt 9 von höchstens 20</span><span>1:12 min</span></div>
-          <div style="height:4px;background:var(--m-gray2);border-radius:2px"><div style="width:45%;height:4px;background:var(--m-blue);border-radius:2px"></div></div>
+          <div class="row xs dim between"><span>Schritt 4 von höchstens 20</span><span>1:12 min</span></div>
           <span class="btn default">Abbrechen</span>
         </div>
       </div>
@@ -399,42 +398,42 @@
       <div class="screen panel">
         <div class="row between"><span class="h6">Assistent</span><svg class="icon dim"><use href="#i-x"/></svg></div>
         <div class="seg"><span>Fragen</span><span class="on">Aufgabe</span></div>
-        <span class="sm"><b>2 Vorschläge</b> · 5 Seiten geprüft, 3 aktuell</span>
+        <span class="sm"><b>2 Vorschläge</b> · 5 Seiten gelesen</span>
         <div class="card">
-          <div class="row between"><b class="sm">Reisekostenrichtlinie</b><span class="xs"><span class="plus">+2</span> <span class="minus">−2</span></span></div>
-          <span class="xs dim">Nennt 28 Urlaubstage; „Urlaubsregelung 2026“ nennt 30.</span>
+          <div class="row between"><b class="sm">Reisekosten Richtlinie 2022</b><span class="xs"><span class="plus">+1</span> <span class="minus">−1</span></span></div>
+          <span class="xs dim">Kilometerpauschale ist veraltet.</span>
           <div class="row"><span class="btn default" style="height:28px;font-size:13px">Ansehen</span></div>
         </div>
         <div class="card">
-          <div class="row between"><b class="sm">Onboarding Checkliste</b><span class="xs"><span class="plus">+3</span> <span class="minus">−1</span></span></div>
-          <span class="xs dim">Verweist auf das Urlaubsformular von 2023, das ersetzt wurde.</span>
-          <div class="row"><span class="badge green">Übernommen</span></div>
+          <div class="row between"><b class="sm">Reisekosten Abrechnung</b><span class="xs"><span class="plus">+3</span> <span class="minus">−3</span></span></div>
+          <span class="xs dim">Abrechnungsfrist wurde verkürzt.</span>
+          <div class="row between"><span class="btn default" style="height:28px;font-size:13px">Ansehen</span><span class="badge green">Übernommen</span></div>
         </div>
         <div class="alert orange" style="margin-top:auto"><svg class="icon"><use href="#i-alert"/></svg><span>Nach 20 Schritten gestoppt. Nicht alle Seiten wurden geprüft.</span></div>
       </div>
-      <figcaption><b>G3 Ergebnis.</b> Ein Vorschlag pro Seite mit Begründung und Umfang. Status je Karte: offen, übernommen, verworfen, veraltet. Der orange Hinweis erscheint nur, wenn eine Grenze erreicht wurde.</figcaption>
+      <figcaption><b>G3 Ergebnis.</b> Ein Vorschlag pro Seite mit Begründung und Umfang. Status je Karte: offen, übernommen, verworfen, veraltet. Die Zusammenfassung zählt Vorschläge und gelesene Seiten. Der orange Hinweis erscheint nur, wenn eine Grenze erreicht wurde.</figcaption>
     </figure>
 
     <figure class="wide">
       <div class="screen modal">
-        <div class="head"><span class="h6">Vorschlag: Reisekostenrichtlinie</span><svg class="icon dim"><use href="#i-x"/></svg></div>
+        <div class="head"><span class="h6">Vorschlag: Reisekosten Richtlinie 2022</span><svg class="icon dim"><use href="#i-x"/></svg></div>
         <div class="body">
-          <span class="sm dim">Begründung: Die Seite nennt 28 Urlaubstage. Laut <a style="color:var(--m-blue)">Urlaubsregelung 2026 › Anspruch</a> sind es seit 01.01.2026 30 Tage.</span>
+          <span class="sm dim">Begründung: Kilometerpauschale ist veraltet</span>
           <div class="diff">
-            <h4>Urlaub auf Dienstreisen</h4>
-            <p>Urlaubstage, die an eine Dienstreise angehängt werden, zählen gegen den Jahresanspruch von <del>28</del> <ins>30</ins> Arbeitstagen.</p>
-            <p><del>Stand: März 2024.</del> <ins>Stand: Oktober 2026, angepasst an die Urlaubsregelung 2026.</ins></p>
+            <h4>Kilometerpauschale</h4>
+            <p>Die Pauschale beträgt <del>0,30</del> <ins>0,38</ins> € pro Kilometer.</p>
+            <p><del>Stand: März 2024.</del> <ins>Stand: Oktober 2026.</ins></p>
           </div>
         </div>
-        <div class="foot"><span class="xs dim">Wird als deine Änderung gespeichert, mit Vermerk „über KI-Assistent“.</span><span class="grow"></span><span class="btn subtle">Verwerfen</span><span class="btn primary">Übernehmen</span></div>
+        <div class="foot"><span class="xs dim">Wird als deine Änderung gespeichert.</span><span class="grow"></span><span class="btn subtle">Verwerfen</span><span class="btn primary">Übernehmen</span></div>
       </div>
       <figcaption><b>G4 Änderung prüfen.</b> Die Diff-Ansicht braucht Platz, deshalb ein Dialog statt des schmalen Panels. „Übernehmen“ schreibt exakt diese Änderung, nichts anderes.</figcaption>
     </figure>
 
     <figure>
       <div class="screen panel" style="height:auto">
-        <div class="row between"><span class="h6">Vorschlag: Reisekostenrichtlinie</span><svg class="icon dim"><use href="#i-x"/></svg></div>
-        <div class="alert orange"><svg class="icon"><use href="#i-alert"/></svg><span>Die Seite wurde nach diesem Vorschlag geändert (Max Krüger, 14:32). Der Vorschlag kann nicht mehr übernommen werden.</span></div>
+        <div class="row between"><span class="h6">Vorschlag: Reisekosten Richtlinie 2022</span><svg class="icon dim"><use href="#i-x"/></svg></div>
+        <div class="alert orange"><svg class="icon"><use href="#i-alert"/></svg><span>Die Seite wurde nach diesem Vorschlag geändert. Der Vorschlag kann nicht mehr übernommen werden.</span></div>
         <div class="row" style="justify-content:flex-end"><span class="btn subtle">Schließen</span><span class="btn primary">Neuen Vorschlag erstellen</span></div>
       </div>
       <figcaption><b>G5 Veraltet.</b> Die Seite hat sich seit dem Vorschlag geändert; Übernehmen ist gesperrt (Spec §9, M8).</figcaption>
@@ -442,10 +441,10 @@
 
     <figure>
       <div class="screen panel" style="height:auto">
-        <div class="row between"><span class="h6">Vorschlag: Reisekostenrichtlinie</span><svg class="icon dim"><use href="#i-x"/></svg></div>
-        <div class="diff sm" style="font-size:13px"><p style="margin:0">… von <del>28</del> <ins>30</ins> Arbeitstagen.</p></div>
+        <div class="row between"><span class="h6">Vorschlag: Reisekosten Richtlinie 2022</span><svg class="icon dim"><use href="#i-x"/></svg></div>
+        <div class="diff sm" style="font-size:13px"><p style="margin:0">Die Pauschale beträgt <del>0,30</del> <ins>0,38</ins> € pro Kilometer.</p></div>
         <div class="row"><svg class="icon dim"><use href="#i-lock"/></svg><span class="sm dim">Du hast nur Leserechte für diese Seite und kannst den Vorschlag nicht übernehmen.</span></div>
-        <div class="row" style="justify-content:flex-end"><span class="btn subtle">Schließen</span><span class="btn disabled">Übernehmen</span></div>
+        <div class="row" style="justify-content:flex-end"><span class="btn subtle">Verwerfen</span><span class="btn disabled">Übernehmen</span></div>
       </div>
       <figcaption><b>G6 Nur Leserechte</b> (z. B. Werkstudent). Vorschlag sichtbar, Übernehmen gesperrt, mit Grund. Der Server lehnt es zusätzlich ab, die Sperre in der UI ist nur Komfort.</figcaption>
     </figure>

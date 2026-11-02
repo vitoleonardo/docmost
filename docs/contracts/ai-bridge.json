@@ -19,6 +19,11 @@
     "page_not_found": 404,
     "space_not_found": 404,
     "attachment_not_found": 404,
+    "proposal_not_found": 404,
+    "proposal_not_open": 409,
+    "proposal_stale": 409,
+    "write_failed": 503,
+    "run_in_progress": 409,
     "page_not_editable": 403
   },
   "endpoints": [
@@ -88,7 +93,13 @@
           "fields[].quote",
           "fields[].pdfPage"
         ],
-        "refused": ["outcome", "reason", "pageCount", "fileSize", "characterCount"],
+        "refused": [
+          "outcome",
+          "reason",
+          "pageCount",
+          "fileSize",
+          "characterCount"
+        ],
         "failed": ["outcome", "reason"]
       },
       "values": {
@@ -114,9 +125,137 @@
       ]
     },
     {
+      "side": "wiki-client",
+      "method": "POST",
+      "path": "/api/ai/agent/run",
+      "auth": ["session"],
+      "request": ["spaceId", "task"],
+      "response": [],
+      "responseType": "sse",
+      "responseContentType": "text/event-stream",
+      "events": {
+        "run": ["type", "runId"],
+        "step": [
+          "type",
+          "steps",
+          "label.kind",
+          "label.query",
+          "label.count",
+          "label.title"
+        ],
+        "proposal": [
+          "type",
+          "proposal.id",
+          "proposal.pageId",
+          "proposal.pageTitle",
+          "proposal.reason",
+          "proposal.added",
+          "proposal.removed"
+        ],
+        "end": ["type", "outcome", "pagesRead", "message"]
+      },
+      "values": {
+        "stepKind": ["search", "read", "propose", "refused"],
+        "endOutcome": [
+          "finished",
+          "out_of_scope",
+          "step_limit",
+          "time_limit",
+          "token_limit",
+          "context_too_small",
+          "model_failed"
+        ]
+      },
+      "maxTaskLength": 2000,
+      "status": 200,
+      "errors": [
+        "invalid_request",
+        "space_not_found",
+        "run_in_progress",
+        "assistant_disabled",
+        "assistant_unavailable"
+      ]
+    },
+    {
+      "side": "wiki-client",
+      "method": "POST",
+      "path": "/api/ai/agent/proposal",
+      "auth": ["session"],
+      "request": ["proposalId"],
+      "response": [
+        "id",
+        "runId",
+        "pageId",
+        "pageTitle",
+        "reason",
+        "status",
+        "canEdit",
+        "added",
+        "removed",
+        "changes[].heading",
+        "changes[].ops[].op",
+        "changes[].ops[].text"
+      ],
+      "values": {
+        "status": ["open", "applied", "discarded", "stale"],
+        "op": ["keep", "remove", "add"]
+      },
+      "status": 200,
+      "errors": [
+        "invalid_request",
+        "proposal_not_found",
+        "page_not_found",
+        "assistant_disabled",
+        "assistant_unavailable"
+      ]
+    },
+    {
+      "side": "wiki-client",
+      "method": "POST",
+      "path": "/api/ai/agent/proposal/apply",
+      "auth": ["session"],
+      "request": ["proposalId"],
+      "response": ["status"],
+      "values": {
+        "status": ["applied"]
+      },
+      "status": 200,
+      "errors": [
+        "invalid_request",
+        "proposal_not_found",
+        "page_not_found",
+        "page_not_editable",
+        "proposal_not_open",
+        "proposal_stale",
+        "write_failed",
+        "assistant_disabled",
+        "assistant_unavailable"
+      ]
+    },
+    {
+      "side": "wiki-client",
+      "method": "POST",
+      "path": "/api/ai/agent/proposal/discard",
+      "auth": ["session"],
+      "request": ["proposalId"],
+      "response": ["status"],
+      "values": {
+        "status": ["discarded"]
+      },
+      "status": 200,
+      "errors": [
+        "invalid_request",
+        "proposal_not_found",
+        "proposal_not_open",
+        "assistant_disabled",
+        "assistant_unavailable"
+      ]
+    },
+    {
       "side": "bridge",
       "method": "POST",
       "path": "/api/ai-bridge/internal/filter-pages",
+      "changesPageContent": false,
       "auth": ["service", "user"],
       "acceptsTaskToken": true,
       "request": ["pageIds", "spaceId"],
@@ -138,6 +277,7 @@
       "side": "bridge",
       "method": "POST",
       "path": "/api/ai-bridge/internal/task-token",
+      "changesPageContent": false,
       "auth": ["service", "user"],
       "acceptsTaskToken": false,
       "request": ["runId"],
@@ -158,6 +298,7 @@
       "side": "bridge",
       "method": "POST",
       "path": "/api/ai-bridge/internal/pages",
+      "changesPageContent": false,
       "auth": ["service"],
       "request": ["cursor"],
       "response": [
@@ -180,6 +321,7 @@
       "side": "bridge",
       "method": "POST",
       "path": "/api/ai-bridge/internal/page-content",
+      "changesPageContent": false,
       "auth": ["service"],
       "request": ["pageId"],
       "response": [
@@ -208,6 +350,7 @@
       "side": "bridge",
       "method": "POST",
       "path": "/api/ai-bridge/internal/attachment",
+      "changesPageContent": false,
       "auth": ["service"],
       "request": ["attachmentId"],
       "response": [],
@@ -227,6 +370,7 @@
       "side": "bridge",
       "method": "POST",
       "path": "/api/ai-bridge/internal/tools/read-page",
+      "changesPageContent": false,
       "auth": ["service", "user"],
       "acceptsTaskToken": true,
       "request": ["pageId"],
@@ -248,14 +392,11 @@
       "side": "bridge",
       "method": "POST",
       "path": "/api/ai-bridge/internal/tools/search",
+      "changesPageContent": false,
       "auth": ["service", "user"],
       "acceptsTaskToken": true,
       "request": ["spaceId", "query"],
-      "response": [
-        "results[].id",
-        "results[].title",
-        "results[].spaceId"
-      ],
+      "response": ["results[].id", "results[].title", "results[].spaceId"],
       "maxResults": 20,
       "status": 200,
       "errors": [
@@ -268,6 +409,39 @@
         "user_id_not_allowed",
         "invalid_request",
         "space_not_found"
+      ]
+    },
+    {
+      "side": "bridge",
+      "method": "POST",
+      "path": "/api/ai-bridge/internal/tools/read-blocks",
+      "changesPageContent": false,
+      "auth": ["service", "user"],
+      "acceptsTaskToken": true,
+      "request": ["pageId", "spaceId"],
+      "response": [
+        "id",
+        "title",
+        "spaceId",
+        "fingerprint",
+        "blocks[].number",
+        "blocks[].text",
+        "blocks[].heading",
+        "blocks[].isHeading",
+        "blocks[].editable"
+      ],
+      "status": 200,
+      "errors": [
+        "assistant_disabled",
+        "assistant_unavailable",
+        "service_token_missing",
+        "service_token_invalid",
+        "user_token_missing",
+        "user_token_expired",
+        "user_token_invalid",
+        "user_id_not_allowed",
+        "invalid_request",
+        "page_not_found"
       ]
     },
     {
@@ -339,7 +513,13 @@
           "fields[].quote",
           "fields[].pdfPage"
         ],
-        "refused": ["outcome", "reason", "pageCount", "fileSize", "characterCount"],
+        "refused": [
+          "outcome",
+          "reason",
+          "pageCount",
+          "fileSize",
+          "characterCount"
+        ],
         "failed": ["outcome", "reason"]
       },
       "values": {
@@ -364,6 +544,134 @@
         "invalid_request",
         "attachment_not_found",
         "assistant_unavailable"
+      ]
+    },
+    {
+      "side": "ai-service",
+      "method": "POST",
+      "path": "/v1/agent/runs",
+      "auth": ["service", "user"],
+      "request": ["spaceId", "task"],
+      "response": [],
+      "responseType": "ndjson",
+      "responseContentType": "application/x-ndjson",
+      "events": {
+        "run": ["type", "runId"],
+        "step": [
+          "type",
+          "steps",
+          "label.kind",
+          "label.query",
+          "label.count",
+          "label.title"
+        ],
+        "proposal": [
+          "type",
+          "proposal.id",
+          "proposal.pageId",
+          "proposal.pageTitle",
+          "proposal.reason",
+          "proposal.added",
+          "proposal.removed"
+        ],
+        "end": ["type", "outcome", "pagesRead", "message"]
+      },
+      "values": {
+        "stepKind": ["search", "read", "propose", "refused"],
+        "endOutcome": [
+          "finished",
+          "out_of_scope",
+          "step_limit",
+          "time_limit",
+          "token_limit",
+          "context_too_small",
+          "model_failed"
+        ]
+      },
+      "maxTaskLength": 2000,
+      "status": 200,
+      "errors": [
+        "service_token_missing",
+        "service_token_invalid",
+        "user_token_missing",
+        "user_token_expired",
+        "user_token_invalid",
+        "invalid_request",
+        "run_in_progress",
+        "assistant_unavailable"
+      ]
+    },
+    {
+      "side": "ai-service",
+      "method": "POST",
+      "path": "/v1/agent/proposals/get",
+      "auth": ["service", "user"],
+      "request": ["proposalId"],
+      "response": [
+        "id",
+        "runId",
+        "userId",
+        "pageId",
+        "pageTitle",
+        "spaceId",
+        "reason",
+        "fingerprint",
+        "changes",
+        "added",
+        "removed",
+        "status",
+        "appliedBy",
+        "appliedAt"
+      ],
+      "values": {
+        "status": ["open", "applying", "applied", "discarded", "stale"]
+      },
+      "status": 200,
+      "errors": [
+        "service_token_missing",
+        "service_token_invalid",
+        "user_token_missing",
+        "user_token_expired",
+        "user_token_invalid",
+        "invalid_request",
+        "proposal_not_found"
+      ]
+    },
+    {
+      "side": "ai-service",
+      "method": "POST",
+      "path": "/v1/agent/proposals/transition",
+      "auth": ["service", "user"],
+      "request": ["proposalId", "to"],
+      "response": [
+        "id",
+        "runId",
+        "userId",
+        "pageId",
+        "pageTitle",
+        "spaceId",
+        "reason",
+        "fingerprint",
+        "changes",
+        "added",
+        "removed",
+        "status",
+        "appliedBy",
+        "appliedAt"
+      ],
+      "values": {
+        "to": ["applying", "applied", "open", "stale", "discarded"]
+      },
+      "status": 200,
+      "errors": [
+        "service_token_missing",
+        "service_token_invalid",
+        "user_token_missing",
+        "user_token_expired",
+        "user_token_invalid",
+        "invalid_request",
+        "proposal_not_found",
+        "proposal_not_open"
       ]
     },
     {

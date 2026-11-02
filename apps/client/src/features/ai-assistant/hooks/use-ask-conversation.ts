@@ -1,6 +1,9 @@
 import { useCallback } from "react";
 import { atom, useAtomValue, useStore } from "jotai";
-import { askQuestion, AskRequestError } from "@/features/ai-assistant/services/ai-assistant-service.ts";
+import {
+  askQuestion,
+  AskRequestError,
+} from "@/features/ai-assistant/services/ai-assistant-service.ts";
 import type {
   AskEvent,
   AskScope,
@@ -20,7 +23,10 @@ const emptyConversation = (): IAskConversation => ({
 const askConversationAtom = atom<IAskConversation>(emptyConversation());
 const runningAskAtom = atom(null as AbortController | null);
 
-function requestBodyOf(conversation: IAskConversation, question: string): IAskRequest {
+function requestBodyOf(
+  conversation: IAskConversation,
+  question: string,
+): IAskRequest {
   const { conversationId, scope } = conversation;
   const body: IAskRequest = { question, conversationId };
   if (scope.kind === "space") body.spaceId = scope.spaceId;
@@ -59,12 +65,20 @@ export function useAskConversation() {
         ...current,
         turns: [
           ...current.turns,
-          { id: turnId, question: text, answer: "", status: "streaming", sources: [] },
+          {
+            id: turnId,
+            question: text,
+            answer: "",
+            status: "streaming",
+            sources: [],
+          },
         ],
       });
 
-      const finishWith = (status: AskTurnStatus, extra: Partial<IAskTurn> = {}) =>
-        updateTurn(turnId, () => ({ status, ...extra }));
+      const finishWith = (
+        status: AskTurnStatus,
+        extra: Partial<IAskTurn> = {},
+      ) => updateTurn(turnId, () => ({ status, ...extra }));
 
       const onEvent = (event: AskEvent) => {
         if (controller.signal.aborted) return;
@@ -80,7 +94,11 @@ export function useAskConversation() {
       };
 
       try {
-        await askQuestion(requestBodyOf(current, text), onEvent, controller.signal);
+        await askQuestion(
+          requestBodyOf(current, text),
+          onEvent,
+          controller.signal,
+        );
       } catch (error) {
         if (controller.signal.aborted) return;
         const code = error instanceof AskRequestError ? error.code : null;
@@ -94,7 +112,8 @@ export function useAskConversation() {
           unavailable: true,
         }));
       } finally {
-        if (store.get(runningAskAtom) === controller) store.set(runningAskAtom, null);
+        if (store.get(runningAskAtom) === controller)
+          store.set(runningAskAtom, null);
       }
     },
     [store, updateTurn],
@@ -121,13 +140,19 @@ export function useAskConversation() {
 
   const setScope = useCallback(
     (next: AskScope) => {
-      store.set(askConversationAtom, (current) => ({ ...current, scope: next }));
+      store.set(askConversationAtom, (current) => ({
+        ...current,
+        scope: next,
+      }));
     },
     [store],
   );
 
   const clearUnavailable = useCallback(() => {
-    store.set(askConversationAtom, (current) => ({ ...current, unavailable: false }));
+    store.set(askConversationAtom, (current) => ({
+      ...current,
+      unavailable: false,
+    }));
   }, [store]);
 
   return {

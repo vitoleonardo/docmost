@@ -21,6 +21,9 @@ ERROR_STATUS = {
     "user_token_invalid": 401,
     "invalid_request": 400,
     "attachment_not_found": 404,
+    "proposal_not_found": 404,
+    "proposal_not_open": 409,
+    "run_in_progress": 409,
     "assistant_unavailable": 503,
 }
 

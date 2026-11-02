@@ -18,7 +18,7 @@ The mockups copy Docmost v0.96's look: Mantine with the theme in `apps/client/sr
 | E3 | M7 Extraction | Refused: scanned PDF, too many pages, too much text |
 | E4 | M7 Extraction | Inserted table with source column, manual values marked as text |
 | G1 | M8 Agent | Start: free-text task, space scope, examples |
-| G2 | M8 Agent | Running: steps, limits, cancel |
+| G2 | M8 Agent | Running: one line per ended step, step count and time, cancel |
 | G3 | M8 Agent | Results: proposal cards with status; limit reached |
 | G4 | M8 Agent | Diff dialog, apply or discard |
 | G5 | M8 Agent | Stale proposal: apply blocked |

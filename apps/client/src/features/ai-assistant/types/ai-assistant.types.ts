@@ -130,3 +130,140 @@ export interface IExtractionRequest {
   attachmentId: string;
   fileName: string;
 }
+
+export interface IAgentRunRequest {
+  spaceId: string;
+  task: string;
+}
+
+export type AgentRequestErrorCode =
+  | "invalid_request"
+  | "space_not_found"
+  | "run_in_progress"
+  | "assistant_disabled"
+  | "assistant_unavailable"
+  | "unauthorized";
+
+const agentStepLabelSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("search"),
+    query: z.string(),
+    count: z.number(),
+  }),
+  z.object({ kind: z.literal("read"), title: z.string() }),
+  z.object({ kind: z.literal("propose"), title: z.string() }),
+  z.object({ kind: z.literal("refused") }),
+]);
+
+export type AgentStepLabel = z.infer<typeof agentStepLabelSchema>;
+
+const agentProposalSummarySchema = z.object({
+  id: z.string(),
+  pageId: z.string(),
+  pageTitle: z.string(),
+  reason: z.string(),
+  added: z.number(),
+  removed: z.number(),
+});
+
+export type IAgentProposalSummary = z.infer<typeof agentProposalSummarySchema>;
+
+const agentEndOutcomeSchema = z.enum([
+  "finished",
+  "out_of_scope",
+  "step_limit",
+  "time_limit",
+  "token_limit",
+  "context_too_small",
+  "model_failed",
+]);
+
+export type AgentEndOutcome = z.infer<typeof agentEndOutcomeSchema>;
+
+export const agentEventSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("run"), runId: z.string() }),
+  z.object({
+    type: z.literal("step"),
+    steps: z.number(),
+    label: agentStepLabelSchema,
+  }),
+  z.object({
+    type: z.literal("proposal"),
+    proposal: agentProposalSummarySchema,
+  }),
+  z.object({
+    type: z.literal("end"),
+    outcome: agentEndOutcomeSchema,
+    pagesRead: z.number(),
+    message: z.string().nullable(),
+  }),
+]);
+
+export type AgentEvent = z.infer<typeof agentEventSchema>;
+
+const agentProposalStatusSchema = z.enum([
+  "open",
+  "applied",
+  "discarded",
+  "stale",
+]);
+
+export type AgentProposalStatus = z.infer<typeof agentProposalStatusSchema>;
+
+export const agentProposalViewSchema = z.object({
+  id: z.string(),
+  runId: z.string(),
+  pageId: z.string(),
+  pageTitle: z.string(),
+  reason: z.string(),
+  status: agentProposalStatusSchema,
+  canEdit: z.boolean(),
+  added: z.number(),
+  removed: z.number(),
+  changes: z.array(
+    z.object({
+      heading: z.string().nullable(),
+      ops: z.array(
+        z.object({
+          op: z.enum(["keep", "remove", "add"]),
+          text: z.string(),
+        }),
+      ),
+    }),
+  ),
+});
+
+export type IAgentProposalView = z.infer<typeof agentProposalViewSchema>;
+
+export type AgentProposalErrorCode =
+  | "not_found"
+  | "page_gone"
+  | "not_editable"
+  | "not_open"
+  | "stale"
+  | "write_failed"
+  | "unreachable";
+
+type AgentRunStatus =
+  | "running"
+  | "ended"
+  | "cancelled"
+  | "failed"
+  | "in_progress_refused";
+
+export interface IAgentRunProposal extends IAgentProposalSummary {
+  status: AgentProposalStatus;
+}
+
+export interface IAgentRun {
+  runId?: string;
+  spaceId: string;
+  spaceName: string;
+  task: string;
+  startedAt: number;
+  steps: AgentStepLabel[];
+  stepCount: number;
+  proposals: IAgentRunProposal[];
+  status: AgentRunStatus;
+  end?: { outcome: AgentEndOutcome; pagesRead: number; message: string | null };
+}

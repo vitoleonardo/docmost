@@ -3,12 +3,21 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import api from "@/lib/api-client";
 import {
+  AgentProposalError,
+  AgentRequestError,
+  applyAgentProposal,
   askQuestion,
+  discardAgentProposal,
+  getAgentProposal,
+  runAgentTask,
   extractContract,
   ExtractRequestError,
 } from "@/features/ai-assistant/services/ai-assistant-service.ts";
 import { askEventSchema } from "@/features/ai-assistant/types/ai-assistant.types.ts";
 import type {
+  AgentEvent,
+  AgentProposalErrorCode,
+  AgentRequestErrorCode,
   AskEvent,
   AskRequestErrorCode,
   IAskRequest,
@@ -511,5 +520,200 @@ describe("extractContract", () => {
     await expect(extractContract("p", "a", controller.signal)).rejects.toBe(
       abort,
     );
+  });
+});
+
+const AGENT_BODY = { spaceId: "space-1", task: "Passe Urlaub an" };
+
+function agentFrame(event: AgentEvent): string {
+  return `data: ${JSON.stringify(event)}\n\n`;
+}
+
+async function collectAgent(chunks: string[]): Promise<AgentEvent[]> {
+  mockFetch(sseResponse(chunks));
+  const events: AgentEvent[] = [];
+  await runAgentTask(
+    AGENT_BODY,
+    (event) => events.push(event),
+    new AbortController().signal,
+  );
+  return events;
+}
+
+const MODEL_FAILED: AgentEvent = {
+  type: "end",
+  outcome: "model_failed",
+  pagesRead: 0,
+  message: null,
+};
+
+describe("runAgentTask", () => {
+  it("AGENT-AC49: posts to /api/ai/agent/run and delivers events from one shared frame reader", async () => {
+    const run: AgentEvent = { type: "run", runId: "run-1" };
+    const step: AgentEvent = {
+      type: "step",
+      steps: 1,
+      label: { kind: "read", title: "Urlaub" },
+    };
+    const end: AgentEvent = {
+      type: "end",
+      outcome: "finished",
+      pagesRead: 1,
+      message: null,
+    };
+    const fetchMock = mockFetch(
+      sseResponse([
+        agentFrame(run) + agentFrame(step).slice(0, 10),
+        agentFrame(step).slice(10) + agentFrame(end),
+      ]),
+    );
+    const events: AgentEvent[] = [];
+    const signal = new AbortController().signal;
+
+    await runAgentTask(AGENT_BODY, (event) => events.push(event), signal);
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/ai/agent/run", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(AGENT_BODY),
+      signal,
+    });
+    expect(events).toEqual([run, step, end]);
+  });
+
+  it("AGENT-AC69: a stream that ends without an end event counts as a model failure", async () => {
+    const events = await collectAgent([
+      agentFrame({ type: "run", runId: "run-1" }),
+    ]);
+
+    expect(events).toEqual([{ type: "run", runId: "run-1" }, MODEL_FAILED]);
+  });
+
+  it("AGENT-AC69: an invalid event counts as a model failure and stops the stream", async () => {
+    const events = await collectAgent([
+      'data: {"type":"step","steps":"x"}\n\n' +
+        agentFrame({ type: "run", runId: "late" }),
+    ]);
+
+    expect(events).toEqual([MODEL_FAILED]);
+  });
+
+  it("AGENT-AC69: a rejected fetch throws assistant_unavailable", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("network")));
+
+    await expect(
+      runAgentTask(AGENT_BODY, () => undefined, new AbortController().signal),
+    ).rejects.toMatchObject({ code: "assistant_unavailable" });
+  });
+
+  it.each<[number, string, AgentRequestErrorCode]>([
+    [400, "invalid_request", "invalid_request"],
+    [404, "space_not_found", "space_not_found"],
+    [409, "run_in_progress", "run_in_progress"],
+    [503, "assistant_disabled", "assistant_disabled"],
+    [503, "assistant_unavailable", "assistant_unavailable"],
+    [500, "something_else", "assistant_unavailable"],
+  ])("AGENT-AC70: %i %s maps to %s", async (status, code, expected) => {
+    mockFetch(new Response(JSON.stringify({ code }), { status }));
+
+    const error = await runAgentTask(
+      AGENT_BODY,
+      () => undefined,
+      new AbortController().signal,
+    ).catch((caught) => caught);
+
+    expect(error).toBeInstanceOf(AgentRequestError);
+    expect(error.code).toBe(expected);
+  });
+
+  it("AGENT-AC69: 401 maps to unauthorized", async () => {
+    mockFetch(new Response("", { status: 401 }));
+
+    await expect(
+      runAgentTask(AGENT_BODY, () => undefined, new AbortController().signal),
+    ).rejects.toMatchObject({ code: "unauthorized" });
+  });
+});
+
+const PROPOSAL_VIEW = {
+  id: "prop-1",
+  runId: "run-1",
+  pageId: "page-1",
+  pageTitle: "Urlaub",
+  reason: "Tage geändert",
+  status: "open",
+  canEdit: true,
+  added: 1,
+  removed: 1,
+  changes: [
+    {
+      heading: null,
+      ops: [
+        { op: "remove", text: "alt" },
+        { op: "add", text: "neu" },
+      ],
+    },
+  ],
+};
+
+function proposalFailure(status: number | undefined, code?: string) {
+  return status === undefined
+    ? new Error("Network Error")
+    : { response: { status, data: { code } } };
+}
+
+describe("agent proposal calls", () => {
+  it("AGENT-AC49: getAgentProposal posts the id and parses the view", async () => {
+    postMock.mockResolvedValueOnce({ data: PROPOSAL_VIEW });
+
+    const view = await getAgentProposal("prop-1");
+
+    expect(postMock).toHaveBeenCalledWith("/ai/agent/proposal", {
+      proposalId: "prop-1",
+    });
+    expect(view).toEqual(PROPOSAL_VIEW);
+  });
+
+  it("AGENT-AC49: apply and discard post to their routes", async () => {
+    postMock.mockResolvedValue({ data: { status: "applied" } });
+
+    await applyAgentProposal("prop-1");
+    await discardAgentProposal("prop-1");
+
+    expect(postMock).toHaveBeenCalledWith("/ai/agent/proposal/apply", {
+      proposalId: "prop-1",
+    });
+    expect(postMock).toHaveBeenCalledWith("/ai/agent/proposal/discard", {
+      proposalId: "prop-1",
+    });
+  });
+
+  it("AGENT-AC49: a malformed view maps to unreachable", async () => {
+    postMock.mockResolvedValueOnce({ data: { id: "prop-1" } });
+
+    await expect(getAgentProposal("prop-1")).rejects.toMatchObject({
+      code: "unreachable",
+    });
+  });
+
+  it.each<[number | undefined, string | undefined, AgentProposalErrorCode]>([
+    [404, "proposal_not_found", "not_found"],
+    [404, "page_not_found", "page_gone"],
+    [403, "page_not_editable", "not_editable"],
+    [403, undefined, "not_editable"],
+    [409, "proposal_not_open", "not_open"],
+    [409, "proposal_stale", "stale"],
+    [503, "write_failed", "write_failed"],
+    [503, "assistant_unavailable", "unreachable"],
+    [503, "assistant_disabled", "unreachable"],
+    [undefined, undefined, "unreachable"],
+  ])("AGENT-AC49: %s %s maps to %s", async (status, code, expected) => {
+    postMock.mockRejectedValueOnce(proposalFailure(status, code));
+
+    const error = await applyAgentProposal("prop-1").catch((caught) => caught);
+
+    expect(error).toBeInstanceOf(AgentProposalError);
+    expect(error.code).toBe(expected);
   });
 });

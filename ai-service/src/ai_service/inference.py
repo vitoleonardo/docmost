@@ -1,10 +1,12 @@
 import json
 import logging
+import queue
 import socket
 import threading
 import time
 from collections.abc import Callable, Generator, Iterator
 from dataclasses import dataclass
+from typing import Any
 
 import httpx
 
@@ -15,12 +17,33 @@ LOGGER = logging.getLogger("ai_service.inference")
 COMPLETION_TIMEOUT_SECONDS = 180.0
 DONE_MARKER = "[DONE]"
 DATA_PREFIX = "data:"
+CANCEL_POLL_SECONDS = 0.05
+CONNECTED_EVENT = "connection.connect_tcp.complete"
 
 
 @dataclass(frozen=True)
 class JsonCompletion:
     text: str
     prompt_tokens: int | None
+
+
+@dataclass(frozen=True)
+class ToolCall:
+    id: str
+    name: str
+    arguments: dict | str
+
+
+@dataclass(frozen=True)
+class ToolCompletion:
+    text: str | None
+    tool_calls: list[ToolCall]
+    prompt_tokens: int | None
+    completion_tokens: int | None
+
+
+class ModelCallCancelled(Exception):
+    pass
 
 
 class ModelUnavailable(Exception):
@@ -42,21 +65,43 @@ class FirstTextWatchdog:
 
     def _expire(self) -> None:
         self.expired.set()
-        get_extra_info = getattr(
-            self._response.extensions.get("network_stream"), "get_extra_info", None
-        )
-        if get_extra_info is None:
+        shut_down_socket(self._response.extensions.get("network_stream"), "first-text watchdog")
+
+
+def shut_down_socket(network_stream: object, closer: str) -> None:
+    get_extra_info = getattr(network_stream, "get_extra_info", None)
+    if get_extra_info is None:
+        return
+    try:
+        sock = get_extra_info("socket")
+        if sock is not None:
+            sock.shutdown(socket.SHUT_RDWR)
+    except OSError:
+        return
+    except Exception as error:
+        LOGGER.warning("%s could not close the socket: %s", closer, type(error).__name__)
+
+
+class ToolCallConnection:
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._network_stream: object = None
+        self._closed = False
+
+    def trace(self, event: str, info: dict[str, Any]) -> None:
+        if event != CONNECTED_EVENT:
             return
-        try:
-            sock = get_extra_info("socket")
-            if sock is not None:
-                sock.shutdown(socket.SHUT_RDWR)
-        except OSError:
-            return
-        except Exception as error:
-            LOGGER.warning(
-                "first-text watchdog could not close the socket: %s", type(error).__name__
-            )
+        with self._lock:
+            self._network_stream = info.get("return_value")
+            closed = self._closed
+        if closed:
+            shut_down_socket(self._network_stream, "model call abort")
+
+    def close(self) -> None:
+        with self._lock:
+            self._closed = True
+            network_stream = self._network_stream
+        shut_down_socket(network_stream, "model call abort")
 
 
 class ChatModel:
@@ -129,6 +174,120 @@ class ChatModel:
             raise ModelUnavailable(f"HTTP {response.status_code}")
         return self._completion(response)
 
+    def complete_tools(
+        self,
+        messages: list[dict[str, Any]],
+        tools: list[dict],
+        deadline_seconds: float,
+        cancel: threading.Event | None = None,
+    ) -> ToolCompletion:
+        if cancel is not None and cancel.is_set():
+            raise ModelCallCancelled()
+        body = {
+            "model": self.model,
+            "messages": messages,
+            "tools": tools,
+            "stream": False,
+            "temperature": 0,
+            "reasoning_effort": "none",
+        }
+        connection = ToolCallConnection()
+        request = self.http.build_request(
+            "POST",
+            self._url,
+            json=body,
+            headers={"Connection": "close"},
+            timeout=httpx.Timeout(deadline_seconds, connect=CONNECT_TIMEOUT_SECONDS),
+            extensions={"trace": connection.trace},
+        )
+        outcome: queue.Queue[httpx.Response | Exception] = queue.Queue(maxsize=1)
+
+        def send() -> None:
+            try:
+                outcome.put(self.http.send(request))
+            except Exception as error:
+                outcome.put(error)
+
+        threading.Thread(target=send, name="model-tool-call", daemon=True).start()
+        try:
+            response = self._await_response(outcome, deadline_seconds, cancel)
+        except ModelCallCancelled, ModelUnavailable:
+            connection.close()
+            raise
+        if response.status_code >= 400:
+            raise ModelUnavailable(f"HTTP {response.status_code}")
+        return self._tool_completion(response)
+
+    def _await_response(
+        self,
+        outcome: queue.Queue[httpx.Response | Exception],
+        deadline_seconds: float,
+        cancel: threading.Event | None,
+    ) -> httpx.Response:
+        deadline = self._clock() + deadline_seconds
+        while True:
+            remaining = deadline - self._clock()
+            if remaining <= 0:
+                raise ModelUnavailable(f"timeout after {deadline_seconds:.0f} s")
+            try:
+                result = outcome.get(timeout=min(remaining, CANCEL_POLL_SECONDS))
+            except queue.Empty:
+                if cancel is not None and cancel.is_set():
+                    raise ModelCallCancelled() from None
+                continue
+            if isinstance(result, httpx.HTTPError):
+                raise ModelUnavailable(type(result).__name__) from result
+            if isinstance(result, Exception):
+                raise result
+            return result
+
+    def _tool_completion(self, response: httpx.Response) -> ToolCompletion:
+        try:
+            payload = response.json()
+            message = payload["choices"][0]["message"]
+            text = message.get("content")
+            raw_calls = message.get("tool_calls") or []
+            if not isinstance(raw_calls, list) or not (text is None or isinstance(text, str)):
+                raise TypeError
+            if text is None and not raw_calls:
+                raise ValueError
+            tool_calls = [self._tool_call(raw) for raw in raw_calls]
+        except (ValueError, KeyError, IndexError, TypeError, AttributeError) as error:
+            raise ModelUnavailable("malformed completion") from error
+        prompt_tokens, completion_tokens = self._usage(payload)
+        return ToolCompletion(
+            text=text,
+            tool_calls=tool_calls,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+        )
+
+    def _tool_call(self, raw: dict) -> ToolCall:
+        function = raw["function"]
+        call_id, name, arguments = raw["id"], function["name"], function["arguments"]
+        if not isinstance(call_id, str) or not call_id or not isinstance(name, str):
+            raise TypeError
+        if isinstance(arguments, str):
+            try:
+                parsed = json.loads(arguments)
+            except ValueError:
+                return ToolCall(call_id, name, arguments)
+            return ToolCall(call_id, name, parsed if isinstance(parsed, dict) else arguments)
+        if isinstance(arguments, dict):
+            return ToolCall(call_id, name, arguments)
+        raise TypeError
+
+    def _usage(self, payload: dict) -> tuple[int | None, int | None]:
+        usage = payload.get("usage")
+        if not isinstance(usage, dict):
+            return None, None
+        return self._token_count(usage.get("prompt_tokens")), self._token_count(
+            usage.get("completion_tokens")
+        )
+
+    def _token_count(self, value: object) -> int | None:
+        return value if isinstance(value, int) and not isinstance(value, bool) else None
+
     def _completion(self, response: httpx.Response) -> JsonCompletion:
         try:
             payload = response.json()
@@ -137,10 +296,7 @@ class ChatModel:
             raise ModelUnavailable("malformed completion") from error
         if not isinstance(text, str):
             raise ModelUnavailable("malformed completion")
-        usage = payload.get("usage")
-        prompt_tokens = usage.get("prompt_tokens") if isinstance(usage, dict) else None
-        if isinstance(prompt_tokens, bool) or not isinstance(prompt_tokens, int):
-            prompt_tokens = None
+        prompt_tokens, _ = self._usage(payload)
         return JsonCompletion(text=text, prompt_tokens=prompt_tokens)
 
     def _deltas(

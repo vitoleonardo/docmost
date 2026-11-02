@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { SpaceRepo } from '@docmost/db/repos/space/space.repo';
 import { Page, Space, User } from '@docmost/db/types/entity.types';
 import { EnvironmentService } from '../../environment/environment.service';
-import { AiBridgeError } from '../ai-bridge.errors';
+import { AiBridgeError, assertAssistantEnabled } from '../ai-bridge.errors';
 import { AiAskDto } from '../dto/ai-ask.dto';
 import { describeError } from './ai-content.service';
 import { AiPageAccessService } from './ai-page-access.service';
@@ -55,12 +55,7 @@ export class AiAskService {
     dto: AiAskDto,
     signal: AbortSignal,
   ): Promise<AsyncGenerator<AiAskEvent> | null> {
-    if (!this.environmentService.isAiBridgeConfigured()) {
-      throw new AiBridgeError(
-        'assistant_disabled',
-        'The assistant is switched off',
-      );
-    }
+    assertAssistantEnabled(this.environmentService.isAiBridgeConfigured());
     await this.checkScope(user, dto);
     const userToken = await this.aiTokenService.issueUserToken(user);
     const upstream = await this.aiServiceClient

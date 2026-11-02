@@ -1,6 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { EnvironmentService } from '../../environment/environment.service';
-import { AiBridgeError } from '../ai-bridge.errors';
+import {
+  AI_BRIDGE_ERROR_STATUS,
+  AiBridgeError,
+  AiBridgeErrorCode,
+} from '../ai-bridge.errors';
+import { AgentDiffOp } from './agent-document';
 
 const AI_SERVICE_TIMEOUT_MS = 3000;
 export const AI_EXTRACT_TIMEOUT_MS = 200_000;
@@ -74,6 +79,78 @@ export type AiServiceAskEvent =
   | { type: 'no_source' }
   | { type: 'error'; code: string };
 
+interface AiServiceAgentRunRequest {
+  spaceId: string;
+  task: string;
+}
+
+const AGENT_END_OUTCOMES = [
+  'finished',
+  'out_of_scope',
+  'step_limit',
+  'time_limit',
+  'token_limit',
+  'context_too_small',
+  'model_failed',
+] as const;
+
+type AiAgentStepLabel =
+  | { kind: 'search'; query: string; count: number }
+  | { kind: 'read'; title: string }
+  | { kind: 'propose'; title: string }
+  | { kind: 'refused' };
+
+interface AiAgentProposalSummary {
+  id: string;
+  pageId: string;
+  pageTitle: string;
+  reason: string;
+  added: number;
+  removed: number;
+}
+
+export type AiServiceAgentEvent =
+  | { type: 'run'; runId: string }
+  | { type: 'step'; steps: number; label: AiAgentStepLabel }
+  | { type: 'proposal'; proposal: AiAgentProposalSummary }
+  | {
+      type: 'end';
+      outcome: (typeof AGENT_END_OUTCOMES)[number];
+      pagesRead: number;
+      message: string | null;
+    };
+
+const AGENT_PROPOSAL_STATUSES = [
+  'open',
+  'applying',
+  'applied',
+  'discarded',
+  'stale',
+] as const;
+const DIFF_OP_KINDS = ['keep', 'remove', 'add'] as const;
+
+export type AiAgentProposalStatus = (typeof AGENT_PROPOSAL_STATUSES)[number];
+
+interface AiServiceProposalChange {
+  block: number;
+  heading: string | null;
+  oldText: string;
+  ops: AgentDiffOp[];
+}
+
+export interface AiServiceAgentProposal {
+  id: string;
+  runId: string;
+  pageId: string;
+  pageTitle: string;
+  reason: string;
+  fingerprint: string;
+  changes: AiServiceProposalChange[];
+  added: number;
+  removed: number;
+  status: AiAgentProposalStatus;
+}
+
 function isNamedError(error: unknown, name: string): error is Error {
   return (error as Error | undefined)?.name === name;
 }
@@ -110,40 +187,48 @@ export class AiServiceClient {
     }
   }
 
-  async ask(
+  ask(
     userToken: string,
     request: AiServiceAskRequest,
     signal: AbortSignal,
   ): Promise<AsyncGenerator<AiServiceAskEvent>> {
-    const upstream = new AbortController();
-    const abortUpstream = () => upstream.abort(signal.reason);
-    signal.addEventListener('abort', abortUpstream, { once: true });
-    const release = () => {
-      upstream.abort();
-      signal.removeEventListener('abort', abortUpstream);
-    };
-    if (signal.aborted) abortUpstream();
-    const headTimeout = setTimeout(
-      () => upstream.abort(new DOMException('timeout', 'TimeoutError')),
-      AI_SERVICE_TIMEOUT_MS,
-    );
-    try {
-      const response = await this.send(
-        '/v1/ask',
-        { 'content-type': 'application/json', 'x-user-token': userToken },
-        upstream.signal,
-        JSON.stringify(request),
-      );
-      if (response.status !== 200 || !response.body) {
-        throw new AiServiceUnreachableError(`HTTP ${response.status}`);
-      }
-      return readAskEvents(response.body, release);
-    } catch (error) {
-      release();
-      throw error;
-    } finally {
-      clearTimeout(headTimeout);
-    }
+    return this.openEventStream('/v1/ask', userToken, request, signal, {
+      name: 'ask',
+      toEvent: (value) => (isAskEvent(value) ? value : null),
+      passedRefusals: [],
+    });
+  }
+
+  agentRun(
+    userToken: string,
+    request: AiServiceAgentRunRequest,
+    signal: AbortSignal,
+  ): Promise<AsyncGenerator<AiServiceAgentEvent>> {
+    return this.openEventStream('/v1/agent/runs', userToken, request, signal, {
+      name: 'agent',
+      toEvent: toAgentEvent,
+      passedRefusals: ['run_in_progress'],
+    });
+  }
+
+  agentProposal(
+    userToken: string,
+    proposalId: string,
+  ): Promise<AiServiceAgentProposal> {
+    return this.requestProposal('/v1/agent/proposals/get', userToken, {
+      proposalId,
+    });
+  }
+
+  transitionAgentProposal(
+    userToken: string,
+    proposalId: string,
+    to: AiAgentProposalStatus,
+  ): Promise<AiServiceAgentProposal> {
+    return this.requestProposal('/v1/agent/proposals/transition', userToken, {
+      proposalId,
+      to,
+    });
   }
 
   async extract(
@@ -190,6 +275,90 @@ export class AiServiceClient {
     if (response.status !== 204) {
       throw new Error(`AI service answered HTTP ${response.status}`);
     }
+  }
+
+  private async requestProposal(
+    path: string,
+    userToken: string,
+    request: object,
+  ): Promise<AiServiceAgentProposal> {
+    const response = await this.send(
+      path,
+      { 'content-type': 'application/json', 'x-user-token': userToken },
+      AbortSignal.timeout(AI_SERVICE_TIMEOUT_MS),
+      JSON.stringify(request),
+    );
+    if (response.status !== 200) {
+      throw await this.refusalOf(response, [
+        'proposal_not_found',
+        'proposal_not_open',
+      ]);
+    }
+    const text = await response.text().catch((error: unknown) => {
+      throw this.toUnreachable(error);
+    });
+    const proposal = toAgentProposal(parseJson(text));
+    if (!proposal) {
+      throw new AiServiceMalformedResponseError(
+        'AI service sent a malformed proposal',
+      );
+    }
+    return proposal;
+  }
+
+  private async openEventStream<T>(
+    path: string,
+    userToken: string,
+    request: object,
+    signal: AbortSignal,
+    stream: EventStream<T>,
+  ): Promise<AsyncGenerator<T>> {
+    const upstream = new AbortController();
+    const abortUpstream = () => upstream.abort(signal.reason);
+    signal.addEventListener('abort', abortUpstream, { once: true });
+    const release = () => {
+      upstream.abort();
+      signal.removeEventListener('abort', abortUpstream);
+    };
+    if (signal.aborted) abortUpstream();
+    const headTimeout = setTimeout(
+      () => upstream.abort(new DOMException('timeout', 'TimeoutError')),
+      AI_SERVICE_TIMEOUT_MS,
+    );
+    try {
+      const response = await this.send(
+        path,
+        { 'content-type': 'application/json', 'x-user-token': userToken },
+        upstream.signal,
+        JSON.stringify(request),
+      );
+      if (response.status !== 200 || !response.body) {
+        throw await this.refusalOf(response, stream.passedRefusals);
+      }
+      return readEvents(response.body, release, stream);
+    } catch (error) {
+      release();
+      throw error;
+    } finally {
+      clearTimeout(headTimeout);
+    }
+  }
+
+  private async refusalOf(
+    response: Response,
+    passedRefusals: readonly AiBridgeErrorCode[],
+  ): Promise<unknown> {
+    const text = await response.text().catch((error: unknown) => {
+      throw this.toUnreachable(error);
+    });
+    const passed = passedRefusals.find(
+      (code) =>
+        code === errorCodeOf(text) &&
+        AI_BRIDGE_ERROR_STATUS[code] === response.status,
+    );
+    return passed
+      ? new AiBridgeError(passed, 'The AI service refused the request')
+      : new AiServiceUnreachableError(`HTTP ${response.status}`);
   }
 
   private async post(
@@ -279,10 +448,17 @@ function errorCodeOf(text: string): unknown {
   return isRecord(body) ? body.code : undefined;
 }
 
-async function* readAskEvents(
+interface EventStream<T> {
+  name: string;
+  toEvent: (value: unknown) => T | null;
+  passedRefusals: readonly AiBridgeErrorCode[];
+}
+
+async function* readEvents<T>(
   body: ReadableStream<Uint8Array>,
   release: () => void,
-): AsyncGenerator<AiServiceAskEvent> {
+  stream: EventStream<T>,
+): AsyncGenerator<T> {
   const reader = body.getReader();
   const decoder = new TextDecoder();
   let pending = '';
@@ -293,7 +469,7 @@ async function* readAskEvents(
       const lines = pending.split('\n');
       pending = done ? '' : lines.pop()!;
       for (const line of lines) {
-        if (line.trim()) yield parseAskEvent(line);
+        if (line.trim()) yield parseEvent(line, stream);
       }
       if (done) return;
     }
@@ -302,15 +478,16 @@ async function* readAskEvents(
   }
 }
 
-function parseAskEvent(line: string): AiServiceAskEvent {
-  let event: unknown;
+function parseEvent<T>(line: string, stream: EventStream<T>): T {
+  let value: unknown;
   try {
-    event = JSON.parse(line);
+    value = JSON.parse(line);
   } catch {
     throw new Error('AI service sent a line that is not JSON');
   }
-  if (!isAskEvent(event)) {
-    throw new Error('AI service sent a malformed ask event');
+  const event = stream.toEvent(value);
+  if (event === null) {
+    throw new Error(`AI service sent a malformed ${stream.name} event`);
   }
   return event;
 }
@@ -431,4 +608,130 @@ function isAskEvent(value: unknown): value is AiServiceAskEvent {
     default:
       return false;
   }
+}
+
+function toStepLabel(value: unknown): AiAgentStepLabel | null {
+  if (!isRecord(value)) return null;
+  switch (value.kind) {
+    case 'search':
+      return isString(value.query) && isNumber(value.count)
+        ? { kind: 'search', query: value.query, count: value.count }
+        : null;
+    case 'read':
+    case 'propose':
+      return isString(value.title)
+        ? { kind: value.kind, title: value.title }
+        : null;
+    case 'refused':
+      return { kind: 'refused' };
+    default:
+      return null;
+  }
+}
+
+function toProposalSummary(value: unknown): AiAgentProposalSummary | null {
+  if (
+    !isRecord(value) ||
+    !isString(value.id) ||
+    !isString(value.pageId) ||
+    !isString(value.pageTitle) ||
+    !isString(value.reason) ||
+    !isNumber(value.added) ||
+    !isNumber(value.removed)
+  ) {
+    return null;
+  }
+  return {
+    id: value.id,
+    pageId: value.pageId,
+    pageTitle: value.pageTitle,
+    reason: value.reason,
+    added: value.added,
+    removed: value.removed,
+  };
+}
+
+function toAgentEvent(value: unknown): AiServiceAgentEvent | null {
+  if (!isRecord(value)) return null;
+  switch (value.type) {
+    case 'run':
+      return isString(value.runId) ? { type: 'run', runId: value.runId } : null;
+    case 'step': {
+      const label = toStepLabel(value.label);
+      return label && isNumber(value.steps)
+        ? { type: 'step', steps: value.steps, label }
+        : null;
+    }
+    case 'proposal': {
+      const proposal = toProposalSummary(value.proposal);
+      return proposal ? { type: 'proposal', proposal } : null;
+    }
+    case 'end':
+      return isOneOf(AGENT_END_OUTCOMES)(value.outcome) &&
+        isNumber(value.pagesRead) &&
+        isNullableString(value.message)
+        ? {
+            type: 'end',
+            outcome: value.outcome,
+            pagesRead: value.pagesRead,
+            message: value.message,
+          }
+        : null;
+    default:
+      return null;
+  }
+}
+
+function toDiffOps(value: unknown): AgentDiffOp[] | null {
+  if (!Array.isArray(value)) return null;
+  const ops = value.flatMap((op: unknown) =>
+    isRecord(op) && isOneOf(DIFF_OP_KINDS)(op.op) && isString(op.text)
+      ? [{ op: op.op, text: op.text }]
+      : [],
+  );
+  return ops.length === value.length ? ops : null;
+}
+
+function toProposalChange(value: unknown): AiServiceProposalChange | null {
+  if (
+    !isRecord(value) ||
+    !isNumber(value.block) ||
+    !isNullableString(value.heading) ||
+    !isString(value.oldText)
+  ) {
+    return null;
+  }
+  const ops = toDiffOps(value.ops);
+  return ops
+    ? {
+        block: value.block,
+        heading: value.heading,
+        oldText: value.oldText,
+        ops,
+      }
+    : null;
+}
+
+function toAgentProposal(value: unknown): AiServiceAgentProposal | null {
+  if (
+    !isRecord(value) ||
+    !Array.isArray(value.changes) ||
+    !isOneOf(AGENT_PROPOSAL_STATUSES)(value.status) ||
+    !isString(value.fingerprint) ||
+    !isString(value.runId)
+  ) {
+    return null;
+  }
+  const summary = toProposalSummary(value);
+  const changes = value.changes
+    .map(toProposalChange)
+    .filter((change): change is AiServiceProposalChange => change !== null);
+  if (!summary || changes.length !== value.changes.length) return null;
+  return {
+    ...summary,
+    runId: value.runId,
+    fingerprint: value.fingerprint,
+    changes,
+    status: value.status,
+  };
 }
