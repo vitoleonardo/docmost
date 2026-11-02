@@ -331,16 +331,22 @@ def create_app(
     def ask(
         body: AskBody, user: Annotated[UserSession, Depends(require_user_session)]
     ) -> NdjsonResponse:
-        events = ask_pipeline.ask(body.to_request(), user.user_id, user.space_ids, user.token)
+        events = ask_pipeline.ask(
+            body.to_request(), user.user_id, user.workspace_id, user.space_ids, user.token
+        )
         return NdjsonResponse(stream_until_closed(events))
 
     @app.post("/v1/extract")
     async def extract(
-        body: ExtractBody, _: Annotated[UserSession, Depends(require_user_session)]
+        body: ExtractBody, user: Annotated[UserSession, Depends(require_user_session)]
     ) -> dict[str, Any]:
         try:
             result = await run_in_threadpool(
-                extraction_pipeline.extract, str(body.attachmentId), body.fileSize
+                extraction_pipeline.extract,
+                str(body.attachmentId),
+                body.fileSize,
+                user.user_id,
+                user.workspace_id,
             )
         except BridgeError as error:
             LOGGER.warning(

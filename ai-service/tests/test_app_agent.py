@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 import threading
 import time
 from collections.abc import Callable
@@ -16,12 +17,17 @@ from redis import Redis
 
 from ai_service.agent_store import ProposalNotFound, ProposalNotOpen, ProposalStatus, StoredProposal
 from ai_service.app import AgentServices, create_app
+from ai_service.request_log import RequestLog
 from tests.conftest import (
+    REQUEST_LOG_KEY,
     SERVICE_CREDENTIAL,
+    UNREACHABLE_DATABASE_URL,
     USER_ID,
+    WORKSPACE_ID,
     idle_ask_pipeline,
     idle_extraction_pipeline,
     make_settings,
+    warnings,
 )
 from tests.fake_bridge import USER_TOKEN, AgentBridge, mock_client
 from tests.index_db import SPACE_A
@@ -551,3 +557,124 @@ def test_agent_without_services_the_run_is_503_assistant_unavailable(
     assert response.status_code == 503
     assert response.json()["code"] == "assistant_unavailable"
     assert redis_client.get(LOCK_KEY) is None
+
+
+def test_reqlog_ac12_a_second_run_while_one_is_running_is_409_and_starts_no_record(
+    harness: Harness, redis_client: Redis, headers: dict[str, str]
+):
+    started, release = threading.Event(), threading.Event()
+    harness.script(blocking(started, release))
+    app = make_app(harness, redis_client)
+
+    async def scenario() -> int:
+        first = AsgiCall(app, headers, RUN_BODY, RUNS)
+        first.start()
+        assert (await first.next_line() or {})["type"] == "run"
+        await asyncio.to_thread(started.wait, WAIT_SECONDS)
+        second = AsgiCall(app, headers, RUN_BODY, RUNS)
+        second.start()
+        status = await response_status(second)
+        release.set()
+        await read_lines(first)
+        await first.finish()
+        return status
+
+    assert asyncio.run(scenario()) == 409
+    wait_until(lambda: len(harness.recording.records) == 1)
+    assert harness.recording.started == [("agent", USER_ID, WORKSPACE_ID)]
+
+
+@pytest.mark.parametrize(
+    ("path", "body"),
+    [
+        (GET, {"proposalId": PROPOSAL_ID}),
+        (TRANSITION, {"proposalId": PROPOSAL_ID, "to": "applying"}),
+        (TRANSITION, {"proposalId": PROPOSAL_ID, "to": "discarded"}),
+    ],
+)
+def test_reqlog_ac13_viewing_applying_or_discarding_a_proposal_starts_no_record(
+    harness: Harness,
+    redis_client: Redis,
+    headers: dict[str, str],
+    path: str,
+    body: dict[str, Any],
+):
+    records(harness).stored[PROPOSAL_ID] = stored_proposal()
+
+    response = TestClient(make_app(harness, redis_client)).post(path, headers=headers, json=body)
+
+    assert response.status_code == 200
+    assert harness.recording.started == []
+    assert harness.recording.records == []
+
+
+def without_run_id(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [{k: v for k, v in event.items() if k != "runId"} for event in events]
+
+
+def test_reqlog_ac52_an_unreachable_log_database_changes_nothing_the_client_receives(
+    harness: Harness,
+    redis_client: Redis,
+    headers: dict[str, str],
+    caplog: pytest.LogCaptureFixture,
+):
+    script = [answer(search("Reisekosten")), answer(read(1)), final("Fertig.")]
+    harness.script(*script)
+    working = without_run_id(
+        lines(
+            TestClient(make_app(harness, redis_client)).post(RUNS, headers=headers, json=RUN_BODY)
+        )
+    )
+    harness.request_log = RequestLog(
+        UNREACHABLE_DATABASE_URL,
+        REQUEST_LOG_KEY,
+        "local",
+        "stub-model",
+    )
+    harness.script(answer(search("Reisekosten")), answer(read(1)), final("Fertig."))
+    caplog.set_level(logging.WARNING)
+
+    response = TestClient(make_app(harness, redis_client)).post(
+        RUNS, headers=headers, json=RUN_BODY
+    )
+
+    assert harness.request_log.flush(WAIT_SECONDS)
+
+    assert response.status_code == 200
+    assert without_run_id(lines(response)) == working
+    assert any(line.startswith("request log write failed task=agent") for line in warnings(caplog))
+
+
+def test_reqlog_ac8_a_wiki_failure_before_the_stream_is_503_with_one_error_record(
+    harness: Harness, redis_client: Redis, headers: dict[str, str]
+):
+    harness.bridge.fail_next("unreachable")
+
+    response = TestClient(make_app(harness, redis_client)).post(
+        RUNS, headers=headers, json=RUN_BODY
+    )
+
+    assert response.status_code == 503
+    assert response.json() == {
+        "code": "assistant_unavailable",
+        "message": "The wiki is not available.",
+    }
+    assert redis_client.get(LOCK_KEY) is None
+    assert [
+        (record.task, record.status, record.prompt_tokens, record.completion_tokens)
+        for record in harness.recording.records
+    ] == [("agent", "error", 0, 0)]
+
+
+def test_reqlog_ac12_a_run_in_progress_is_refused_before_the_runner_is_prepared(
+    harness: Harness, redis_client: Redis, headers: dict[str, str]
+):
+    redis_client.set(LOCK_KEY, "another-run")
+
+    response = TestClient(make_app(harness, redis_client)).post(
+        RUNS, headers=headers, json=RUN_BODY
+    )
+
+    assert response.status_code == 409
+    assert harness.recording.started == []
+    assert harness.recording.records == []

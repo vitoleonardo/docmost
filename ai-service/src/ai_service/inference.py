@@ -25,6 +25,13 @@ CONNECTED_EVENT = "connection.connect_tcp.complete"
 class JsonCompletion:
     text: str
     prompt_tokens: int | None
+    completion_tokens: int | None
+
+
+@dataclass
+class StreamUsage:
+    prompt_tokens: int | None = None
+    completion_tokens: int | None = None
 
 
 @dataclass(frozen=True)
@@ -121,11 +128,14 @@ class ChatModel:
         )
         self._url = f"{base_url.rstrip('/')}/chat/completions"
 
-    def stream(self, messages: list[dict[str, str]]) -> Generator[str]:
+    def stream(
+        self, messages: list[dict[str, str]], usage: StreamUsage | None = None
+    ) -> Generator[str]:
         body = {
             "model": self.model,
             "messages": messages,
             "stream": True,
+            "stream_options": {"include_usage": True},
             "temperature": 0,
             "reasoning_effort": "none",
         }
@@ -136,7 +146,7 @@ class ChatModel:
                     raise ModelUnavailable(f"HTTP {response.status_code}")
                 watchdog = FirstTextWatchdog(response, first_text_deadline - self._clock())
                 try:
-                    yield from self._deltas(response, first_text_deadline, watchdog)
+                    yield from self._deltas(response, first_text_deadline, watchdog, usage)
                 finally:
                     watchdog.stop()
         except httpx.HTTPError as error:
@@ -286,7 +296,9 @@ class ChatModel:
         )
 
     def _token_count(self, value: object) -> int | None:
-        return value if isinstance(value, int) and not isinstance(value, bool) else None
+        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            return None
+        return value
 
     def _completion(self, response: httpx.Response) -> JsonCompletion:
         try:
@@ -296,11 +308,17 @@ class ChatModel:
             raise ModelUnavailable("malformed completion") from error
         if not isinstance(text, str):
             raise ModelUnavailable("malformed completion")
-        prompt_tokens, _ = self._usage(payload)
-        return JsonCompletion(text=text, prompt_tokens=prompt_tokens)
+        prompt_tokens, completion_tokens = self._usage(payload)
+        return JsonCompletion(
+            text=text, prompt_tokens=prompt_tokens, completion_tokens=completion_tokens
+        )
 
     def _deltas(
-        self, response: httpx.Response, first_text_deadline: float, watchdog: FirstTextWatchdog
+        self,
+        response: httpx.Response,
+        first_text_deadline: float,
+        watchdog: FirstTextWatchdog,
+        usage: StreamUsage | None,
     ) -> Iterator[str]:
         has_text = False
         try:
@@ -312,7 +330,7 @@ class ChatModel:
                 payload = line.removeprefix(DATA_PREFIX).strip()
                 if payload == DONE_MARKER:
                     return
-                delta = self._delta_text(payload)
+                delta = self._delta_text(payload, usage)
                 if delta:
                     has_text = True
                     watchdog.stop()
@@ -328,9 +346,20 @@ class ChatModel:
     def _no_text_in_time(self) -> ModelUnavailable:
         return ModelUnavailable(f"no answer text within {self._first_text_deadline_seconds:.0f} s")
 
-    def _delta_text(self, payload: str) -> str:
+    def _delta_text(self, payload: str, usage: StreamUsage | None) -> str:
         try:
-            content = json.loads(payload)["choices"][0]["delta"].get("content")
+            chunk = json.loads(payload)
+            has_usage = isinstance(chunk.get("usage"), dict)
+            if has_usage and usage is not None:
+                usage.prompt_tokens, usage.completion_tokens = self._usage(chunk)
+            choices = chunk.get("choices")
+            if not isinstance(choices, list):
+                if has_usage:
+                    return ""
+                raise TypeError
+            if not choices:
+                return ""
+            content = choices[0]["delta"].get("content")
         except (ValueError, KeyError, IndexError, TypeError, AttributeError) as error:
             raise ModelUnavailable("malformed stream") from error
         return content if isinstance(content, str) else ""

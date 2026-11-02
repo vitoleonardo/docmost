@@ -19,6 +19,7 @@ from ai_service.inference import ChatModel
 from ai_service.leak_suite import SEED_EMAILS
 from ai_service.leak_suite import log_in as log_in_with_retry
 from ai_service.settings import AskSettings
+from tests.conftest import USER_ID, WORKSPACE_ID, RecordingRequestLog
 from tests.test_stack import SEED_GENERATED, list_all_pages, pdf_file_names_by_text_layer
 
 pytestmark = [pytest.mark.integration, pytest.mark.stack]
@@ -283,10 +284,13 @@ def test_extract_ac68_a_ten_page_pdf_of_five_contracts_names_the_customer_as_par
         model=ChatModel(base_url, model_name),
         mode="local",
         model_name=model_name,
+        request_log=RecordingRequestLog(),
     )
     caplog.set_level(logging.INFO, logger="ai_service.extraction")
     started = time.monotonic()
-    result = pipeline.extract("00000000-0000-4000-8000-000000000068", len(pdf))
+    result = pipeline.extract(
+        "00000000-0000-4000-8000-000000000068", len(pdf), USER_ID, WORKSPACE_ID
+    )
     seconds = time.monotonic() - started
     print(f"EXTRACT-AC68 {base_url}: {seconds:.1f} s")
     log_lines = [record.getMessage() for record in caplog.records]

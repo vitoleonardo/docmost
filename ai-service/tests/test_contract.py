@@ -15,7 +15,12 @@ from ai_service.app import create_app
 from ai_service.extraction import ExtractionPipeline, RefusalReason
 from ai_service.inference import JsonCompletion, ModelUnavailable
 from ai_service.jobs import JOB_STREAM, enqueue_job
-from tests.conftest import idle_ask_pipeline, idle_extraction_pipeline, make_settings
+from tests.conftest import (
+    RecordingRequestLog,
+    idle_ask_pipeline,
+    idle_extraction_pipeline,
+    make_settings,
+)
 from tests.index_db import SPACE_A, page_id
 from tests.pdf_fixtures import build_blank_pdf, build_pdf
 from tests.test_agent import Harness as AgentHarness
@@ -219,7 +224,7 @@ class ContractModel:
             key: {"value": None, "quote": None}
             for key in ("parties", "term", "noticePeriod", "value", "renewal")
         }
-        return JsonCompletion(text=json.dumps(answer), prompt_tokens=10_000)
+        return JsonCompletion(text=json.dumps(answer), prompt_tokens=10_000, completion_tokens=None)
 
 
 def test_extract_contract_every_extract_outcome_has_exactly_the_fields_of_the_contract(
@@ -239,7 +244,9 @@ def test_extract_contract_every_extract_outcome_has_exactly_the_fields_of_the_co
     served: dict[str, dict[str, Any]] = {}
     for outcome, document in answers.items():
         model = ContractModel(fails=outcome == "failed")
-        pipeline = ExtractionPipeline(lambda _, d=document: d, model, "local", "m")
+        pipeline = ExtractionPipeline(
+            lambda _, d=document: d, model, "local", "m", RecordingRequestLog()
+        )
         redis = fakeredis.FakeRedis()
         app = create_app(make_settings(), redis, idle_ask_pipeline(redis), pipeline)
 

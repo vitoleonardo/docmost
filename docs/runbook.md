@@ -70,6 +70,7 @@ All three set: the assistant is on. Any missing: it is off.
 
 Read from `ai-service/.env` or the environment.
 - `AI_BRIDGE_SECRET`, `AI_SERVICE_TOKEN`: same values as the wiki server.
+- `AI_REQUEST_LOG_SECRET`: at least 32 characters, different from `AI_BRIDGE_SECRET` and `AI_SERVICE_TOKEN`, for example `openssl rand -hex 32`. Keys the request log's user pseudonyms (HMAC). The API does not start without it.
 - `REDIS_URL`: `redis://127.0.0.1:6380` (dev Redis).
 - `AI_DATABASE_URL`: `postgresql://docmost_ai:<password>@127.0.0.1:5433/docmost`. The role is `docmost_ai`, never the wiki's role.
 - `AI_SERVICE_HOST`: default `127.0.0.1`. `AI_SERVICE_PORT`: default `8100`.
@@ -141,6 +142,13 @@ The worker reconciles at start, logs `Reconcile finished: <n> indexed, <m> remov
 `uv run python -m ai_service.reconcile_command` fixes every difference between wiki and index and exits 0. It waits while the worker is reconciling. Exit 1 with `Wiki bridge unreachable at <AI_WIKI_URL>` when the wiki does not answer.
 
 After a seed rebuild (`pnpm seed` empties schema `ai` and gives the pages new ids): run `uv run alembic upgrade head`, then the reconcile command (or restart the worker).
+
+### Request log
+
+- Table `ai.request_log`, created by the `alembic upgrade head` of step 2 above. It holds one row per Ask question, extraction and agent run, written when the request ends. No user id, no text: the user is a keyed pseudonym.
+- The worker deletes rows older than 30 days.
+- Report: `uv run python -m ai_service.request_log_report` from `ai-service/`. It reads `AI_DATABASE_URL`, covers the last 30 days and writes `reports/request-log.md` at the repo root, or the path in `REQUEST_LOG_REPORT_PATH`. Local mode costs 0 USD.
+- Use `127.0.0.1` in `AI_DATABASE_URL`, not a host name that resolves to two addresses: a row write gives up after 5 s per connection attempt.
 
 ### Index tests
 

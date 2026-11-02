@@ -14,6 +14,7 @@ from ai_service.inference import (
     JsonCompletion,
     ModelCallCancelled,
     ModelUnavailable,
+    StreamUsage,
     ToolCall,
     ToolCompletion,
 )
@@ -81,6 +82,7 @@ def test_ask_ac67_request_body_and_url():
         "model": "qwen3:8b",
         "messages": MESSAGES,
         "stream": True,
+        "stream_options": {"include_usage": True},
         "temperature": 0,
         "reasoning_effort": "none",
     }
@@ -354,7 +356,9 @@ def test_extract_contract_request_asks_for_a_json_schema_answer_without_streamin
 def test_extract_ac66_returns_text_and_prompt_tokens():
     body = envelope('{"parties": "A"}', {"prompt_tokens": 2050, "completion_tokens": 9})
     result = chat_model(serving(body)).complete_json(MESSAGES, SCHEMA)
-    assert result == JsonCompletion(text='{"parties": "A"}', prompt_tokens=2050)
+    assert result == JsonCompletion(
+        text='{"parties": "A"}', prompt_tokens=2050, completion_tokens=9
+    )
 
 
 @pytest.mark.parametrize("usage", [None, {}, {"prompt_tokens": "2050"}, {"prompt_tokens": None}])
@@ -831,3 +835,113 @@ def test_agent_ac66_a_connection_made_after_the_cancel_is_closed_at_once():
     caller_left.set()
     assert transport.sock.shut_down.wait(2)
     assert not tool_call_threads_alive()
+
+
+def chunk_line(payload: dict) -> str:
+    return "data: " + json.dumps(payload) + "\n\n"
+
+
+def text_chunk(text: str, **extra: object) -> dict:
+    return {"choices": [{"delta": {"content": text}}], **extra}
+
+
+def stream_of(*lines: str, done: bool = True) -> bytes:
+    return "".join([*lines, *(["data: [DONE]\n\n"] if done else [])]).encode()
+
+
+def test_reqlog_ac15_the_stream_request_asks_for_a_usage_chunk():
+    bodies: list[dict] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        bodies.append(json.loads(request.content))
+        return httpx.Response(200, content=sse("a"))
+
+    list(chat_model(handler).stream(MESSAGES, StreamUsage()))
+    assert bodies[0]["stream_options"] == {"include_usage": True}
+
+
+def test_reqlog_ac15_a_final_usage_chunk_fills_both_counts_and_adds_no_text():
+    usage_chunk = {"choices": [], "usage": {"prompt_tokens": 1200, "completion_tokens": 300}}
+    with_usage = stream_of(
+        chunk_line(text_chunk("30 ")), chunk_line(text_chunk("Tage")), chunk_line(usage_chunk)
+    )
+    usage = StreamUsage()
+    text = list(chat_model(serving(with_usage)).stream(MESSAGES, usage))
+    assert text == ["30 ", "Tage"]
+    assert (usage.prompt_tokens, usage.completion_tokens) == (1200, 300)
+
+
+def test_reqlog_ac15_usage_on_the_last_chunk_that_still_has_choices_is_read():
+    body = stream_of(
+        chunk_line(text_chunk("a")),
+        chunk_line(text_chunk("b", usage={"prompt_tokens": 7, "completion_tokens": 2})),
+    )
+    usage = StreamUsage()
+    assert list(chat_model(serving(body)).stream(MESSAGES, usage)) == ["a", "b"]
+    assert (usage.prompt_tokens, usage.completion_tokens) == (7, 2)
+
+
+def test_reqlog_ac15_a_non_integer_count_stays_none():
+    chunk = {"choices": [], "usage": {"prompt_tokens": 12, "completion_tokens": "3"}}
+    usage = StreamUsage()
+    list(chat_model(serving(stream_of(chunk_line(chunk)))).stream(MESSAGES, usage))
+    assert (usage.prompt_tokens, usage.completion_tokens) == (12, None)
+
+
+def test_reqlog_ac15_a_stream_without_a_usage_object_still_works():
+    chunk = {"choices": [], "usage": {"prompt_tokens": 1, "completion_tokens": 2}}
+    body = stream_of(chunk_line(text_chunk("a")), chunk_line(chunk))
+    assert list(chat_model(serving(body)).stream(MESSAGES)) == ["a"]
+
+
+def test_reqlog_ac18_a_stream_without_a_usage_chunk_leaves_both_counts_none():
+    usage = StreamUsage()
+    assert list(chat_model(serving(sse("a", "b"))).stream(MESSAGES, usage)) == ["a", "b"]
+    assert (usage.prompt_tokens, usage.completion_tokens) == (None, None)
+
+
+def test_reqlog_ac18_a_consumer_that_stops_early_leaves_both_counts_none():
+    chunk = {"choices": [], "usage": {"prompt_tokens": 1200, "completion_tokens": 300}}
+    body = stream_of(chunk_line(text_chunk("a")), chunk_line(text_chunk("b")), chunk_line(chunk))
+    usage = StreamUsage()
+    stream = chat_model(serving(body)).stream(MESSAGES, usage)
+    assert next(stream) == "a"
+    stream.close()
+    assert (usage.prompt_tokens, usage.completion_tokens) == (None, None)
+
+
+def test_reqlog_ac15_a_chunk_without_choices_and_without_usage_is_still_malformed():
+    body = stream_of(chunk_line({"id": "x"}))
+    with pytest.raises(ModelUnavailable, match="malformed stream"):
+        list(chat_model(serving(body)).stream(MESSAGES, StreamUsage()))
+
+
+def test_reqlog_ac47_complete_json_returns_prompt_and_completion_tokens():
+    body = envelope('{"parties": "A"}', {"prompt_tokens": 4814, "completion_tokens": 250})
+    result = chat_model(serving(body)).complete_json(MESSAGES, SCHEMA)
+    assert (result.prompt_tokens, result.completion_tokens) == (4814, 250)
+
+
+def test_reqlog_ac48_complete_json_with_only_a_prompt_count_gives_completion_none():
+    body = envelope('{"parties": "A"}', {"prompt_tokens": 4814})
+    result = chat_model(serving(body)).complete_json(MESSAGES, SCHEMA)
+    assert (result.prompt_tokens, result.completion_tokens) == (4814, None)
+
+
+def test_reqlog_ac48_a_negative_count_in_a_completion_counts_as_missing():
+    body = envelope('{"parties": "A"}', {"prompt_tokens": -1, "completion_tokens": 250})
+    result = chat_model(serving(body)).complete_json(MESSAGES, SCHEMA)
+    assert (result.prompt_tokens, result.completion_tokens) == (None, 250)
+
+
+def test_reqlog_ac48_a_negative_count_in_the_stream_counts_as_missing():
+    chunk = {"choices": [], "usage": {"prompt_tokens": 12, "completion_tokens": -3}}
+    usage = StreamUsage()
+    list(chat_model(serving(stream_of(chunk_line(chunk)))).stream(MESSAGES, usage))
+    assert (usage.prompt_tokens, usage.completion_tokens) == (12, None)
+
+
+def test_reqlog_ac48_a_zero_count_is_kept():
+    body = envelope('{"parties": "A"}', {"prompt_tokens": 0, "completion_tokens": 0})
+    result = chat_model(serving(body)).complete_json(MESSAGES, SCHEMA)
+    assert (result.prompt_tokens, result.completion_tokens) == (0, 0)
