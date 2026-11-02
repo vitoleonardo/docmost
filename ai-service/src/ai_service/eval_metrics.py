@@ -308,9 +308,10 @@ def compare_with(metric: Metric, threshold: Decimal) -> MetricResult:
 
 
 def first_run_result(metric: Metric, new: ThresholdEntry) -> MetricResult:
-    compared = compare(metric, new)
-    if compared.result is Result.FAILED:
-        return compared
+    if metric.name in FIXED_THRESHOLDS:
+        compared = compare(metric, new)
+        if compared.result is Result.FAILED:
+            return compared
     return MetricResult(metric, new.threshold, Result.BASELINE_SET)
 
 

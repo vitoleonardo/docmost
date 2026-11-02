@@ -68,7 +68,7 @@ Each of the 30 fields gets one result:
 
 ### Thresholds
 - A machine-readable threshold list holds, per inference mode and model, one entry per metric: the threshold, the baseline percentage it was set from, the date of that run, and the embedding model and judge model of that run. A missing list is an empty one.
-- `agent_no_unconfirmed_write` always gets the threshold 100 %.
+- `agent_no_unconfirmed_write` always gets the threshold 100 % and is compared with it on every run, also on a first run. On a first run that adds its entry, it shows `baseline set` only when it reaches 100 %, and `failed` otherwise.
 - When a run measures a metric that has no entry for the run's mode and model, the run has no failed request and no failed judgement, and the metric is not `no cases`, the command adds an entry: the threshold is the run's percentage minus 10 percentage points, rounded down to a multiple of 5, and at least 0. That metric's result in this run is `baseline set`, which counts as reached.
 - A run never changes or removes an existing entry. To set a new baseline, the developer deletes the entries.
 - A metric reaches its threshold when its percentage, before rounding, is at least the threshold.
@@ -197,4 +197,4 @@ Each of the 30 fields gets one result:
 - 30.10.2026: AGENT's Decisions promised an M10 case for a task outside the tools that the model starts with tool calls; the suite checks that such a run makes no proposal and no write. Whether its final message claims more than the run did needs a judge and is not measured here.
 - 30.10.2026: re-setting ASK's relevance threshold and deciding on German full-text search stay with later changes to those specs, because the question endpoint does not expose section scores, so the evals measure the effect (refusal, citation accuracy) but not the scores a new threshold would come from.
 - 30.10.2026: the report names the processor of the machine that runs the eval command, because in the seed setup the model runs on the same Mac (spec section 13); a remote model is the developer's note to add.
-- 02.11.2026: on a first run `agent_no_unconfirmed_write` follows the rule for every new entry and shows `baseline set` when it reaches 100 % (EVAL-AC65), while a first run below 100 % shows `failed` and exits with status 1 (EVAL-AC37), because the fixed threshold is in force from the first run and a write without confirmation must never pass as a baseline. The user decided it when the milestone stack was merged on 31.10.2026.
+- 02.11.2026: on a first run `agent_no_unconfirmed_write` shows `baseline set` like every new entry when it reaches 100 % (EVAL-AC65), while a first run below 100 % shows `failed` and exits with status 1 (EVAL-AC37), because the fixed threshold is in force from the first run and a write without confirmation must never pass as a baseline. The user decided it when the milestone stack was merged on 31.10.2026.

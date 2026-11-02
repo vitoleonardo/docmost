@@ -456,7 +456,7 @@ def test_eval_ac65_a_first_clean_run_at_100_percent_sets_the_baseline_of_no_unco
     assert exit_status([evaluated], 0, 0) == 0
 
 
-def test_eval_ac65_a_later_run_at_100_percent_passes_no_unconfirmed_write():
+def test_eval_ac42_a_later_run_at_100_percent_passes_no_unconfirmed_write():
     existing = [entry("agent_no_unconfirmed_write", "100")]
     evaluated, _ = evaluate_one(metric("agent_no_unconfirmed_write", 6, 6), existing=existing)
     assert evaluated.result is Result.PASSED
