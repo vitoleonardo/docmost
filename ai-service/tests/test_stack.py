@@ -14,6 +14,7 @@ import pytest
 
 from ai_service.bridge_client import BridgeClient, ListedPage, PageContent
 from ai_service.embedding import FastEmbedEmbedder
+from ai_service.eval_index_ready import list_all_pages
 from ai_service.index_store import IndexStore, SearchHit, StoredSection
 from ai_service.search import search_index
 from ai_service.settings import WorkerSettings
@@ -59,17 +60,6 @@ class Stack:
 
 def normalised(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip().lower()
-
-
-def list_all_pages(bridge: BridgeClient) -> list[ListedPage]:
-    pages: list[ListedPage] = []
-    cursor: str | None = None
-    while True:
-        part = bridge.list_pages(cursor)
-        pages.extend(part.pages)
-        if part.next_cursor is None:
-            return pages
-        cursor = part.next_cursor
 
 
 @pytest.fixture(scope="module")

@@ -1,6 +1,11 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { SeedPageRef } from './seed-definition';
+import {
+  deniedUserKeys,
+  SEED_USERS,
+  SeedPageRef,
+  SeedUserKey,
+} from './seed-definition';
 
 export type SeedPdfKind = 'contract' | 'minutes' | 'scan';
 
@@ -227,6 +232,29 @@ export const SEED_PDFS: SeedPdf[] = SEED_PAGES.flatMap((page) =>
     ...(fileName === NO_RENEWAL_PDF ? { noRenewal: true as const } : {}),
   })),
 );
+
+export interface SeedPageListEntry {
+  space: string;
+  title: string;
+  file: string;
+  attachments: string[];
+  viewers: SeedUserKey[];
+}
+
+function viewersOf(page: SeedPageRef): SeedUserKey[] {
+  const denied = new Set(deniedUserKeys(page));
+  return SEED_USERS.map((user) => user.key).filter((key) => !denied.has(key));
+}
+
+export function seedPageList(): SeedPageListEntry[] {
+  return SEED_PAGES.map((page) => ({
+    space: page.space,
+    title: page.title,
+    file: page.file,
+    attachments: page.attachments ?? [],
+    viewers: viewersOf(page),
+  }));
+}
 
 export function findDuplicateTitles(pages: SeedPage[]): string[] {
   const seen = new Set<string>();

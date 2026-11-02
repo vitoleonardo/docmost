@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import fakeredis
-import httpx
+import httpx2
 import pytest
 from fastapi.testclient import TestClient
 from redis import Redis
@@ -88,7 +88,7 @@ def make_client(
 
 def extract(
     client: TestClient, headers: dict[str, str], body: dict[str, Any] | None = None
-) -> httpx.Response:
+) -> httpx2.Response:
     return client.post(PATH, headers=headers, json=BODY if body is None else body)
 
 

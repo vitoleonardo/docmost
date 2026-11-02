@@ -199,6 +199,32 @@ start_stack() {
   start_ai_service
 }
 
+index_environment() {
+  env AI_DATABASE_URL="$ai_database_url" \
+    AI_WIKI_URL="$wiki_url" \
+    AI_SERVICE_TOKEN="$service_token" \
+    AI_BRIDGE_SECRET="$bridge_secret" \
+    REDIS_URL="$redis_url" \
+    "$@"
+}
+
+wait_until_indexed() {
+  local started=$SECONDS missing
+  while true; do
+    (cd "$root/ai-service" && index_environment uv run python -m ai_service.reconcile_command) || true
+    if missing=$(cd "$root/ai-service" && index_environment uv run python -m ai_service.eval_index_ready 2>&1); then
+      echo "$missing"
+      return 0
+    fi
+    if [ $((SECONDS - started)) -ge "$index_timeout" ]; then
+      echo "The index was not ready after ${index_timeout}s:" >&2
+      echo "$missing" >&2
+      return 1
+    fi
+    sleep 5
+  done
+}
+
 run_stack_tests() {
   local test_file=$1 status=0
   shift

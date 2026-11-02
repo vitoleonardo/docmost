@@ -14,3 +14,4 @@ Status values: `draft` (spec being written) · `approved` (spec approved) · `pl
 | Contract extraction | `extraction.md` | in-review | m7-extraction | 0 |
 | Agent: outdated pages | `agent.md` | in-review | m8-agent | 0 |
 | Request log | `request-log.md` | in-review | m9-request-log | 0 |
+| Evals | `evals.md` | in-review | m10-evals | 0 |

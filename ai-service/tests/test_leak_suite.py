@@ -9,8 +9,9 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
-from ai_service.leak_suite import SEED_EMAILS, run
+from ai_service.leak_suite import run
 from ai_service.settings import AskSettings, LeakSuiteSettings
+from ai_service.wiki_session import SEED_EMAILS
 
 WIKI_URL = "http://wiki.test"
 UMSTRUKTURIERUNG = "Umstrukturierung"

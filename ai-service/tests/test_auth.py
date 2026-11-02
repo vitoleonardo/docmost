@@ -3,7 +3,7 @@ import json
 import time
 from collections.abc import Callable
 
-import httpx
+import httpx2
 import pytest
 from fastapi.testclient import TestClient
 
@@ -13,7 +13,7 @@ JOB_BODY = {"name": "page-created", "data": {"pageIds": ["a"], "workspaceId": WO
 ROUTES = ["/v1/session", "/v1/jobs"]
 
 
-def post(client: TestClient, path: str, headers: dict[str, str]) -> httpx.Response:
+def post(client: TestClient, path: str, headers: dict[str, str]) -> httpx2.Response:
     return client.post(path, headers=headers, json=JOB_BODY if path == "/v1/jobs" else None)
 
 
@@ -22,7 +22,7 @@ def b64(value: dict[str, object]) -> str:
     return base64.urlsafe_b64encode(raw).rstrip(b"=").decode()
 
 
-def session(client: TestClient, service_headers: dict[str, str], token: str) -> httpx.Response:
+def session(client: TestClient, service_headers: dict[str, str], token: str) -> httpx2.Response:
     return post(client, "/v1/session", {**service_headers, "X-User-Token": token})
 
 

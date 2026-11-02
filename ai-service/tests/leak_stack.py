@@ -25,9 +25,9 @@ from ai_service.conversations import ConversationStore
 from ai_service.embedding import Embedder, FastEmbedEmbedder
 from ai_service.index_store import IndexStore, SearchHit
 from ai_service.indexer import Indexer, IndexOutcome
-from ai_service.leak_suite import SEED_EMAILS
 from ai_service.prompt import build_messages, format_source
 from ai_service.search import search_index
+from ai_service.wiki_session import SEED_EMAILS
 from tests.conftest import WORKSPACE_ID, RecordingRequestLog
 from tests.hashing_embedder import HashingEmbedder
 from tests.seed_matrix import (

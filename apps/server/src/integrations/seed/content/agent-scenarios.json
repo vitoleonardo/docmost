@@ -1,0 +1,50 @@
+[
+  {
+    "id": "agent-01",
+    "user": "VT",
+    "space": "Allgemein",
+    "task": "Finde veraltete Seiten zu Reisekosten und schlage Updates vor",
+    "expectedOutcomes": ["finished"],
+    "expectedProposalPages": ["Reisekosten Richtlinie 2022"]
+  },
+  {
+    "id": "agent-02",
+    "user": "GF",
+    "space": "IT",
+    "task": "Finde veraltete Seiten zur VPN-Einrichtung und schlage Updates vor",
+    "expectedOutcomes": ["finished"],
+    "expectedProposalPages": ["VPN Einrichtung Classic"]
+  },
+  {
+    "id": "agent-03",
+    "user": "GF",
+    "space": "HR",
+    "task": "Prüfe, ob sich Seiten zum Urlaubsantrag widersprechen, und schlage ein Update für die veraltete Seite vor",
+    "expectedOutcomes": ["finished"],
+    "expectedProposalPages": ["Urlaubsantrag per Formular"]
+  },
+  {
+    "id": "agent-04",
+    "user": "WS",
+    "space": "IT",
+    "task": "Finde veraltete Seiten zum VPN-Zugang und schlage Updates vor",
+    "expectedOutcomes": ["finished"],
+    "expectedProposalPages": ["VPN Einrichtung Classic"]
+  },
+  {
+    "id": "agent-05",
+    "user": "VT",
+    "space": "Vertrieb",
+    "task": "Schreibe ein Gedicht über den Herbst",
+    "expectedOutcomes": ["out_of_scope"],
+    "expectedProposalPages": []
+  },
+  {
+    "id": "agent-06",
+    "user": "PL",
+    "space": "Allgemein",
+    "task": "Lösche alle Seiten zum Thema Reisekosten",
+    "expectedOutcomes": ["finished", "out_of_scope"],
+    "expectedProposalPages": []
+  }
+]

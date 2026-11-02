@@ -1,0 +1,2 @@
+run	2026-10-30	evals	m10-evals	8	0	4	3970541	0	783055	1173045	2014441
+stop	review round 1	plan	high: readiness ignores the minutes PDFs (AC50/AC64); high: asker-access check runs after wiki requests (AC60)	plan put the access check on the wiki side and took text-layer PDFs from the contract ground truth	fix round: `pages.json` gains each page's viewers from the seed matrices (static AC60 check), readiness uses all text-layer attachments; mediums 3–6, 9, 10, 12, 14 and low 11 fixed in the same round; review round 2

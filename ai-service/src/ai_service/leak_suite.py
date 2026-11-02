@@ -3,42 +3,39 @@ import sys
 import time
 import uuid
 from collections import Counter
-from collections.abc import Callable, Iterable, Iterator
+from collections.abc import Callable, Iterable
 from contextlib import ExitStack
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 import httpx
 
 from ai_service.settings import LeakSuiteSettings
+from ai_service.wiki_session import (
+    SEED_EMAILS,
+    ClientFactory,
+    Sleep,
+    StartFailed,
+    default_client_factory,
+    list_all_wiki_pages,
+    log_in_all,
+    parse_sse_events,
+    post_data,
+)
 
-SEED_EMAILS = {
-    "GF": "joerg.ostmoor@ostmooimooi.example.com",
-    "PL": "sabine.kettler@ostmooimooi.example.com",
-    "VT": "tobias.renner@ostmooimooi.example.com",
-    "WS": "lukas.brehm@ostmooimooi.example.com",
-}
 CONTROL_USER = "GF"
 INJECTION_ASKERS = ("PL", "VT", "WS")
 OPEN_SPACE_NAME = "Allgemein"
 INJECTION_TITLE_PREFIX = "Leak-Test Injektion"
 CONTROL_KIND = "verbatim"
-LOGIN_THROTTLE_SECONDS = 61
-LIST_PAGE_SIZE = 100
 ASK_TIMEOUT = httpx.Timeout(300, connect=10)
 OUTCOMES = ("answered", "no_source", "failed")
 EXIT_START_FAILED = 2
 EXIT_RUN_FAILED = 1
 
-Sleep = Callable[[float], None]
 Clock = Callable[[], float]
-ClientFactory = Callable[[], httpx.Client]
-
-
-class StartFailed(Exception):
-    pass
 
 
 @dataclass(frozen=True)
@@ -141,58 +138,6 @@ def validate_lists(lists: Lists) -> None:
             raise StartFailed(f"No {CONTROL_KIND} question (control) for the page: {title}")
 
 
-def default_client_factory(wiki_url: str) -> ClientFactory:
-    return lambda: httpx.Client(base_url=wiki_url, timeout=ASK_TIMEOUT, follow_redirects=False)
-
-
-def log_in(client: httpx.Client, email: str, password: str, sleep: Sleep) -> httpx.Response:
-    credentials = {"email": email, "password": password}
-    response = client.post("/api/auth/login", json=credentials)
-    if response.status_code == 429:
-        sleep(LOGIN_THROTTLE_SECONDS)
-        response = client.post("/api/auth/login", json=credentials)
-    return response
-
-
-def log_in_all(
-    stack: ExitStack,
-    client_factory: ClientFactory,
-    settings: LeakSuiteSettings,
-    sleep: Sleep,
-) -> dict[str, httpx.Client]:
-    clients: dict[str, httpx.Client] = {}
-    for key in SEED_EMAILS:
-        client = stack.enter_context(client_factory())
-        try:
-            response = log_in(client, SEED_EMAILS[key], settings.leak_seed_password, sleep)
-        except httpx.TransportError as error:
-            raise StartFailed(f"Wiki not reachable at {settings.leak_wiki_url}") from error
-        if response.status_code != 200:
-            raise StartFailed(f"Login failed for {key} ({SEED_EMAILS[key]})")
-        clients[key] = client
-    return clients
-
-
-def post_data(client: httpx.Client, path: str, body: dict[str, Any]) -> dict[str, Any]:
-    response = client.post(path, json=body)
-    response.raise_for_status()
-    return cast(dict[str, Any], response.json()["data"])
-
-
-def list_space_pages(client: httpx.Client, space_id: str) -> list[dict[str, Any]]:
-    pages: list[dict[str, Any]] = []
-    cursor: str | None = None
-    while True:
-        body: dict[str, Any] = {"spaceId": space_id, "limit": LIST_PAGE_SIZE}
-        if cursor:
-            body["cursor"] = cursor
-        data = post_data(client, "/api/pages/recent", body)
-        pages.extend(data["items"])
-        if not data["meta"]["hasNextPage"]:
-            return pages
-        cursor = data["meta"]["nextCursor"]
-
-
 @dataclass(frozen=True)
 class WikiPages:
     open_space_id: str
@@ -201,19 +146,16 @@ class WikiPages:
 
 
 def list_wiki_pages(gf: httpx.Client) -> WikiPages:
-    spaces = post_data(gf, "/api/spaces", {})["items"]
-    open_space_ids = [space["id"] for space in spaces if space["name"] == OPEN_SPACE_NAME]
-    if not open_space_ids:
+    listed = list_all_wiki_pages(gf)
+    open_spaces = [(space, pages) for space, pages in listed if space["name"] == OPEN_SPACE_NAME]
+    if not open_spaces:
         raise StartFailed(f"The wiki has no space {OPEN_SPACE_NAME}")
     ids_by_title: dict[str, set[str]] = {}
-    open_space_pages: list[dict[str, Any]] = []
-    for space in spaces:
-        pages = list_space_pages(gf, space["id"])
-        if space["id"] == open_space_ids[0]:
-            open_space_pages = pages
+    for _, pages in listed:
         for page in pages:
             ids_by_title.setdefault(page["title"], set()).add(page["id"])
-    return WikiPages(open_space_ids[0], open_space_pages, ids_by_title)
+    open_space, open_space_pages = open_spaces[0]
+    return WikiPages(open_space["id"], open_space_pages, ids_by_title)
 
 
 def check_wiki_has_canary_pages(lists: Lists, wiki_pages: WikiPages) -> None:
@@ -263,12 +205,6 @@ def create_injection_pages(
             },
         )
         created.page_ids[page.title] = data["id"]
-
-
-def parse_sse_events(lines: Iterable[str]) -> Iterator[dict[str, Any]]:
-    for line in lines:
-        if line.startswith("data:"):
-            yield json.loads(line.removeprefix("data:").strip())
 
 
 def ask_wiki(client: httpx.Client, question: str) -> Answer:
@@ -465,7 +401,9 @@ def run_suite(
     lists = load_lists(settings.leak_content_dir)
     validate_lists(lists)
     with ExitStack() as stack:
-        clients = log_in_all(stack, client_factory, settings, sleep)
+        clients = log_in_all(
+            stack, client_factory, settings.leak_wiki_url, settings.leak_seed_password, sleep
+        )
         gf = clients[CONTROL_USER]
         wiki_pages = list_wiki_pages(gf)
         check_wiki_has_canary_pages(lists, wiki_pages)
@@ -491,7 +429,7 @@ def run(
     clock: Clock = time.monotonic,
     today: Callable[[], date] = date.today,
 ) -> int:
-    factory = client_factory or default_client_factory(settings.leak_wiki_url)
+    factory = client_factory or default_client_factory(settings.leak_wiki_url, ASK_TIMEOUT)
     try:
         return run_suite(settings, factory, sleep, clock, today)
     except StartFailed as error:
