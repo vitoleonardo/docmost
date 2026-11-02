@@ -593,11 +593,10 @@ def hidden_page(
     "page",
     [
         hidden_page(7, SPACE_B),
-        hidden_page(7, viewable=False),
         hidden_page(7, trashed=True),
         hidden_page(8),
     ],
-    ids=["other_space", "restricted", "trashed", "unknown_id"],
+    ids=["other_space", "trashed", "unknown_id"],
 )
 def test_agent_ac26_a_page_out_of_reach_is_not_found_with_no_page_text(page: FakePage) -> None:
     harness = Harness(page).script(answer(read(7)), final())
@@ -610,6 +609,40 @@ def test_agent_ac26_a_page_out_of_reach_is_not_found_with_no_page_text(page: Fak
     assert "geheim" not in sent
     assert "Provision" not in sent
     assert end_event(events)["pagesRead"] == 0
+
+
+def test_agent_ac118_a_restricted_page_is_refused_as_not_accessible_with_no_page_text() -> None:
+    harness = Harness(hidden_page(7, viewable=False)).script(answer(read(7)), final())
+
+    events = harness.run()
+
+    assert labels(events) == [{"kind": "refused"}]
+    assert harness.last_tool_answer(1) == "Kein Zugriff auf diese Seite."
+    sent = everything_sent(harness)
+    assert "geheim" not in sent
+    assert "Provision" not in sent
+    assert end_event(events)["pagesRead"] == 0
+
+
+def test_agent_ac119_a_search_after_the_user_left_the_space_is_refused_as_not_accessible() -> None:
+    harness = Harness(travel_page()).script(answer(search("Reisekosten")), final())
+    harness.bridge.forbidden_spaces.add(SPACE_A)
+
+    events = harness.run()
+
+    assert labels(events) == [{"kind": "refused"}]
+    assert harness.last_tool_answer(1) == "Kein Zugriff auf diesen Bereich."
+
+
+def test_agent_ac120_a_read_after_the_user_left_the_space_is_refused_as_not_accessible() -> None:
+    harness = Harness(hidden_page(7)).script(answer(read(7)), final())
+    harness.bridge.forbidden_spaces.add(SPACE_A)
+
+    events = harness.run()
+
+    assert labels(events) == [{"kind": "refused"}]
+    assert harness.last_tool_answer(1) == "Kein Zugriff auf diese Seite."
+    assert "Provision" not in everything_sent(harness)
 
 
 def test_agent_ac29_a_search_in_a_space_the_wiki_no_longer_knows_is_refused_as_not_found() -> None:

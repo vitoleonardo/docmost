@@ -18,8 +18,11 @@ from ai_service.bridge_client import (
     BridgeRefused,
     BridgeUnavailable,
     BridgeUnreachable,
+    Forbidden,
     NotFound,
+    PageForbidden,
     PageNotFound,
+    SpaceForbidden,
     SpaceNotFound,
 )
 from ai_service.proposals import Block
@@ -401,14 +404,14 @@ def test_agent_ac26_tools_reject_the_user_token() -> None:
         client.search_pages(USER_TOKEN, SPACE_ID, "Hotel")
 
 
-@pytest.mark.parametrize(
-    "flags",
-    [{"viewable": False}, {"trashed": True}],
-    ids=["not-viewable", "trashed"],
-)
-def test_agent_ac27_ac28_unreadable_page_is_not_found(flags: dict[str, bool]) -> None:
+def test_agent_ac28_a_trashed_page_is_not_found() -> None:
     with pytest.raises(PageNotFound):
-        agent_bridge(**flags).client().read_blocks(TASK_TOKEN, PAGE_ID, SPACE_ID)
+        agent_bridge(trashed=True).client().read_blocks(TASK_TOKEN, PAGE_ID, SPACE_ID)
+
+
+def test_agent_ac118_a_page_the_user_may_not_view_is_forbidden() -> None:
+    with pytest.raises(PageForbidden):
+        agent_bridge(viewable=False).client().read_blocks(TASK_TOKEN, PAGE_ID, SPACE_ID)
 
 
 def test_agent_ac29_page_in_another_space_or_unknown_is_not_found() -> None:
@@ -419,7 +422,27 @@ def test_agent_ac29_page_in_another_space_or_unknown_is_not_found() -> None:
         client.read_blocks(TASK_TOKEN, "0192f000-0000-7000-8000-0000000000ff", SPACE_ID)
 
 
-def test_agent_ac31_not_found_variants_share_one_handling() -> None:
+def test_agent_ac119_ac120_a_space_the_user_left_is_forbidden_for_search_and_read() -> None:
+    bridge = agent_bridge()
+    bridge.forbidden_spaces.add(SPACE_ID)
+    client = bridge.client()
+    with pytest.raises(SpaceForbidden):
+        client.search_pages(TASK_TOKEN, SPACE_ID, "Hotel")
+    with pytest.raises(PageForbidden):
+        client.read_blocks(TASK_TOKEN, PAGE_ID, SPACE_ID)
+
+
+def test_agent_ac118_forbidden_variants_share_one_handling_and_are_not_not_found() -> None:
+    assert issubclass(PageForbidden, Forbidden)
+    assert issubclass(SpaceForbidden, Forbidden)
+    assert not issubclass(Forbidden, NotFound)
+    with pytest.raises(PageForbidden):
+        answering(403, "page_forbidden").read_blocks(TASK_TOKEN, PAGE_ID, SPACE_ID)
+    with pytest.raises(SpaceForbidden):
+        answering(403, "space_forbidden").search_pages(TASK_TOKEN, SPACE_ID, "Hotel")
+
+
+def test_agent_ac29_not_found_variants_share_one_handling() -> None:
     assert issubclass(PageNotFound, NotFound)
     assert issubclass(SpaceNotFound, NotFound)
     with pytest.raises(NotFound):

@@ -202,6 +202,7 @@ class AgentBridge:
     requests: list[httpx.Request] = field(default_factory=list)
     tokens: list[tuple[str, str]] = field(default_factory=list)
     failures: list[FailureKind] = field(default_factory=list)
+    forbidden_spaces: set[str] = field(default_factory=set)
 
     def client(self) -> BridgeClient:
         return mock_client(self.handle)
@@ -251,6 +252,8 @@ class AgentBridge:
     def _search(self, space_id: str, query: str) -> httpx.Response:
         if not self._space_known(space_id):
             return answer(404, "space_not_found")()
+        if space_id in self.forbidden_spaces:
+            return answer(403, "space_forbidden")()
         needle = query.lower()
         found = [
             page
@@ -275,31 +278,29 @@ class AgentBridge:
 
     def _read_blocks(self, page_id: str, space_id: str) -> httpx.Response:
         for page in self.pages:
-            if (
-                page.id == page_id
-                and page.viewable
-                and not page.trashed
-                and page.space_id == space_id
-            ):
-                return httpx.Response(
-                    200,
-                    json={
-                        "id": page.id,
-                        "title": page.title,
-                        "spaceId": page.space_id,
-                        "fingerprint": page.fingerprint,
-                        "blocks": [
-                            {
-                                "number": block.number,
-                                "text": block.text,
-                                "heading": block.heading,
-                                "isHeading": block.is_heading,
-                                "editable": block.editable,
-                            }
-                            for block in page.blocks
-                        ],
-                    },
-                )
+            if page.id != page_id or page.trashed or page.space_id != space_id:
+                continue
+            if not page.viewable or page.space_id in self.forbidden_spaces:
+                return answer(403, "page_forbidden")()
+            return httpx.Response(
+                200,
+                json={
+                    "id": page.id,
+                    "title": page.title,
+                    "spaceId": page.space_id,
+                    "fingerprint": page.fingerprint,
+                    "blocks": [
+                        {
+                            "number": block.number,
+                            "text": block.text,
+                            "heading": block.heading,
+                            "isHeading": block.is_heading,
+                            "editable": block.editable,
+                        }
+                        for block in page.blocks
+                    ],
+                },
+            )
         return answer(404, "page_not_found")()
 
 
