@@ -89,6 +89,13 @@ def test_leak_ac6_a_denied_pdf_section_in_a_block_headed_by_its_page_is_a_findin
     assert detector().leaks("GF", prompt_run([OPEN_HIT, pdf_hit])) == []
 
 
+def test_leak_ac30_a_denied_section_in_a_block_headed_by_a_viewable_page_is_a_finding():
+    run = prompt_run([hit(OPEN_PAGE, OPEN_TITLE, f"{OPEN_TEXT} {DENIED_TEXT}")])
+
+    assert (DENIED_TITLE, DENIED_TEXT) in detector().leaks("PL", run)
+    assert detector().leaks("GF", run) == []
+
+
 def test_leak_ac6_fewer_parsed_source_blocks_than_sent_sources_fail_the_check():
     run = prompt_run([OPEN_HIT], sent_sources=2)
 

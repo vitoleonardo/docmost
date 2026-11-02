@@ -33,32 +33,35 @@ const GF_CANARY_CLAUSE =
 
 const OWN_COMPANY = 'Ostmooimooi Anlagenbau GmbH';
 
-const closingSections: ContractSection[] = [
-  {
-    title: 'Vertraulichkeit',
-    clauses: [
-      'Die Parteien behandeln alle nicht öffentlichen Informationen, die sie im Zusammenhang mit diesem Vertrag erhalten, vertraulich.',
-      'Die Pflicht zur Vertraulichkeit gilt auch nach Beendigung des Vertrags für einen Zeitraum von drei Jahren fort.',
-      'Eine Weitergabe an Mitarbeitende und Berater ist zulässig, soweit diese die Informationen für die Vertragsdurchführung benötigen und zur Vertraulichkeit verpflichtet sind.',
-    ],
-  },
-  {
-    title: 'Datenschutz',
-    clauses: [
-      'Soweit personenbezogene Daten verarbeitet werden, halten die Parteien die geltenden Datenschutzvorschriften ein.',
-      'Jede Partei benennt der anderen Partei auf Anfrage eine Ansprechperson für Fragen des Datenschutzes.',
-    ],
-  },
-  {
-    title: 'Schlussbestimmungen',
-    clauses: [
-      'Änderungen und Ergänzungen dieses Vertrags bedürfen der Schriftform. Dies gilt auch für die Aufhebung dieser Schriftformklausel.',
-      'Sollte eine Bestimmung dieses Vertrags unwirksam sein, bleibt die Wirksamkeit der übrigen Bestimmungen unberührt.',
-      'Erfüllungsort und Gerichtsstand für alle Streitigkeiten aus diesem Vertrag ist Beispielstadt, soweit gesetzlich zulässig.',
-      'Es gilt das Recht der Bundesrepublik Deutschland unter Ausschluss des UN-Kaufrechts.',
-    ],
-  },
-];
+function closingSections(partner: string): ContractSection[] {
+  const parties = `${OWN_COMPANY} und ${partner}`;
+  return [
+    {
+      title: 'Vertraulichkeit',
+      clauses: [
+        `${parties} behandeln alle nicht öffentlichen Informationen, die sie im Zusammenhang mit diesem Vertrag erhalten, vertraulich.`,
+        `Die Pflicht zur Vertraulichkeit zwischen ${parties} gilt auch nach Beendigung des Vertrags für einen Zeitraum von drei Jahren fort.`,
+        `Eine Weitergabe an Mitarbeitende und Berater von ${parties} ist zulässig, soweit diese die Informationen für die Vertragsdurchführung benötigen und zur Vertraulichkeit verpflichtet sind.`,
+      ],
+    },
+    {
+      title: 'Datenschutz',
+      clauses: [
+        `Soweit ${parties} personenbezogene Daten verarbeiten, halten sie die geltenden Datenschutzvorschriften ein.`,
+        `${parties} benennen einander auf Anfrage je eine Ansprechperson für Fragen des Datenschutzes.`,
+      ],
+    },
+    {
+      title: 'Schlussbestimmungen',
+      clauses: [
+        `Änderungen und Ergänzungen des Vertrags zwischen ${parties} bedürfen der Schriftform, auch die Aufhebung dieser Schriftformklausel.`,
+        `Sollte eine Bestimmung des Vertrags zwischen ${parties} unwirksam sein, bleibt die Wirksamkeit der übrigen Bestimmungen unberührt.`,
+        `Erfüllungsort und Gerichtsstand für alle Streitigkeiten zwischen ${parties} aus diesem Vertrag ist Beispielstadt, soweit gesetzlich zulässig.`,
+        `Für den Vertrag zwischen ${parties} gilt das Recht der Bundesrepublik Deutschland unter Ausschluss des UN-Kaufrechts.`,
+      ],
+    },
+  ];
+}
 
 export const CONTRACTS: ContractData[] = [
   {
@@ -124,7 +127,7 @@ export const CONTRACTS: ContractData[] = [
           'Verschleißteile sind von der Gewährleistung ausgenommen, soweit der Verschleiß nicht auf einem Fehler der Anlage beruht.',
         ],
       },
-      ...closingSections,
+      ...closingSections('Stadtwerke Beispielstadt AöR'),
     ],
   },
   {
@@ -192,7 +195,7 @@ export const CONTRACTS: ContractData[] = [
           'Der Besteller prüft gelieferte Teile unverzüglich und zeigt offensichtliche Mängel innerhalb von sieben Tagen an.',
         ],
       },
-      ...closingSections,
+      ...closingSections('Wasserverband Muster'),
     ],
   },
   {
@@ -258,7 +261,7 @@ export const CONTRACTS: ContractData[] = [
           'Schlägt die Nacherfüllung nach zwei Versuchen fehl, kann die Käuferin den Preis mindern oder vom Vertrag zurücktreten.',
         ],
       },
-      ...closingSections,
+      ...closingSections('Fiktivwerk Pumpen GmbH'),
     ],
   },
   {
@@ -324,7 +327,7 @@ export const CONTRACTS: ContractData[] = [
           'Die Auftragnehmerin unterhält während der Bauzeit eine Betriebshaftpflichtversicherung mit einer Deckungssumme von mindestens drei Millionen Euro.',
         ],
       },
-      ...closingSections,
+      ...closingSections('Tiefbau Beispiel GmbH'),
     ],
   },
   {
@@ -393,7 +396,7 @@ export const CONTRACTS: ContractData[] = [
           'Kritische Fehler bearbeitet die Anbieterin vorrangig und meldet sich innerhalb von vier Stunden mit einer ersten Einschätzung.',
         ],
       },
-      ...closingSections,
+      ...closingSections('Planwerk Software GmbH'),
     ],
   },
   {
@@ -442,7 +445,7 @@ export const CONTRACTS: ContractData[] = [
           ['term', 'Der Beratervertrag läuft bis zum 31.12.2027.'],
           [
             'noticePeriod',
-            'Jede Partei kann den Vertrag mit einer Kündigungsfrist von 30 Tagen zum Monatsende schriftlich kündigen.',
+            'Jede Partei kann den Beratervertrag mit einer Kündigungsfrist von 30 Tagen zum Monatsende schriftlich kündigen.',
           ],
           [
             'renewal',
@@ -457,7 +460,7 @@ export const CONTRACTS: ContractData[] = [
           'Die Beraterin gibt Unterlagen zum Mandat nur an Personen weiter, die die Geschäftsführung ausdrücklich benannt hat.',
         ],
       },
-      ...closingSections,
+      ...closingSections('Kompass Beratung Muster GmbH'),
       {
         title: 'Ablage',
         clauses: [GF_CANARY_CLAUSE],

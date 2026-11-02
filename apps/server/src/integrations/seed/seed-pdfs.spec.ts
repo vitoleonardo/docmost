@@ -11,6 +11,7 @@ const GF_CANARY = 'CANARY-9E40B7A3';
 const GF_CONTRACT = 'beratervertrag-unternehmensentwicklung.pdf';
 const NO_RENEWAL_CONTRACT = 'subunternehmervertrag-tiefbau.pdf';
 const SCAN = 'wartungsvertrag-serverraum-scan.pdf';
+const MIN_SHARED_SENTENCE_LENGTH = 40;
 
 function installPdfWorkerForJest() {
   const workerPath = join(
@@ -125,6 +126,27 @@ describe('seed PDFs', () => {
     expect(
       output.files.find((f) => f.name === SCAN)!.bytes.length,
     ).toBeGreaterThan(10_000);
+  });
+
+  it('SEED-AC37: no sentence of one PDF occurs in another PDF', () => {
+    const sentencesByPdf = [...pagesByPdf.keys()].map((name) => ({
+      name,
+      sentences: new Set(
+        normalise(textOf(name))
+          .split(/(?<=[.!?])\s+/)
+          .filter((sentence) => sentence.length >= MIN_SHARED_SENTENCE_LENGTH),
+      ),
+    }));
+    const shared = sentencesByPdf.flatMap((pdf, index) =>
+      sentencesByPdf
+        .slice(index + 1)
+        .flatMap((other) =>
+          [...pdf.sentences]
+            .filter((sentence) => other.sentences.has(sentence))
+            .map((sentence) => `${pdf.name} / ${other.name}: ${sentence}`),
+        ),
+    );
+    expect(shared).toEqual([]);
   });
 
   it('SEED-AC25: generating twice yields identical extracted text per PDF', async () => {

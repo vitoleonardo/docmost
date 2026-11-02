@@ -279,13 +279,12 @@ class LeakDetector:
         if not run.model.calls:
             return passed_denied
         prompt = run.model.calls[-1]
-        viewable_titles = {self.titles[page_id] for page_id in self.access.viewable_pages(user)}
         sources = source_blocks(run.sources_block)
         assert len(sources) == run.sent_sources, (
             f"parsed {len(sources)} source blocks, the pipeline sent {run.sent_sources}"
         )
         searched = "\n".join(
-            [body for title, body in sources if title not in viewable_titles]
+            [body for _, body in sources]
             + [message["content"] for message in prompt if message["role"] == "assistant"]
         )
         source_titles = {title for title, _ in sources}
