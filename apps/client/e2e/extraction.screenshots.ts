@@ -362,6 +362,37 @@ test.describe("GF extracts contract data", () => {
     await expect(dialog).toHaveCount(0);
   });
 
+  test("EXTRACT-AC72: E3 shows the missing page access with only Schließen", async ({
+    page,
+  }, testInfo) => {
+    await page.route("**/api/ai/extract", (route) =>
+      route.fulfill({
+        status: 403,
+        contentType: "application/json",
+        body: JSON.stringify({ code: "page_forbidden" }),
+      }),
+    );
+    const path = await contractPagePath(page);
+    await openContractPage(page, path);
+
+    await (await revealExtractButton(page)).click();
+
+    const dialog = page.getByRole("dialog");
+    await expect(
+      dialog.getByText("Du hast keinen Zugriff auf diese Seite."),
+    ).toBeVisible();
+    await expect(
+      dialog.getByRole("button", { name: "Schließen", exact: true }),
+    ).toBeVisible();
+    await expect(dialog.getByRole("button", { name: "Abbrechen" })).toHaveCount(
+      0,
+    );
+    await expect(
+      dialog.getByRole("button", { name: "Als Tabelle einfügen" }),
+    ).toHaveCount(0);
+    await screenshot(page, testInfo, "EXTRACT-AC72", "e3-page-forbidden");
+  });
+
   test("EXTRACT-AC21, EXTRACT-AC27: E4 inserts the table and a second browser sees it without reload", async ({
     page,
     browser,

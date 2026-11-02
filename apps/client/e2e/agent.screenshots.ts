@@ -258,6 +258,32 @@ async function startRunWithTask(page: Page) {
   await page.getByRole("button", { name: "Starten" }).click();
 }
 
+async function forbid(
+  page: Page,
+  urlPattern: string,
+  code: "page_forbidden" | "space_forbidden",
+) {
+  await page.route(urlPattern, (route) =>
+    route.fulfill({
+      status: 403,
+      contentType: "application/json",
+      body: JSON.stringify({ code }),
+    }),
+  );
+}
+
+async function expectNoProposalDetails(dialog: Locator) {
+  await expect(dialog.getByText(/^Begründung:/)).toHaveCount(0);
+  await expect(dialog.locator("del")).toHaveCount(0);
+  await expect(dialog.locator("ins")).toHaveCount(0);
+  await expect(dialog.getByRole("button", { name: "Verwerfen" })).toHaveCount(
+    0,
+  );
+  await expect(dialog.getByRole("button", { name: "Übernehmen" })).toHaveCount(
+    0,
+  );
+}
+
 async function expectInsideViewport(page: Page, element: Locator) {
   const box = await element.boundingBox();
   const viewport = page.viewportSize();
@@ -487,6 +513,77 @@ test.describe("GF gives the assistant a task", () => {
     await expect(dialog).toHaveCount(0);
     await expect(page.getByText("Veraltet", { exact: true })).toBeVisible();
     await screenshot(page, testInfo, "AGENT-AC89", "card");
+  });
+
+  test("AGENT-AC122: the proposal view shows the missing page access with Schließen only", async ({
+    page,
+  }, testInfo) => {
+    await runWith(page, TWO_PROPOSALS_RUN);
+    await forbid(page, "**/api/ai/agent/proposal", "page_forbidden");
+    await openPanel(page, await allgemeinPages(page));
+    await openTaskTab(page);
+    await startRunWithExample(page);
+
+    await page.getByRole("button", { name: "Ansehen" }).first().click();
+
+    const dialog = page.getByRole("dialog");
+    await expect(
+      dialog.getByText("Du hast keinen Zugriff auf diese Seite."),
+    ).toBeVisible();
+    await expect(
+      dialog.getByRole("button", { name: "Schließen", exact: true }),
+    ).toBeVisible();
+    await expectNoProposalDetails(dialog);
+    await expectInsideViewport(page, dialog);
+    await screenshot(page, testInfo, "AGENT-AC122", "page-forbidden", dialog);
+  });
+
+  test("AGENT-AC129: a run in a forbidden space stays in G1 with the task and the missing access", async ({
+    page,
+  }, testInfo) => {
+    await forbid(page, "**/api/ai/agent/run", "space_forbidden");
+    await openPanel(page, await allgemeinPages(page));
+    await openTaskTab(page);
+
+    await startRunWithTask(page);
+
+    await expect(
+      page.getByText("Du hast keinen Zugriff auf diesen Bereich."),
+    ).toBeVisible();
+    await expect(page.getByPlaceholder("Aufgabe beschreiben …")).toHaveValue(
+      RUN_TASK,
+    );
+    await expect(page.getByRole("button", { name: "Starten" })).toBeVisible();
+    await expect(page.getByText(/^Schritt \d+ von höchstens 20$/)).toHaveCount(
+      0,
+    );
+    await screenshot(page, testInfo, "AGENT-AC129", "g1-space-forbidden");
+  });
+
+  test("AGENT-AC131: Übernehmen on a forbidden page shows the missing page access with Schließen", async ({
+    page,
+  }, testInfo) => {
+    await runWith(page, TWO_PROPOSALS_RUN);
+    await mockProposal(page, "open", true);
+    await forbid(page, "**/api/ai/agent/proposal/apply", "page_forbidden");
+    await openPanel(page, await allgemeinPages(page));
+    await openTaskTab(page);
+    await startRunWithExample(page);
+    await page.getByRole("button", { name: "Ansehen" }).first().click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog.locator("ins")).toHaveText("0,38");
+
+    await dialog.getByRole("button", { name: "Übernehmen" }).click();
+
+    await expect(
+      dialog.getByText("Du hast keinen Zugriff auf diese Seite."),
+    ).toBeVisible();
+    await expect(
+      dialog.getByRole("button", { name: "Schließen", exact: true }),
+    ).toBeVisible();
+    await expectNoProposalDetails(dialog);
+    await expectInsideViewport(page, dialog);
+    await screenshot(page, testInfo, "AGENT-AC131", "page-forbidden", dialog);
   });
 });
 
