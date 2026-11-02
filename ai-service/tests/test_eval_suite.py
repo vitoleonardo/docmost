@@ -316,7 +316,7 @@ def test_eval_ac49_a_clean_judged_run_exits_0_sets_baselines_and_prints_the_summ
     assert "- Date: 30.10.2026" in report
     assert all(
         "| baseline set |" in metric_row(report, name)
-        for name in ("rag_groundedness", "agent_task_success")
+        for name in ("rag_groundedness", "agent_task_success", "agent_no_unconfirmed_write")
     )
     entries = json.loads(result.thresholds.read_text())["entries"]
     assert len(entries) == 9
