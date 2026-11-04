@@ -157,7 +157,7 @@ Each extraction logs one line in the AI service with the attachment id, the infe
 - Progress per PDF page while the AI service works.
 - Extraction from the assistant panel.
 - A review dialog laid out for phone widths beyond EXTRACT-AC69: at a viewport 412 px wide the column "Quelle" runs past the dialog's right edge and cannot be read.
-- An inserted table laid out for phone widths: at a viewport 412 px wide the column "Quelle" is visible only after scrolling the table sideways.
+- An inserted table laid out for phone widths: at a viewport 412 px wide the columns "Wert" and "Quelle" are fully visible only after scrolling the table sideways.
 
 ## Open questions
 
@@ -183,3 +183,4 @@ Each extraction logs one line in the AI service with the attachment id, the infe
 - 29.10.2026: the review criteria (EXTRACT-AC9 to EXTRACT-AC20) are checked at desktop width; EXTRACT-AC69 covers a viewport 412 px wide. At a viewport 412 px wide the review dialog shows "Feld", "Wert", the badge "Nicht gefunden" and the buttons, but the column "Quelle" runs past its right edge and cannot be read. v1 accepts this, because the review is a desktop task and the inserted table keeps every source; the user decided it after verify round 2.
 - 29.10.2026: verify round 3 showed the input under "Wert" shrunk to about one character next to a long quote at a viewport 412 px wide. The input keeps a minimum width (EXTRACT-AC69), so a value fits beside the field name; only the column "Quelle" runs past the dialog's right edge, as decided after verify round 2. The user decided it after verify round 3.
 - 29.10.2026: the inserted table is Docmost's own table, which is wider than a viewport 412 px wide and scrolls sideways, so at that width the column "Quelle" is visible only after the reader scrolls the table. M7 keeps that unchanged upstream behaviour, because the table must stay a normal Docmost table that every editor can change; every source stays readable there, which the verify round 2 decision relies on. The user decided it after verify round 3.
+- 31.10.2026: the Out of scope line on the inserted table names the columns "Wert" and "Quelle", because at a viewport 412 px wide both are cut off at the right edge until the reader scrolls the table sideways, not "Quelle" alone. The behaviour of the 29.10.2026 decision on Docmost's own table is unchanged. The user decided it when the milestone stack was merged.
