@@ -86,6 +86,7 @@ The seed data comes with three lists that later features read. Each refers to pa
 - **SEED-AC23**: Given the contract without a renewal clause, when its extracted text is searched, then it contains none of the strings "Verlängerung", "verlängert", "Laufzeitende".
 - **SEED-AC24**: Given the ground truth, when the record of the contract without a text layer is read, then it is marked as having no text layer, and extracting text from that PDF yields no characters other than whitespace.
 - **SEED-AC25**: Given unchanged ground truth, when the PDFs are generated twice, then the extracted text of each PDF is identical in both runs.
+- **SEED-AC37**: Given the generated PDFs, when the extracted text of each, with whitespace collapsed, is split after '.', '!' or '?', then no piece of at least 40 characters occurs in the pieces of another PDF.
 - **SEED-AC26**: Given an empty local database, when the rebuild command finishes, then its last output line is "Seeded: 1 workspace, 4 users, 2 groups, 6 spaces, <n> pages, 9 attachments" with `<n>` the page count.
 
 ## Edge cases
@@ -124,3 +125,4 @@ The seed data comes with three lists that later features read. Each refers to pa
 - 28.10.2026: pages are identified by unique titles, because database ids change on every rebuild and the lists and golden set must stay valid.
 - 28.10.2026: non-local file storage is refused even with confirmation (SEED-AC36), because the S3 and Azure drivers cannot delete a folder, so a confirmed run would wipe the database and leave the old files behind.
 - 28.10.2026: the user approved SEED-AC36; the rebuild supports local file storage only, S3 and Azure come later.
+- 02.11.2026: the closing clauses of the six text contracts (confidentiality, data protection, final provisions) name each contract's parties and the Beratervertrag's notice clause names the Beratervertrag, so no sentence of one PDF occurs in another (SEED-AC37; 40 characters, the leak check's minimum section length), because word-for-word shared clauses made a section of a denied contract indistinguishable from the same section of a viewable one, and the leak check had to exclude text under a viewable page's title. The user decided it when the milestone stack was merged on 31.10.2026.

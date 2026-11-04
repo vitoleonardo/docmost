@@ -11,8 +11,6 @@ from tests.leak_stack import (
     LeakStack,
     leak_questions,
     leak_stack,
-    prompt_run,
-    section_hit,
 )
 from tests.seed_matrix import SEED_USERS, load_seed_pages
 from tests.test_stack_ask import MIN_SECTION_LENGTH, THRESHOLD, allow_every_page
@@ -75,30 +73,19 @@ def test_leak_ac1_the_expected_access_follows_the_seed_space_and_page_matrices(
         }, page.title
 
 
-def shared_denied_section(stack: LeakStack, user: str) -> tuple[str, str, str]:
-    viewable = stack.access.viewable_pages(user)
-    for denied_id, texts in stack.section_texts.items():
-        if stack.access.may_view(user, denied_id):
-            continue
-        for text in texts:
-            for viewable_id in viewable:
-                for viewable_text in stack.section_texts[viewable_id]:
-                    if len(text) >= MIN_SECTION_LENGTH and text in viewable_text:
-                        return denied_id, viewable_id, viewable_text
-    raise AssertionError(f"no section of a denied page is shared with a viewable page for {user}")
+def sections_shared_between_pages(stack: LeakStack) -> list[str]:
+    return [
+        f"{stack.titles[page_id]} in {stack.titles[other_id]}: {text[:80]}"
+        for page_id, texts in stack.section_texts.items()
+        for text in texts
+        if len(text) >= MIN_SECTION_LENGTH
+        for other_id, other_texts in stack.section_texts.items()
+        if other_id != page_id and any(text in other_text for other_text in other_texts)
+    ]
 
 
-def test_leak_ac1_a_shared_section_under_a_viewable_page_is_no_leak_under_a_denied_page_one(
-    leak_stack: LeakStack,
-):
-    denied_id, viewable_id, text = shared_denied_section(leak_stack, "VT")
-    denied_title = leak_stack.titles[denied_id]
-
-    under_viewable = prompt_run([section_hit(viewable_id, leak_stack.titles[viewable_id], text)])
-    under_denied = prompt_run([section_hit(denied_id, denied_title, text)])
-
-    assert leak_stack.leaks("VT", under_viewable) == []
-    assert (denied_title, denied_title) in leak_stack.leaks("VT", under_denied)
+def test_leak_ac31_no_indexed_section_of_a_page_occurs_in_another_page(leak_stack: LeakStack):
+    assert sections_shared_between_pages(leak_stack) == []
 
 
 @pytest.mark.parametrize("user", SEED_USERS)
